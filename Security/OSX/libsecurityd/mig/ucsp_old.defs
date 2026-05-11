@@ -362,3 +362,4 @@ routine old_changeKeybagPassphrase(UCSP_PORTS; in db: IPCDbHandle; in oldPassPhr
 routine old_generateDerivedEntropy(UCSP_PORTS; out indirectKeyHandle: IPCKeyHandle; in db: IPCDbHandle; in salt: Data; in passphrase: Data);
 routine old_releaseHandle(UCSP_PORTS; in indirectKeyHandle: IPCKeyHandle);
 routine old_getDerivedEntropy(UCSP_PORTS; in indirectKeyHandle: IPCKeyHandle; out entropy: Data);
+routine old_unlockDbWithPassphraseAlwaysCheck(UCSP_PORTS; in db: IPCDbHandle; in passPhrase: Data);

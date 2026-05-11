@@ -259,6 +259,14 @@ int open_input_file(__G)    /* return 1 if open failed */
           G.zipfn, strerror(errno)));
         return 1;
     }
+#ifdef __APPLE__
+    if ((G.qf = qtn_file_alloc()) != NULL) {
+        if (qtn_file_init_with_fd(G.qf, G.zipfd) != 0) {
+            qtn_file_free(G.qf);
+            G.qf = NULL;
+        }
+    }
+#endif /* __APPLE__ */
     return 0;
 
 } /* end function open_input_file() */
@@ -303,6 +311,8 @@ int open_outfile(__G)
         pd = openat(G.rootdir, G.filename + G.rootlen + 1,
           O_DIRECTORY | O_SEARCH | O_RESOLVE_BENEATH);
         if (pd < 0) {
+            if (errno == ENOTCAPABLE)
+                errno = EACCES;
             Info(slide, 0x401, ((char *)slide, LoadFarString(CannotEnterDir),
               FnFilterP(G.filename), strerror(errno)));
             *sep = '/';
@@ -546,7 +556,17 @@ int open_outfile(__G)           /* return 1 if fail */
         mode_t umask_sav = umask(0077);
 #endif
 #ifdef __APPLE__
-        int fd = openat(pd, fn, O_CREAT | O_TRUNC | O_RDWR | O_NOFOLLOW, 0666);
+        int fd = openat(pd, fn, O_CREAT | O_TRUNC | O_RDWR |
+          O_RESOLVE_BENEATH | O_NOFOLLOW, 0666);
+        if (fd >= 0 && G.qf != NULL) {
+            if (qtn_file_apply_to_fd(G.qf, fd) != 0) {
+                int serrno = errno;
+                (void)unlinkat(pd, fn, AT_SYMLINK_NOFOLLOW_ANY);
+                close(fd);
+                errno = serrno;
+                fd = -1;
+            }
+        }
         if (fd >= 0) {
             G.outfile = fdopen(fd, FOPWR);
         }

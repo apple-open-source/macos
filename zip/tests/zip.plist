@@ -14,7 +14,7 @@
 	<array>
 		<dict>
 			<key>TestName</key>
-			<string>zip.basic.sh.basic_cwd</string>
+			<string>zip.unzip.basic_cwd</string>
 			<key>ShellEnv</key>
 			<dict>
 				<key>ATF_SH</key>
@@ -41,7 +41,7 @@
 		</dict>
 		<dict>
 			<key>TestName</key>
-			<string>zip.basic.sh.basic_dst</string>
+			<string>zip.unzip.basic_dst</string>
 			<key>ShellEnv</key>
 			<dict>
 				<key>ATF_SH</key>
@@ -68,7 +68,7 @@
 		</dict>
 		<dict>
 			<key>TestName</key>
-			<string>zip.basic.sh.basic_dst_direxist</string>
+			<string>zip.unzip.basic_dst_direxist</string>
 			<key>ShellEnv</key>
 			<dict>
 				<key>ATF_SH</key>
@@ -95,7 +95,7 @@
 		</dict>
 		<dict>
 			<key>TestName</key>
-			<string>zip.basic.sh.basic_fileexist</string>
+			<string>zip.unzip.basic_fileexist</string>
 			<key>ShellEnv</key>
 			<dict>
 				<key>ATF_SH</key>
@@ -122,7 +122,7 @@
 		</dict>
 		<dict>
 			<key>TestName</key>
-			<string>zip.basic.sh.basic_fileexist_replace</string>
+			<string>zip.unzip.basic_fileexist_replace</string>
 			<key>ShellEnv</key>
 			<dict>
 				<key>ATF_SH</key>
@@ -149,7 +149,7 @@
 		</dict>
 		<dict>
 			<key>TestName</key>
-			<string>zip.basic.sh.basic_fileexist_noreplace</string>
+			<string>zip.unzip.basic_fileexist_noreplace</string>
 			<key>ShellEnv</key>
 			<dict>
 				<key>ATF_SH</key>
@@ -176,7 +176,7 @@
 		</dict>
 		<dict>
 			<key>TestName</key>
-			<string>zip.basic.sh.basic_fileexist_backup</string>
+			<string>zip.unzip.basic_fileexist_backup</string>
 			<key>ShellEnv</key>
 			<dict>
 				<key>ATF_SH</key>
@@ -203,7 +203,7 @@
 		</dict>
 		<dict>
 			<key>TestName</key>
-			<string>zip.basic.sh.basic_fileexist_backupexist</string>
+			<string>zip.unzip.basic_fileexist_backupexist</string>
 			<key>ShellEnv</key>
 			<dict>
 				<key>ATF_SH</key>
@@ -230,7 +230,7 @@
 		</dict>
 		<dict>
 			<key>TestName</key>
-			<string>zip.basic.sh.basic_fileexist_replacebackup</string>
+			<string>zip.unzip.basic_fileexist_replacebackup</string>
 			<key>ShellEnv</key>
 			<dict>
 				<key>ATF_SH</key>
@@ -257,7 +257,7 @@
 		</dict>
 		<dict>
 			<key>TestName</key>
-			<string>zip.rdar131775344.sh.allow</string>
+			<string>zip.unzip.beneath_allow</string>
 			<key>ShellEnv</key>
 			<dict>
 				<key>ATF_SH</key>
@@ -268,12 +268,12 @@
 			<key>Command</key>
 			<array>
 				<string>/usr/local/bin/atf-sh</string>
-				<string>/AppleInternal/Tests/zip/unzip/rdar131775344.sh</string>
+				<string>/AppleInternal/Tests/zip/unzip/beneath.sh</string>
 				<string>-s</string>
 				<string>/AppleInternal/Tests/zip/unzip</string>
 				<string>-r</string>
-				<string>rdar131775344.sh.allow.results.txt</string>
-				<string>allow</string>
+				<string>beneath.sh.beneath_allow.results.txt</string>
+				<string>beneath_allow</string>
 			</array>
 			<key>Description</key>
 			<string>Test that unzip will follow symlinks that point within the extraction directory</string>
@@ -284,7 +284,7 @@
 		</dict>
 		<dict>
 			<key>TestName</key>
-			<string>zip.rdar131775344.sh.refuse</string>
+			<string>zip.unzip.beneath_dead</string>
 			<key>ShellEnv</key>
 			<dict>
 				<key>ATF_SH</key>
@@ -295,12 +295,39 @@
 			<key>Command</key>
 			<array>
 				<string>/usr/local/bin/atf-sh</string>
-				<string>/AppleInternal/Tests/zip/unzip/rdar131775344.sh</string>
+				<string>/AppleInternal/Tests/zip/unzip/beneath.sh</string>
 				<string>-s</string>
 				<string>/AppleInternal/Tests/zip/unzip</string>
 				<string>-r</string>
-				<string>rdar131775344.sh.refuse.results.txt</string>
-				<string>refuse</string>
+				<string>beneath.sh.beneath_dead.results.txt</string>
+				<string>beneath_dead</string>
+			</array>
+			<key>Description</key>
+			<string>Test that unzip will handle a dead symlink</string>
+			<key>MayRunConcurrently</key>
+			<true/>
+			<key>Timeout</key>
+			<integer>300</integer>
+		</dict>
+		<dict>
+			<key>TestName</key>
+			<string>zip.unzip.beneath_refuse</string>
+			<key>ShellEnv</key>
+			<dict>
+				<key>ATF_SH</key>
+				<string>/usr/local/bin/atf-sh</string>
+				<key>__RUNNING_INSIDE_ATF_RUN</key>
+				<string>internal-yes-value</string>
+			</dict>
+			<key>Command</key>
+			<array>
+				<string>/usr/local/bin/atf-sh</string>
+				<string>/AppleInternal/Tests/zip/unzip/beneath.sh</string>
+				<string>-s</string>
+				<string>/AppleInternal/Tests/zip/unzip</string>
+				<string>-r</string>
+				<string>beneath.sh.beneath_refuse.results.txt</string>
+				<string>beneath_refuse</string>
 			</array>
 			<key>Description</key>
 			<string>Test that unzip will not follow symlinks that point outside the original extraction directory</string>
@@ -311,7 +338,7 @@
 		</dict>
 		<dict>
 			<key>TestName</key>
-			<string>zip.rdar131775344.sh.create</string>
+			<string>zip.unzip.beneath_create</string>
 			<key>ShellEnv</key>
 			<dict>
 				<key>ATF_SH</key>
@@ -322,15 +349,69 @@
 			<key>Command</key>
 			<array>
 				<string>/usr/local/bin/atf-sh</string>
-				<string>/AppleInternal/Tests/zip/unzip/rdar131775344.sh</string>
+				<string>/AppleInternal/Tests/zip/unzip/beneath.sh</string>
 				<string>-s</string>
 				<string>/AppleInternal/Tests/zip/unzip</string>
 				<string>-r</string>
-				<string>rdar131775344.sh.create.results.txt</string>
-				<string>create</string>
+				<string>beneath.sh.beneath_create.results.txt</string>
+				<string>beneath_create</string>
 			</array>
 			<key>Description</key>
 			<string>Test that unzip will create the extraction directory if it does not already exist</string>
+			<key>MayRunConcurrently</key>
+			<true/>
+			<key>Timeout</key>
+			<integer>300</integer>
+		</dict>
+		<dict>
+			<key>TestName</key>
+			<string>zip.unzip.quarantine</string>
+			<key>ShellEnv</key>
+			<dict>
+				<key>ATF_SH</key>
+				<string>/usr/local/bin/atf-sh</string>
+				<key>__RUNNING_INSIDE_ATF_RUN</key>
+				<string>internal-yes-value</string>
+			</dict>
+			<key>Command</key>
+			<array>
+				<string>/usr/local/bin/atf-sh</string>
+				<string>/AppleInternal/Tests/zip/unzip/quarantine.sh</string>
+				<string>-s</string>
+				<string>/AppleInternal/Tests/zip/unzip</string>
+				<string>-r</string>
+				<string>quarantine.sh.quarantine.results.txt</string>
+				<string>quarantine</string>
+			</array>
+			<key>Description</key>
+			<string>Test that unzip will propagate a zip file's quarantine status when extracting it</string>
+			<key>MayRunConcurrently</key>
+			<true/>
+			<key>Timeout</key>
+			<integer>300</integer>
+		</dict>
+		<dict>
+			<key>TestName</key>
+			<string>zip.unzip.no_quarantine</string>
+			<key>ShellEnv</key>
+			<dict>
+				<key>ATF_SH</key>
+				<string>/usr/local/bin/atf-sh</string>
+				<key>__RUNNING_INSIDE_ATF_RUN</key>
+				<string>internal-yes-value</string>
+			</dict>
+			<key>Command</key>
+			<array>
+				<string>/usr/local/bin/atf-sh</string>
+				<string>/AppleInternal/Tests/zip/unzip/quarantine.sh</string>
+				<string>-s</string>
+				<string>/AppleInternal/Tests/zip/unzip</string>
+				<string>-r</string>
+				<string>quarantine.sh.no_quarantine.results.txt</string>
+				<string>no_quarantine</string>
+			</array>
+			<key>Description</key>
+			<string>Test that unzip will not set a quarantine status on extracted files and directories if the zip file itself is not quarantined</string>
 			<key>MayRunConcurrently</key>
 			<true/>
 			<key>Timeout</key>

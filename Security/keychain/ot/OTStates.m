@@ -177,7 +177,7 @@ OctagonFlag* const OctagonFlagCheckOnRTCMetrics = (OctagonFlag*)@"check_on_rtc_m
 OctagonFlag* const OctagonFlagPendingNetworkAvailablity = (OctagonFlag*)@"pending_network_availablility";
 OctagonFlag* const OctagonFlagCheckTrustState = (OctagonFlag*)@"check_trust_state";
 OctagonFlag* const OctagonFlagAppleAccountSignedOut = (OctagonFlag*)@"apple_account_signed_out";
-OctagonFlag* const OctagonFlagPasscodeStashAvailable = (OctagonFlag*)@"passcode_stash_available";
+OctagonFlag* const OctagonFlagCachedEscrowRecordAvailable = (OctagonFlag*)@"cached_escrow_record_available";
 OctagonFlag* const OctagonFlagRerollIdentity = (OctagonFlag*)@"reroll_identity";
 
 @implementation OTStates
@@ -448,7 +448,7 @@ OctagonFlag* const OctagonFlagRerollIdentity = (OctagonFlag*)@"reroll_identity";
         [flags addObject:OctagonFlagPendingNetworkAvailablity];
         [flags addObject:OctagonFlagCheckTrustState];
         [flags addObject:OctagonFlagAppleAccountSignedOut];
-        [flags addObject:OctagonFlagPasscodeStashAvailable];
+        [flags addObject:OctagonFlagCachedEscrowRecordAvailable];
         [flags addObject:OctagonFlagRerollIdentity];
 
         f = flags;

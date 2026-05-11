@@ -21,6 +21,7 @@
 		<string>bzgrep fixes</string>
 		<string>use strlcpy</string>
 		<string>rdar://problem/59291611 mandoc fix</string>
+		<string>bz2recover.c: try to preserve permissions / xattrs</string>
 	</array>
 	<key>OpenSourceLicense</key>
 	<string>Other</string>

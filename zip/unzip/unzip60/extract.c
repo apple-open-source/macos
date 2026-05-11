@@ -108,7 +108,7 @@ static int extract_or_test_member OF((__GPRO));
                                    ZCONST uch *bitptr));
 #endif
 #ifdef SYMLINKS
-   static void set_deferred_symlink OF((__GPRO__ slinkentry *slnk_entry));
+   static int set_deferred_symlink OF((__GPRO__ slinkentry *slnk_entry));
 #endif
 #ifdef SET_DIR_ATTRIB
    static int Cdecl dircomp OF((ZCONST zvoid *a, ZCONST zvoid *b));
@@ -649,13 +649,15 @@ int extract_or_test_files(__G)    /* return PK-type error code */
         if (QCOND2)
             Info(slide, 0, ((char *)slide, LoadFarString(SymLnkDeferred)));
         while (G.slink_head != NULL) {
-           set_deferred_symlink(__G__ G.slink_head);
-           /* remove the processed entry from the chain and free its memory */
-           G.slink_last = G.slink_head;
-           G.slink_head = G.slink_last->next;
-           free(G.slink_last);
-       }
-       G.slink_last = NULL;
+            error = set_deferred_symlink(__G__ G.slink_head);
+            if (error > error_in_archive)
+                error_in_archive = error;
+            /* remove the processed entry from the chain and free its memory */
+            G.slink_last = G.slink_head;
+            G.slink_head = G.slink_last->next;
+            free(G.slink_last);
+        }
+        G.slink_last = NULL;
     }
 #endif /* SYMLINKS */
 
@@ -699,7 +701,7 @@ int extract_or_test_files(__G)    /* return PK-type error code */
                     ndirs_fail++;
                     Info(slide, 0x201, ((char *)slide,
                       LoadFarString(DirlistSetAttrFailed), d->fn));
-                    if (!error_in_archive)
+                    if (error > error_in_archive)
                         error_in_archive = error;
                 }
                 free(d);
@@ -1968,23 +1970,33 @@ static int extract_or_test_member(__G)    /* return PK-type error code */
 
 #ifdef VMS                  /* VMS:  required even for stdout! (final flush) */
     if (!uO.tflag)           /* don't close NULL file */
-        close_outfile(__G);
+        error = close_outfile(__G);
 #else
 #ifdef DLL
     if (!uO.tflag && (!uO.cflag || G.redirect_data)) {
         if (G.redirect_data)
             FINISH_REDIRECT();
         else
-            close_outfile(__G);
+            error = close_outfile(__G);
     }
 #else
     if (!uO.tflag && !uO.cflag)   /* don't close NULL file or stdout */
-        close_outfile(__G);
+        error = close_outfile(__G);
 #endif
 #endif /* VMS */
 
-            /* GRR: CONVERT close_outfile() TO NON-VOID:  CHECK FOR ERRORS! */
-
+    if (error > PK_WARN) {
+#ifdef __APPLE__
+        (void)unlinkat(G.rootdir, G.filename + G.rootlen + 1,
+          AT_RESOLVE_BENEATH);
+#else /* !__APPLE__ */
+#ifdef HAVE_UNLINK
+        (void)unlink(G.filename);
+#endif
+#endif /* __APPLE__ */
+        undefer_input(__G);
+        return error;
+    }
 
     if (G.disk_full) {            /* set by flush() */
         if (G.disk_full > 1) {
@@ -2561,21 +2573,27 @@ static void decompress_bits(outptr, needlen, bitptr)
 /* Function set_deferred_symlink() */
 /***********************************/
 
-static void set_deferred_symlink(__G__ slnk_entry)
+static int set_deferred_symlink(__G__ slnk_entry)
     __GDEF
     slinkentry *slnk_entry;
 {
     extent ucsize = slnk_entry->targetlen;
     char *linkfname = slnk_entry->fname;
     char *linktarget = (char *)malloc(ucsize+1);
+    int fd;
 
+    // assert(strncmp(linkfname, G.rootpath, G.rootlen) == 0);
     if (!linktarget) {
         Info(slide, 0x201, ((char *)slide,
           LoadFarString(SymLnkWarnNoMem), FnFilter1(linkfname)));
-        return;
+        return PK_ERR;
     }
     linktarget[ucsize] = '\0';
-    G.outfile = zfopen(linkfname, FOPR); /* open link placeholder for reading */
+    /* open link placeholder for reading */
+    Trace((stderr, "openat(\"%s\", \"%s\")\n",
+        G.rootpath, linkfname + G.rootlen + 1));
+    fd = openat(G.rootdir, linkfname + G.rootlen + 1,
+      O_RDONLY | O_RESOLVE_BENEATH | O_NOFOLLOW);
     /* Check that the following conditions are all fulfilled:
      * a) the placeholder file exists,
      * b) the placeholder file contains exactly "ucsize" bytes
@@ -2584,33 +2602,61 @@ static void set_deferred_symlink(__G__ slnk_entry)
      * c) the placeholder content matches the link target specification as
      *    stored in the symlink control structure.
      */
-    if (!G.outfile ||
-        fread(linktarget, 1, ucsize+1, G.outfile) != ucsize ||
-        strcmp(slnk_entry->target, linktarget))
+    if (fd < 0 ||
+        read(fd, linktarget, ucsize + 1) != ucsize ||
+        strcmp(slnk_entry->target, linktarget) != 0)
     {
         Info(slide, 0x201, ((char *)slide,
           LoadFarString(SymLnkWarnInvalid), FnFilter1(linkfname)));
         free(linktarget);
-        if (G.outfile)
-            fclose(G.outfile);
-        return;
+        if (fd >= 0)
+            close(fd);
+        return PK_ERR;
     }
-    fclose(G.outfile);                  /* close "data" file for good... */
-    unlink(linkfname);                  /* ...and delete it */
+    /* close and delete placeholder file */
+    (void)close(fd);
+    Trace((stderr, "unlinkat(\"%s\", \"%s\")\n",
+        G.rootpath, linkfname + G.rootlen + 1));
+    (void)unlinkat(G.rootdir, linkfname + G.rootlen + 1, AT_RESOLVE_BENEATH);
     if (QCOND2)
         Info(slide, 0, ((char *)slide, LoadFarString(SymLnkFinish),
 #ifdef __APPLE__
           FnFilterP(linkfname), FnFilter2(linktarget)));
+    Trace((stderr, "symlinkat(\"%s\", \"%s\", \"%s\")\n",
+        linktarget, G.rootpath, linkfname + G.rootlen + 1));
+    if (symlinkat(linktarget, G.rootdir, linkfname + G.rootlen + 1) != 0) {
+        perror("symlink error");
+        free(linktarget);
+        return PK_ERR;
+    }
+    if (G.qf != NULL) {
+        fd = openat(G.rootdir, linkfname + G.rootlen + 1,
+          O_RDONLY | O_SYMLINK | O_RESOLVE_BENEATH);
+        if (fd < 0 || qtn_file_apply_to_fd(G.qf, fd) != 0) {
+            perror("symlink error");
+            (void)unlinkat(G.rootdir, linkfname + G.rootlen + 1,
+              AT_RESOLVE_BENEATH | AT_SYMLINK_NOFOLLOW);
+            free(linktarget);
+            if (fd >= 0)
+                close(fd);
+            return PK_ERR;
+        }
+        if (fd >= 0)
+            close(fd);
+    }
 #else /* !__APPLE__ */
           FnFilter1(linkfname), FnFilter2(linktarget)));
-#endif /* __APPLE__ */
-    if (symlink(linktarget, linkfname))  /* create the real link */
+    if (symlink(linktarget, linkfname)) {  /* create the real link */
         perror("symlink error");
+        free(linktarget);
+        return PK_ERR;
+    }
+#endif /* __APPLE__ */
     free(linktarget);
 #ifdef SET_SYMLINK_ATTRIBS
     set_symlnk_attribs(__G__ slnk_entry);
 #endif
-    return;                             /* can't set time on symlinks */
+    return PK_COOL;                     /* can't set time on symlinks */
 
 } /* end function set_deferred_symlink() */
 #endif /* SYMLINKS */

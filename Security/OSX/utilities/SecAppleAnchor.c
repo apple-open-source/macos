@@ -27,207 +27,19 @@
 #include "SecInternalReleasePriv.h"
 #include "SecCFWrappers.h"
 #include <Security/SecCertificatePriv.h>
+#include <ipc/securityd_client.h>
+#include <os/activity.h>
+#include <dispatch/dispatch.h>
+#include <Security/SecuritydXPC.h>
+#include <Security/SecTrustInternal.h>
+#include <Security/SecFramework.h>
 
-// TODO: rdar://144133514 (provide new copy apple anchor function that takes policy)
-// If trustd available get anchors from trustd
-
-static CFDictionaryRef getAnchors(void);
-
-
-bool
-SecIsAppleTrustAnchorData(CFDataRef cert,
-			  SecAppleTrustAnchorFlags flags)
-{
-    CFDictionaryRef anchors = NULL;
-    CFTypeRef value = NULL;
-    bool res = false;
-
-    anchors = getAnchors();
-    __Require(anchors, fail);
-
-    value = CFDictionaryGetValue(anchors, cert);
-    __Require_Quiet(value, fail);
-
-    __Require(isBoolean(value), fail);
-
-    res = CFBooleanGetValue(value);
-
-
- fail:
-    return res;
-}
-
-
-bool
-SecIsAppleTrustAnchor(SecCertificateRef cert,
-                      SecAppleTrustAnchorFlags flags)
-{
-    CFDataRef data;
-    bool res = false;
-
-    data = SecCertificateCopySHA256Digest(cert);
-    __Require(data, fail);
-
-    res = SecIsAppleTrustAnchorData(data, flags);
-    
-fail:
-    CFReleaseNull(data);
-    return res;
-}
-
-
-/* Subject: C = US, O = Apple Inc., CN = Apple Code Signing Certification Authority, */
-/*          OU = Apple Certification Authority */
-/* Issuer: C = US, O = Apple Inc., OU = Apple Certification Authority, CN = Apple Root CA */
-/* SKID: 8E:69:A6:C4:77:42:4E:04:A5:56:42:9C:51:1F:86:DA:D2:20:8F:09 */
-/* Not Before: Oct 24 17:39:41 2011 GMT, Not After : Oct 24 17:39:41 2026 GMT */
-static const unsigned char AppleCodeSigningCAHash[32] = {
-    0x5B, 0xDA, 0xB1, 0x28, 0x8F, 0xC1, 0x68, 0x92, 0xFE, 0xF5, 0x0C, 0x65, 0x8D, 0xB5, 0x4F, 0x1E,
-    0x2E, 0x19, 0xCF, 0x8F, 0x71, 0xCC, 0x55, 0xF7, 0x7D, 0xE2, 0xB9, 0x5E, 0x05, 0x1E, 0x25, 0x62
-};
-
-/* Subject: C = US, O = Apple Inc., CN = Apple Code Signing Certification Authority, */
-/*          OU = Certification Authority */
-/* Issuer: C = US, O = Apple Inc., OU = Apple Certification Authority, CN = Apple Root CA */
-/* SKID: 37:B3:61:24:14:B8:21:C2:D0:8A:9E:16:2F:77:05:46:1A:B2:E2:F9 */
-/* Not Before: Oct 18 17:41:25 2017 GMT, Not After : Oct 16 00:00:00 2030 GMT */
-static const unsigned char AppleCodeSigningCAG2Hash[32] = {
-    0x76, 0x84, 0x3E, 0x4C, 0x6E, 0x3A, 0xCB, 0x21, 0x61, 0x34, 0xA5, 0x7B, 0xA8, 0xAF, 0xF5, 0x12,
-    0xE3, 0x94, 0x67, 0x2B, 0x39, 0x66, 0xB9, 0x96, 0xDA, 0x80, 0xF0, 0x09, 0xEE, 0x7B, 0x46, 0x45
-};
-
-// TODO: rdar://144133514 (provide new copy apple anchor function that takes policy)
-// Modern verision of this should be using the policy-based queries of the apple anchor source
-bool
-SecIsAppleCodeSigningIssuer(CFDataRef issuerHash)
-{
-    static dispatch_once_t onceToken;
-    static CFDictionaryRef csAnchors = NULL;
-    dispatch_once(&onceToken, ^{
-        CFMutableDictionaryRef temp = CFDictionaryCreateMutableForCFTypes(NULL);
-        CFDataRef value = NULL;
-        value = CFDataCreateWithBytesNoCopy(NULL, AppleCodeSigningCAHash, sizeof(AppleCodeSigningCAHash), kCFAllocatorNull);
-        CFDictionarySetValue(temp, value, kCFBooleanTrue);
-        CFReleaseNull(value);
-        value = CFDataCreateWithBytesNoCopy(NULL, AppleCodeSigningCAG2Hash, sizeof(AppleCodeSigningCAG2Hash), kCFAllocatorNull);
-        CFDictionarySetValue(temp, value, kCFBooleanTrue);
-        CFReleaseNull(value);
-
-        csAnchors = temp;
-    });
-
-    bool result = false;
-    CFTypeRef value = NULL;
-    __Require(issuerHash, fail);
-    __Require(csAnchors, fail);
-
-    value = CFDictionaryGetValue(csAnchors, issuerHash);
-    __Require_Quiet(value, fail);
-    __Require(isBoolean(value), fail);
-
-    result = CFBooleanGetValue(value);
-fail:
-    return result;
-}
-
-bool
-SecIsAppleCodeSigningAnchor(SecCertificateRef cert)
-{
-    CFDataRef hash = SecCertificateCopySHA256Digest(cert);
-    bool result = SecIsAppleCodeSigningIssuer(hash);
-    CFReleaseNull(hash);
-    return result;
-}
-
-/* subject:/C=US/O=Apple Inc./OU=Apple Certification Authority/CN=Apple Root CA */
-/* SKID: 2B:D0:69:47:94:76:09:FE:F4:6B:8D:2E:40:A6:F7:47:4D:7F:08:5E */
-/* Not Before: Apr 25 21:40:36 2006 GMT, Not After : Feb  9 21:40:36 2035 GMT */
-/* Signature Algorithm: sha1WithRSAEncryption */
-static const unsigned char AppleRootCAHash[32] = {
-    0xb0, 0xb1, 0x73, 0x0e, 0xcb, 0xc7, 0xff, 0x45, 0x05, 0x14, 0x2c, 0x49, 0xf1, 0x29, 0x5e, 0x6e,
-    0xda, 0x6b, 0xca, 0xed, 0x7e, 0x2c, 0x68, 0xc5, 0xbe, 0x91, 0xb5, 0xa1, 0x10, 0x01, 0xf0, 0x24
-};
-
-/* subject:/CN=Apple Root CA - G2/OU=Apple Certification Authority/O=Apple Inc./C=US */
-/* SKID: C4:99:13:6C:18:03:C2:7B:C0:A3:A0:0D:7F:72:80:7A:1C:77:26:8D */
-/* Not Before: Apr 30 18:10:09 2014 GMT, Not After : Apr 30 18:10:09 2039 GMT */
-/* Signature Algorithm: sha384WithRSAEncryption */
-static const unsigned char AppleRootG2Hash[32] = {
-    0xc2, 0xb9, 0xb0, 0x42, 0xdd, 0x57, 0x83, 0x0e, 0x7d, 0x11, 0x7d, 0xac, 0x55, 0xac, 0x8a, 0xe1,
-    0x94, 0x07, 0xd3, 0x8e, 0x41, 0xd8, 0x8f, 0x32, 0x15, 0xbc, 0x3a, 0x89, 0x04, 0x44, 0xa0, 0x50
-};
-
-/* subject:/CN=Apple Root CA - G3/OU=Apple Certification Authority/O=Apple Inc./C=US */
-/* SKID: BB:B0:DE:A1:58:33:88:9A:A4:8A:99:DE:BE:BD:EB:AF:DA:CB:24:AB */
-/* Not Before: Apr 30 18:19:06 2014 GMT, Not After : Apr 30 18:19:06 2039 GMT */
-/* Signature Algorithm: ecdsa-with-SHA38 */
-static const unsigned char AppleRootG3Hash[32] = {
-    0x63, 0x34, 0x3a, 0xbf, 0xb8, 0x9a, 0x6a, 0x03, 0xeb, 0xb5, 0x7e, 0x9b, 0x3f, 0x5f, 0xa7, 0xbe,
-    0x7c, 0x4f, 0x5c, 0x75, 0x6f, 0x30, 0x17, 0xb3, 0xa8, 0xc4, 0x88, 0xc3, 0x65, 0x3e, 0x91, 0x79
-};
-
-/* subject:/C=US/O=Apple Inc./CN=Apple Platform Backport RSA Root CA - G1 */
-/* SKID: 23:19:89:C5:4D:29:1C:F4:A7:FC:3D:61:F8:12:02:85:A4:FC:FF:99 */
-/* Not Before: Dec 13 00:21:32 2024 GMT, Not After : Dec  8 00:00:00 2049 GM */
-/* Signature Algorithm: sha384WithRSAEncryption */
-static const unsigned char ApplePlatformBackportRSARootG1Hash[32] = {
-    0xfb, 0x3f, 0x6c, 0xf6, 0x94, 0x67, 0xb5, 0xfa, 0x9f, 0xfa, 0x2b, 0x3b, 0x39, 0x2b, 0x6e, 0x5e,
-    0x77, 0x5b, 0xbb, 0x09, 0xc7, 0x7b, 0x6e, 0x75, 0x9e, 0x90, 0x38, 0xe2, 0x6b, 0xbf, 0x90, 0x49
-};
-
-/* subject:/C=US/O=Apple Inc./CN=Apple Platform Backport ECC Root CA - G1 */
-/* SKID: B6:86:6D:5C:07:54:71:3B:84:00:FB:BF:E5:37:3A:5F:8B:A4:55:91 */
-/* Not Before: Dec 13 00:20:34 2024 GMT, Not After : Dec  8 00:00:00 2049 GMT */
-/* Signature Algorithm: ecdsa-with-SHA384 */
-static const unsigned char ApplePlatformBackportECCRootG1Hash[32] = {
-    0xed, 0xa2, 0x3b, 0x3f, 0x22, 0x4f, 0x45, 0xe0, 0x95, 0x2f, 0x20, 0xe4, 0xd2, 0xb3, 0x3e, 0x00,
-    0x0d, 0x49, 0xc8, 0x04, 0x4c, 0x11, 0x68, 0xde, 0x47, 0xb4, 0x43, 0xcd, 0x2b, 0x35, 0x36, 0xdc
-};
-
-/* subject:CN=Apple Platform Bootstrap ECC Root CA - G1,O=Apple Inc.,C=US*/
-/* SKID: 9d:8c:73:b7:ba:68:4b:c5:2b:5f:50:98:5e:c7:8d:37:6c:aa:f0:ea*/
-/* Not Before:2024-12-13T00:10:15+00:00, Not After: 2054-12-09T00:00:00+00:00 */
-/* Signature algorithm: ecdsa-with-SHA512 */
-static const uint8_t ApplePlatformBootstrapECCRootG1_hash[] = {
-    0x5f, 0xbd, 0x45, 0xb0, 0x30, 0x3b, 0x62, 0x47, 0xe4, 0x10, 0x32, 0x88, 0x64, 0xb7, 0x95, 0xbf,
-    0x91, 0xf4, 0x48, 0x56, 0xbe, 0x6c, 0xbd, 0x8d, 0x19, 0x49, 0xff, 0x60, 0xa6, 0xf5, 0x19, 0x08,
-};
-
-
-static void
-addAnchor(CFMutableDictionaryRef anchors,
-          const unsigned char *trustAnchor, size_t size,
-          bool production)
-{
-    CFDataRef value = CFDataCreateWithBytesNoCopy(NULL, trustAnchor, size, kCFAllocatorNull);
-    if (CFDictionaryGetValue(anchors, value))
-        abort();
-    CFDictionarySetValue(anchors, value, production ? kCFBooleanTrue : kCFBooleanFalse);
-    CFReleaseSafe(value);
-}
-
-
-static CFDictionaryRef
-getAnchors(void)
-{
-    static dispatch_once_t onceToken;
-    static CFDictionaryRef anchors = NULL;
-    dispatch_once(&onceToken, ^{
-        CFMutableDictionaryRef temp;
-
-        temp = CFDictionaryCreateMutableForCFTypes(NULL);
-        addAnchor(temp, AppleRootCAHash, sizeof(AppleRootCAHash), true);
-        addAnchor(temp, AppleRootG2Hash, sizeof(AppleRootG2Hash), true);
-        addAnchor(temp, AppleRootG3Hash, sizeof(AppleRootG3Hash), true);
-        addAnchor(temp, ApplePlatformBackportRSARootG1Hash, sizeof(ApplePlatformBackportRSARootG1Hash), true);
-        addAnchor(temp, ApplePlatformBackportECCRootG1Hash, sizeof(ApplePlatformBackportECCRootG1Hash), true);
-        addAnchor(temp, ApplePlatformBootstrapECCRootG1_hash, sizeof(ApplePlatformBootstrapECCRootG1_hash), true);
-
-
-        anchors = temp;
-    });
-    return anchors;
-}
+// Client-side TTL cache for copyAppleAnchors results (rdar://174040872).
+// Disabled for minimal targets that never reach trustd via XPC — set
+// APPLEANCHOR_CACHE=0 in the target's preprocessor definitions to exclude.
+#ifndef APPLEANCHOR_CACHE
+#define APPLEANCHOR_CACHE 1
+#endif
 
 /* subject:/C=US/O=Apple Inc./OU=Apple Certification Authority/CN=Apple Root CA */
 /* SKID: 2B:D0:69:47:94:76:09:FE:F4:6B:8D:2E:40:A6:F7:47:4D:7F:08:5E */
@@ -639,32 +451,260 @@ static const uint8_t ApplePlatformBootstrapECCRootG1_cert[] = {
 
 
 static void
-addCertificate(CFMutableArrayRef anchors,
-               const unsigned char *anchor, size_t size) {
+addCertificate(CFMutableDictionaryRef anchors, bool prod,
+                 const unsigned char *anchor, size_t size) {
     SecCertificateRef cert = SecCertificateCreateWithBytes(NULL, anchor, size);
-    if (CFArrayContainsValue(anchors, CFRangeMake(0, CFArrayGetCount(anchors)), cert)) {
+    if (CFDictionaryGetValue(anchors, cert)) {
         abort();
     }
-    CFArrayAppendValue(anchors, cert);
+    CFDictionarySetValue(anchors, cert, prod ? kCFBooleanTrue : kCFBooleanFalse);
     CFReleaseNull(cert);
+}
+
+CF_RETURNS_RETAINED
+CFDictionaryRef SecCopyBuiltInAppleTrustAnchors(bool allowNonProduction) {
+    static CFDictionaryRef anchors = NULL;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        CFMutableDictionaryRef temp = NULL;
+        temp = CFDictionaryCreateMutableForCFTypes(NULL);
+
+        addCertificate(temp, true, AppleRootCA, sizeof(AppleRootCA));
+        addCertificate(temp, true, AppleRootG2, sizeof(AppleRootG2));
+        addCertificate(temp, true, AppleRootG3, sizeof(AppleRootG3));
+        addCertificate(temp, true, ApplePlatformBackportRSARootG1, sizeof(ApplePlatformBackportRSARootG1));
+        addCertificate(temp, true, ApplePlatformBackportECCRootG1, sizeof(ApplePlatformBackportECCRootG1));
+        addCertificate(temp, true, ApplePlatformBootstrapECCRootG1_cert, sizeof(ApplePlatformBootstrapECCRootG1_cert));
+
+        anchors = temp;
+    });
+    return CFRetainSafe(anchors);
+}
+
+
+bool SecIsBuiltInAppleAnchor(SecCertificateRef cert,
+                             SecAppleTrustAnchorFlags flags)
+{
+    CFDictionaryRef anchors = NULL;
+    CFTypeRef value = NULL;
+    bool res = false;
+
+    anchors = SecCopyBuiltInAppleTrustAnchors(true);
+    require(anchors, fail);
+    value = CFDictionaryGetValue(anchors, cert);
+    require(isBoolean(value), fail);
+
+    res = CFBooleanGetValue(value);
+
+fail:
+    CFReleaseNull(anchors);
+    return res;
+}
+
+/* Returns a dictionary of CFDataRefs (the certificate data) -> CFBooleanRefs (production or test root) */
+#if APPLEANCHOR_CACHE
+
+#define kAppleAnchorsClientCacheTTL 300.0 // 5 minutes
+
+static dispatch_queue_t sAppleAnchorsClientCacheQueue = NULL; // serial; synchronizes all cache access
+static CFMutableDictionaryRef sAppleAnchorsClientCache = NULL;           // policyKey -> CFDictionaryRef
+static CFMutableDictionaryRef sAppleAnchorsClientCacheTimestamps = NULL; // policyKey -> CFDateRef
+static dispatch_once_t sAppleAnchorsClientCacheOnce;
+
+static void InitAppleAnchorsClientCache(void) {
+    dispatch_once(&sAppleAnchorsClientCacheOnce, ^{
+        sAppleAnchorsClientCacheQueue = dispatch_queue_create(
+            "com.apple.security.appleanchors.cache",
+            dispatch_queue_attr_make_with_qos_class(DISPATCH_QUEUE_SERIAL_WITH_AUTORELEASE_POOL,
+                                                    QOS_CLASS_UTILITY, 0));
+        sAppleAnchorsClientCache = CFDictionaryCreateMutable(NULL, 0,
+            &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+        sAppleAnchorsClientCacheTimestamps = CFDictionaryCreateMutable(NULL, 0,
+            &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+    });
+}
+
+static CF_RETURNS_RETAINED CFDictionaryRef CopyClientCachedAppleAnchors(CFStringRef policyKey) {
+    __block CFDictionaryRef cached = NULL;
+    dispatch_sync(sAppleAnchorsClientCacheQueue, ^{
+        CFDateRef timestamp = (CFDateRef)CFDictionaryGetValue(sAppleAnchorsClientCacheTimestamps, policyKey);
+        if (timestamp) {
+            CFAbsoluteTime age = CFAbsoluteTimeGetCurrent() - CFDateGetAbsoluteTime(timestamp);
+            if (age < kAppleAnchorsClientCacheTTL) {
+                cached = CFRetainSafe(CFDictionaryGetValue(sAppleAnchorsClientCache, policyKey));
+            } else {
+                // TTL expired on a read: evict eagerly so the pending dispatch_after is a no-op
+                // and memory is freed before the new XPC call rather than after it.
+                CFDictionaryRemoveValue(sAppleAnchorsClientCache, policyKey);
+                CFDictionaryRemoveValue(sAppleAnchorsClientCacheTimestamps, policyKey);
+            }
+        }
+    });
+    return cached;
+}
+
+static void SetClientCachedAppleAnchors(CFStringRef policyKey, CFDictionaryRef anchors) {
+    dispatch_sync(sAppleAnchorsClientCacheQueue, ^{
+        CFDateRef now = CFDateCreate(NULL, CFAbsoluteTimeGetCurrent());
+        CFDictionarySetValue(sAppleAnchorsClientCache, policyKey, anchors);
+        CFDictionarySetValue(sAppleAnchorsClientCacheTimestamps, policyKey, now);
+
+        // Schedule eviction after the TTL so memory is freed even if the caller never uses
+        // SecAppleAnchor again. Targets the cache queue so it is automatically serialized
+        // with concurrent reads and writes — no additional locking needed.
+        // If the entry is refreshed before this fires, the stored timestamp will differ
+        // from capturedTimestamp and the block is a no-op; the refresh scheduled its own timer.
+        CFStringRef capturedKey = CFRetain(policyKey);
+        CFDateRef capturedTimestamp = CFRetain(now);
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(kAppleAnchorsClientCacheTTL * NSEC_PER_SEC)),
+                       sAppleAnchorsClientCacheQueue, ^{
+            CFDateRef current = (CFDateRef)CFDictionaryGetValue(sAppleAnchorsClientCacheTimestamps, capturedKey);
+            if (current && CFEqual(current, capturedTimestamp)) {
+                CFDictionaryRemoveValue(sAppleAnchorsClientCache, capturedKey);
+                CFDictionaryRemoveValue(sAppleAnchorsClientCacheTimestamps, capturedKey);
+            }
+            CFRelease(capturedKey);
+            CFRelease(capturedTimestamp);
+        });
+
+        CFReleaseNull(now);
+    });
+}
+
+#endif // APPLEANCHOR_CACHE
+
+static CF_RETURNS_RETAINED CFDictionaryRef copyAppleAnchors(CFStringRef _Nullable policyId, CFErrorRef *error)
+{
+    __block CFDictionaryRef result = NULL;
+    os_activity_t activity = os_activity_create("SecTrustCopyAppleTrustAnchors", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_DEFAULT);
+    os_activity_scope(activity);
+
+    if (gTrustd && gTrustd->sec_trust_store_copy_apple_anchors) {
+        CFDictionaryRef trustAnchors = gTrustd->sec_trust_store_copy_apple_anchors(policyId);
+        os_release(activity);
+        return trustAnchors;
+    }
+
+#if APPLEANCHOR_CACHE
+    InitAppleAnchorsClientCache();
+    CFStringRef policyKey = policyId ? policyId : CFSTR("");
+    result = CopyClientCachedAppleAnchors(policyKey);
+    if (result) {
+        os_release(activity);
+        return result;
+    }
+#endif // APPLEANCHOR_CACHE
+
+    bool ok = securityd_send_sync_and_do(kSecXPCOpCopyAppleAnchors, error, ^bool(xpc_object_t message, CFErrorRef *block_error) {
+        if (!SecXPCDictionarySetStringOptional(message, kSecTrustPoliciesKey, policyId, block_error)) {
+            return false;
+        }
+        return true;
+    }, ^bool(xpc_object_t response, CFErrorRef *block_error) {
+        result = SecXPCDictionaryCopyDictionary(response, kSecXPCKeyResult, block_error);
+        return true;
+    });
+
+    // XPC failure
+    if (!ok) {
+        secerror("Failed to copy apple anchors: %@", error ? *error : NULL);
+        CFReleaseNull(result);
+    }
+
+#if APPLEANCHOR_CACHE
+    if (result && CFDictionaryGetCount(result) > 0) {
+        SetClientCachedAppleAnchors(policyKey, result);
+    }
+#endif // APPLEANCHOR_CACHE
+
+    os_release(activity);
+    return result;
+}
+
+bool
+SecIsAppleTrustAnchorForPolicy(SecCertificateRef cert,
+                               CFStringRef policyId,
+                               SecAppleTrustAnchorFlags flags)
+{
+    CFErrorRef error = NULL;
+    CFDictionaryRef anchors = copyAppleAnchors(policyId, &error);
+    if (!anchors || CFDictionaryGetCount(anchors) == 0) {
+        // XPC Failed, fallback to built-in anchors
+        secerror("Falling back to built-in anchors");
+        CFReleaseNull(anchors);
+        return SecIsBuiltInAppleAnchor(cert, flags);
+    }
+
+    /* Note that the XPC to trustd handles whether to include the Test roots */
+    CFDataRef certData = SecCertificateCopyData(cert);
+    bool result = false;
+    if (CFDictionaryContainsKey(anchors, certData)) {
+        CFBooleanRef value = CFDictionaryGetValue(anchors, certData);
+        result = CFBooleanGetValue(value);
+    }
+    CFReleaseNull(anchors);
+    CFReleaseNull(certData);
+    return result;
+}
+
+bool
+SecIsAppleTrustAnchor(SecCertificateRef cert,
+                      SecAppleTrustAnchorFlags flags)
+{
+    return SecIsAppleTrustAnchorForPolicy(cert, NULL, flags);
 }
 
 CFArrayRef SecGetAppleTrustAnchors(bool allowNonProduction)
 {
-    static CFArrayRef anchors = NULL;
+    static CFArrayRef all_anchors = NULL;
+    static CFArrayRef prod_anchors = NULL;
     static dispatch_once_t onceToken;
     dispatch_once(&onceToken, ^{
-        CFMutableArrayRef temp = NULL;
-        temp = CFArrayCreateMutableForCFTypesWithCapacity(NULL, 6);
+        CFDictionaryRef appleAnchors = SecCopyBuiltInAppleTrustAnchors(true);
 
-        addCertificate(temp, AppleRootCA, sizeof(AppleRootCA));
-        addCertificate(temp, AppleRootG2, sizeof(AppleRootG2));
-        addCertificate(temp, AppleRootG3, sizeof(AppleRootG3));
-        addCertificate(temp, ApplePlatformBackportRSARootG1, sizeof(ApplePlatformBackportRSARootG1));
-        addCertificate(temp, ApplePlatformBackportECCRootG1, sizeof(ApplePlatformBackportECCRootG1));
-        addCertificate(temp, ApplePlatformBootstrapECCRootG1_cert, sizeof(ApplePlatformBootstrapECCRootG1_cert));
+        CFMutableArrayRef temp_all = CFArrayCreateMutableForCFTypesWithCapacity(NULL, CFDictionaryGetCount(appleAnchors));
+        CFMutableArrayRef temp_prod = CFArrayCreateMutableForCFTypesWithCapacity(NULL, CFDictionaryGetCount(appleAnchors));
+        CFDictionaryForEach(appleAnchors, ^(const void *cert, const void *prod) {
+            CFArrayAppendValue(temp_all, cert);
+            if (CFBooleanGetValue((CFBooleanRef)prod)) {
+                CFArrayAppendValue(temp_prod, cert);
+            }
+        });
+        CFReleaseNull(appleAnchors);
 
-        anchors = temp;
+        all_anchors = temp_all;
+        prod_anchors = temp_prod;
     });
-    return anchors;
+    if (SecIsInternalRelease() || allowNonProduction) {
+        return all_anchors;
+    } else {
+        return prod_anchors;
+    }
+}
+
+CF_RETURNS_RETAINED CFArrayRef SecTrustCopyAppleTrustAnchors(bool allowNonProduction, CFStringRef _Nullable policyId) {
+    CFErrorRef error = NULL;
+    CFDictionaryRef anchors = copyAppleAnchors(policyId, &error);
+    if (!anchors || CFDictionaryGetCount(anchors) == 0) {
+        // XPC Failed, fallback to built-in anchors
+        secerror("Falling back to built-in anchors");
+        CFReleaseNull(anchors);
+        return CFRetainSafe(SecGetAppleTrustAnchors(allowNonProduction));
+    }
+
+    /* Convert cert datas into certs */
+    CFMutableArrayRef result = CFArrayCreateMutable(NULL, CFDictionaryGetCount(anchors),
+                                                    &kCFTypeArrayCallBacks);
+    CFDictionaryForEach(anchors, ^(const void *key, const void *value) {
+        CFDataRef certData = (CFDataRef)key;
+        SecCertificateRef cert = SecCertificateCreateWithData(NULL, certData);
+        if (cert) {
+            CFArrayAppendValue(result, cert);
+            CFReleaseNull(cert);
+        } else {
+            secwarning("failed to convert apple anchor cert");
+        }
+    });
+    CFReleaseNull(anchors);
+    return result;
 }

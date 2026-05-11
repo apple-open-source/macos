@@ -4822,38 +4822,6 @@ __SCNetworkInterfaceCopyAll_IONetworkInterface(Boolean keep_pre_configured)
 }
 
 
-static
-CFArrayRef
-__SCNetworkInterfaceCopyAll_Modem(void)
-{
-	CFDictionaryRef		matching;
-	CFStringRef		match_keys[2];
-	CFStringRef		match_vals[2];
-	CFArrayRef		new_interfaces;
-
-	match_keys[0] = CFSTR(kIOProviderClassKey);
-	match_vals[0] = CFSTR(kIOSerialBSDServiceValue);
-
-	match_keys[1] = CFSTR(kIOSerialBSDTypeKey);
-	match_vals[1] = CFSTR(kIOSerialBSDAllTypes);
-
-	matching = CFDictionaryCreate(NULL,
-				      (const void **)match_keys,
-				      (const void **)match_vals,
-				      sizeof(match_keys)/sizeof(match_keys[0]),
-				      &kCFTypeDictionaryKeyCallBacks,
-				      &kCFTypeDictionaryValueCallBacks);
-	new_interfaces = findMatchingInterfaces(matching,
-						processSerialInterface,
-						kSCNetworkInterfaceHiddenPortKey,
-						FALSE,
-						FALSE);
-	CFRelease(matching);
-
-	return new_interfaces;
-}
-
-
 #if	!TARGET_OS_IPHONE
 static void
 addBTPANInterface(CFMutableArrayRef all_interfaces)
@@ -4997,13 +4965,6 @@ _SCNetworkInterfaceCopyAllWithPreferences(SCPreferencesRef prefs)
 
 	// get Ethernet, Firewire, Thunderbolt, and AirPort interfaces
 	new_interfaces = __SCNetworkInterfaceCopyAll_IONetworkInterface(FALSE);
-	if (new_interfaces != NULL) {
-		add_interfaces(all_interfaces, new_interfaces);
-		CFRelease(new_interfaces);
-	}
-
-	// get Modem interfaces
-	new_interfaces = __SCNetworkInterfaceCopyAll_Modem();
 	if (new_interfaces != NULL) {
 		add_interfaces(all_interfaces, new_interfaces);
 		CFRelease(new_interfaces);
@@ -7648,11 +7609,6 @@ _SCNetworkInterfaceCreateWithIONetworkInterfaceObject(io_object_t if_obj)
 					    processNetworkInterface,
 					    kSCNetworkInterfaceHiddenInterfaceKey,
 					    TRUE);
-	} else if (IOObjectConformsTo(if_obj, kIOSerialBSDServiceValue)) {
-		interface = createInterface(if_obj,
-					    processSerialInterface,
-					    kSCNetworkInterfaceHiddenPortKey,
-					    FALSE);
 	}
 
 	return interface;

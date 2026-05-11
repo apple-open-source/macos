@@ -2921,7 +2921,7 @@ NSString* OTCDPStatusToString(OTCDPStatus status) {
     NSError *controlError = nil;
     OTControl *control = [ctx makeOTControl:&controlError];
     if (!control) {
-        secerror("clique-disable-walrus: unable to create otcontrol: %@", controlError);
+        secerror("clique-enable-walrus: unable to create otcontrol: %@", controlError);
         reply(controlError);
         return;
     }

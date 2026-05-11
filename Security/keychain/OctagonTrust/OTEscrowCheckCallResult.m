@@ -47,6 +47,10 @@
         rateLimitStateDescription = @"not rate limited";
     } else if (self.rateLimitState == OTEscrowCheckRateLimitStateRateLimited) {
         rateLimitStateDescription = @"rate limited";
+    } else if (self.rateLimitState == OTEscrowCheckRateLimitStateValidCacheNotRateLimited) {
+        rateLimitStateDescription = @"valid cache + not rate limited";
+    } else if (self.rateLimitState == OTEscrowCheckRateLimitStateValidCacheRateLimited) {
+        rateLimitStateDescription = @"valid cache + rate limited";
     } else {
         rateLimitStateDescription = @"unknown";
     }
@@ -63,7 +67,7 @@
             octagonTrustStateDescription,
             self.secureTermsNeeded ? @"YES" : @"NO",
             self.moveRequest,
-            self.repairReason,
+            (unsigned long)self.repairReason,
             self.repairDisabled ? @"YES" : @"NO",
             rateLimitStateDescription,
             (long)self.daysLeftOnRateLimit

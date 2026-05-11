@@ -31,7 +31,7 @@ typedef struct {
   const tre_char_t *re_end;
   /* The current locale */
   locale_t loc;
-  int len;
+  size_t len;
   /* Current submatch ID. */
   int submatch_id;
   /* Current invisible submatch ID. */

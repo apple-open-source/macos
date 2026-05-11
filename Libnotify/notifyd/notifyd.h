@@ -121,6 +121,7 @@ struct call_statistics_s
 extern struct call_statistics_s call_statistics;
 
 extern void log_message(int priority, const char *str, ...) __printflike(2, 3);
+extern const char *notify_type_name(uint32_t t);
 extern uint32_t daemon_post(const char *name, uint32_t u, uint32_t g);
 extern uint32_t daemon_post_nid(uint64_t nid, uint32_t u, uint32_t g);
 extern void daemon_post_client(uint64_t cid);

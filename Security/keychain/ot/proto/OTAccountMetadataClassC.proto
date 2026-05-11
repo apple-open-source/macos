@@ -47,6 +47,16 @@ message AccountMetadataClassC {
         NOTPERMITTED = 2;
     }
 
+    message EscrowRecordCache {
+        optional bytes serializedRecord = 1;
+
+        optional uint64 passcodeGeneration = 2;
+        optional string bottleID = 3;
+
+        optional uint64 cacheTimestamp = 4;
+        optional uint64 cacheVersion = 5;
+    }
+
     optional string peerID = 1;
     optional AccountState icloudAccountState = 2;
     optional int64 epoch = 3;
@@ -106,8 +116,10 @@ message AccountMetadataClassC {
     optional string machineID = 26;
 
     // Escrow repair "version" for the most recent repair attempt.
-    optional int64 escrowRepairAttemptVersion = 27;
-    
+    reserved 27;
+
     // fixup for changing `kSecAttrAccessible`: "kSecAttrAccessibleWhenUnlocked" -> "kSecAttrAccessibleWhenUnlockedThisDeviceOnly" for (escrowKeys + RecoveryKeys + secrets)
     optional bool peerSecretsAccessibilityFixUpPerformed = 31;
+
+    optional EscrowRecordCache escrowRecordCache = 32;
 }

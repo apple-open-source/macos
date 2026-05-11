@@ -257,7 +257,7 @@ extern OctagonFlag* const OctagonFlagCheckTrustState;
 
 extern OctagonFlag* const OctagonFlagAppleAccountSignedOut;
 
-extern OctagonFlag* const OctagonFlagPasscodeStashAvailable;
+extern OctagonFlag* const OctagonFlagCachedEscrowRecordAvailable;
 
 extern OctagonFlag* const OctagonFlagRerollIdentity;
 

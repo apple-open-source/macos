@@ -211,8 +211,8 @@ void ZLIB_INTERNAL inflate_fast(z_streamp strm, unsigned start) /* inflate()'s s
             // Match starts in [win_top, win_size)
             match_pos += win_size;
 
-            // Out of window?
-            if (unlikely((int32_t)match_pos < (int32_t)win_top))
+            // Out of window, or pointing to uninitialized data?
+            if (unlikely(win_distance > state->whave))
             {
               strm->msg = (z_const char*)"invalid distance too far back";
               state->mode = BAD;

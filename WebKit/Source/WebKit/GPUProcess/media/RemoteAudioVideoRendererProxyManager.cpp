@@ -223,8 +223,16 @@ void RemoteAudioVideoRendererProxyManager::addTrack(RemoteAudioVideoRendererIden
         completionHandler(makeUnexpected(PlatformMediaError::NotSupportedError));
         return;
     }
-    auto trackIdentifier = renderer->addTrack(type);
-    completionHandler(trackIdentifier);
+    if (auto trackIdentifier = renderer->addTrack(type)) {
+        renderer->notifyTrackNeedsReenqueuing(*trackIdentifier, [weakThis = WeakPtr { *this }, identifier](TrackIdentifier trackIdentifier, const MediaTime& time) {
+            if (RefPtr protectedThis = weakThis.get(); protectedThis && protectedThis->m_renderers.contains(identifier))
+                protectedThis->m_gpuConnectionToWebProcess.get()->connection().send(Messages::AudioVideoRendererRemoteMessageReceiver::TrackNeedsReenqueuing(trackIdentifier, time, protectedThis->stateFor(identifier)), identifier);
+        });
+
+        completionHandler(*trackIdentifier);
+        return;
+    }
+    completionHandler(makeUnexpected(PlatformMediaError::NotSupportedError));
 }
 
 void RemoteAudioVideoRendererProxyManager::removeTrack(RemoteAudioVideoRendererIdentifier identifier, TrackIdentifier trackIdentifier)

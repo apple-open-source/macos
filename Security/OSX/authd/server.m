@@ -1150,7 +1150,39 @@ authorization_copy_prelogin_userdb(connection_t conn, xpc_object_t message, xpc_
     const char *uuid = xpc_dictionary_get_string(message, AUTH_XPC_TAG);
     UInt32 flags = (AuthorizationFlags)xpc_dictionary_get_uint64(message, AUTH_XPC_FLAGS);
 
-    status = preloginudb_copy_userdb(uuid, flags, &cfarray);
+    // include KEK/VEK only if caller has the com.apple.authorization.air entitlement or is whitelisted
+    process_t proc = connection_get_process(conn);
+    Boolean includeKeys = false;
+    const char *callerPath = process_get_code_url(proc);
+
+    CFTypeRef airEntitlement = process_copy_entitlement_value(proc, "com.apple.authorization.air");
+    if (airEntitlement && (CFGetTypeID(airEntitlement) == CFBooleanGetTypeID()) && airEntitlement == kCFBooleanTrue) {
+        includeKeys = true;
+        os_log(AUTHD_LOG, "server: AIR for entitled process [%s]", callerPath ?: "(no path)");
+    }
+    CFReleaseSafe(airEntitlement);
+
+    if (!includeKeys) {
+        static const char *allowedCallers[] = {
+            "/System/Library/Frameworks/Security.framework/Versions/A/MachServices/authorizationhost.bundle",
+            "/usr/libexec/sshd-fvunlock"
+        };
+        if (callerPath) {
+            for (size_t i = 0; i < sizeof(allowedCallers) / sizeof(allowedCallers[0]); i++) {
+                if (strcmp(callerPath, allowedCallers[i]) == 0) {
+                    includeKeys = true;
+                    os_log(AUTHD_LOG, "server: AIR for whitelisted process [%s]", callerPath);
+                    break;
+                }
+            }
+        }
+    }
+    
+    if (!includeKeys) {
+        os_log(AUTHD_LOG, "server: AIR for standard process [%s]", callerPath ?: "(no path)");
+    }
+
+    status = preloginudb_copy_userdb(uuid, flags, includeKeys, &cfarray);
     xpc_dictionary_set_int64(reply, AUTH_XPC_STATUS, status);
     __Require_noErr_Action_Quiet(status, done, os_log_error(AUTHD_LOG, "authorization_copy_prelogin_userdb: database failed %d", (int)status));
   

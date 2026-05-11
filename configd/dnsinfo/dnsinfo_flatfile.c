@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009, 2011, 2012, 2014, 2015, 2017-2020 Apple Inc. All rights reserved.
+ * Copyright (c) 2009-2026 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -310,7 +310,8 @@ _dnsinfo_flatfile_create_resolver(const char *dir, const char *path)
 		line = reallocf(line, len+1);
 		if (line == NULL) continue;
 
-		strlcpy(line, buf, len+1);
+		memcpy(line, buf, len);
+		line[len] = '\0';
 
 		// parse the first word of the line (the config token)
 		lineptr = line;
@@ -568,8 +569,7 @@ _dnsinfo_flatfile_add_resolvers(dns_create_config_t *config)
 }
 
 
-#ifdef	MAIN
-#undef	MAIN
+#ifdef TEST_DNSINFO_FLATFILE
 
 #include "dnsinfo_logging.h"
 #include "dnsinfo_copy.c"

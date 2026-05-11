@@ -313,6 +313,26 @@ AllowTestOnlyIPC:
       default: false
   sharedPreferenceForWebProcess: true
 
+AllowTestOnlyMockContentFilterIPC:
+  type: bool
+  status: embedder
+  exposed: [ WebKit ]
+  webcoreBinding: none
+  defaultValue:
+    WebKit:
+      default: false
+  sharedPreferenceForWebProcess: true
+
+AllowTestOnlyOriginAccessAllowListIPC:
+  type: bool
+  status: embedder
+  exposed: [ WebKit ]
+  webcoreBinding: none
+  defaultValue:
+    WebKit:
+      default: false
+  sharedPreferenceForWebProcess: true
+
 AllowTopNavigationToDataURLs:
   type: bool
   humanReadableName: "Allow top navigation to data: URLs"
@@ -5918,6 +5938,20 @@ OffscreenCanvasInWorkersEnabled:
       "PLATFORM(COCOA) || PLATFORM(GTK) || PLATFORM(WPE)": true
       default: false
 
+OpenPseudoClassEnabled:
+  type: bool
+  status: stable
+  humanReadableName: ":open pseudo-class"
+  humanReadableDescription: "Enable the :open CSS pseudo-class"
+  category: css
+  defaultValue:
+    WebKitLegacy:
+      default: true
+    WebKit:
+      default: true
+    WebCore:
+      default: true
+
 OpenXRDMABufRelaxedForTesting:
   type: bool
   status: internal
@@ -5963,17 +5997,17 @@ OptInPartitionedCookiesEnabled:
 
 OriginAPIEnabled:
   type: bool
-  status: testable
+  status: stable
   category: dom
   humanReadableName: "Origin API"
   humanReadableDescription: "Enable the Origin API"
   defaultValue:
     WebKitLegacy:
-      default: false
+      default: true
     WebKit:
-      default: false
+      default: true
     WebCore:
-      default: false
+      default: true
 
 OverlappingBackingStoreProvidersEnabled:
   type: bool
@@ -8498,7 +8532,7 @@ UnifyDamagedRegions:
        default: false
      WebCore:
        default: false
-       
+
 UpdateSceneGeometryEnabled:
   type: bool
   status: internal

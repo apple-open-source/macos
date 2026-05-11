@@ -187,8 +187,6 @@ make_delete(delete_t **delete_list, delete_t **delete_out, dns_rr_t *rr, dns_nam
         ERROR("no memory.");
         return dns_rcode_servfail;
     }
-    // Add to the deletes list
-    *dpp = dp;
 
     // Make sure the name is a subdomain of the zone being updated.
     dp->zone = dns_name_subdomain_of(rr->name, update_zone);
@@ -201,6 +199,10 @@ make_delete(delete_t **delete_list, delete_t **delete_out, dns_rr_t *rr, dns_nam
         goto out;
     }
     dp->name = rr->name;
+
+    // Add to the deletes list
+    *dpp = dp;
+
     if (delete_out != NULL) {
         *delete_out = dp;
     }
@@ -563,11 +565,12 @@ srp_evaluate(const char *remote_name, dns_message_t **in_parsed_message, message
     // Now that we've scanned the whole update, do the consistency checks for updates that might
     // not have come in order.
 
-    // If we don't yet have a host description, but this is a delete of the entire host registration (host_lease == 0) and
-    // we do have a delete record and a key record for the host, create a host description with no addresses here.
+    // If we don't yet have a host description, but this is a delete of the entire host registration
+    // (host_lease == 0) and we do have a delete record and a key record for the host, create a host
+    // description with no addresses here.
     if (host_description == NULL && ret->host_lease == 0) {
-        // If we get here and we have a key, then that suggests that this SRP update is a host remove with a KEY RR to
-        // authenticate it (and possibly leave behind).
+        // If we get here and we have a key, then that suggests that this SRP update is a host remove with a
+        // KEY RR to authenticate it (and possibly leave behind).
         if (key != NULL) {
             dp = srp_find_delete(deletes, key);
             if (dp != NULL) {
@@ -618,10 +621,19 @@ srp_evaluate(const char *remote_name, dns_message_t **in_parsed_message, message
 
     for (sip = service_instances; sip; sip = sip->next) {
         // For each service instance, make sure that at least one service references it
-        if (sip->num_instances == 0) {
+        // We can't have a TXT record without an SRV record or vice versa
+        if (sip->num_instances == 0 || sip->srv == NULL || sip->txt == NULL) {
+            const char *reason = NULL;
+            if (sip->num_instances == 0) {
+                reason = " is not referenced by a service update";
+            } else if (sip->srv == NULL) {
+                reason = " has no SRV record";
+            } else if (sip->txt == NULL) {
+                reason = " has no TXT record";
+            }
             DNS_NAME_GEN_SRP(sip->name, name_buf);
-            ERROR("service instance update for " PRI_DNS_NAME_SRP
-                  " is not referenced by a service update.", DNS_NAME_PARAM_SRP(sip->name, name_buf));
+            ERROR("service instance update for " PRI_DNS_NAME_SRP PUB_S_SRP,
+                  DNS_NAME_PARAM_SRP(sip->name, name_buf), reason);
             ret->rcode = dns_rcode_formerr;
             goto out;
         }
@@ -633,7 +645,8 @@ srp_evaluate(const char *remote_name, dns_message_t **in_parsed_message, message
         }
     }
 
-    // Make sure that at least one service instance references the host description, unless the update is deleting the host address records.
+    // Make sure that at least one service instance references the host description, unless the update is
+    // deleting the host address records.
 #ifdef REJECT_HOST_WITHOUT_SERVICES
     if (host_description->num_instances == 0 && host_description->addrs != NULL) {
         DNS_NAME_GEN_SRP(host_description->name, name_buf);
@@ -833,10 +846,12 @@ srp_evaluate(const char *remote_name, dns_message_t **in_parsed_message, message
         srp_format_time_offset(time_buf, sizeof(time_buf), srp_time() - raw_message->received_time);
     }
 
-    INFO("update for " PRI_DNS_NAME_SRP " #%d, xid %x validates, key lease %d, host lease %d, message lease %d, receive_time "
+    INFO("update for " PRI_DNS_NAME_SRP
+         " #%d, xid %x validates, key lease %d, host lease %d, message lease %d, receive_time "
          PUB_S_SRP ", remote " PRI_S_SRP " -> %p.",
          DNS_NAME_PARAM_SRP(host_description->name, host_description_name_buf), index, raw_message->wire.id,
-         ret->key_lease, ret->host_lease, raw_message->lease, time_buf, remote_name == NULL ? "(none)" : remote_name, ret);
+         ret->key_lease, ret->host_lease, raw_message->lease, time_buf,
+         remote_name == NULL ? "(none)" : remote_name, ret);
     ret->rcode = dns_rcode_noerror;
     goto out;
 
@@ -952,7 +967,8 @@ good:
 
 #if SRP_FEATURE_REPLICATION
 static bool
-srp_parse_eliminate_shadowed_updates(srp_server_t *server_state, client_update_t *new_message, client_update_t *old_message)
+srp_parse_eliminate_shadowed_updates(srp_server_t *server_state, client_update_t *new_message,
+                                     client_update_t *old_message)
 {
     (void)server_state;
 
@@ -1089,7 +1105,8 @@ srp_proxy_listen(uint16_t *avoid_ports, int num_avoid_ports, const char *interfa
 
     // XXX UDP listeners should bind to interface addresses, not INADDR_ANY.
     return ioloop_listener_create(false, false, false, avoid_ports, num_avoid_ports, address, NULL, "SRP UDP listener",
-                                  dns_input, NULL, cancel_callback, ready, context_release_callback, NULL, ifindex, context);
+                                  dns_input, NULL, cancel_callback, ready, context_release_callback, NULL, ifindex,
+                                  context);
 }
 
 void

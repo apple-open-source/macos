@@ -150,6 +150,9 @@ bool LiteralParser<CharType, reviverMode>::tryJSONPParse(Vector<JSONPData>& resu
 template<typename CharType, JSONReviverMode reviverMode>
 ALWAYS_INLINE bool LiteralParser<CharType, reviverMode>::equalIdentifier(UniquedStringImpl* rep, typename Lexer::LiteralParserTokenPtr token)
 {
+    // In the literal parser, we don't want to follow property addition transitions if the property name is a symbol.
+    if (rep->isSymbol())
+        return false;
     if (token->type == TokIdentifier)
         return WTF::equal(rep, token->identifier());
     ASSERT(token->type == TokString);
@@ -1417,9 +1420,9 @@ JSValue LiteralParser<CharType, reviverMode>::parseRecursively(VM& vm, uint8_t* 
                 PropertyOffset offset;
             };
 
-            auto* structure = object->structure();
+            auto* originalStructure = object->structure();
             auto property = [&, &vm = vm] ALWAYS_INLINE_LAMBDA -> Variant<ExistingProperty, Identifier> {
-                if (Structure* transition = structure->trySingleTransition()) {
+                if (Structure* transition = originalStructure->trySingleTransition()) {
                     // This check avoids hash lookup and refcount churn in the common case of a matching single transition.
                     SUPPRESS_UNCOUNTED_ARG if (transition->transitionKind() == TransitionKind::PropertyAddition
                         && !transition->transitionPropertyAttributes()
@@ -1429,11 +1432,11 @@ JSValue LiteralParser<CharType, reviverMode>::parseRecursively(VM& vm, uint8_t* 
                         else if (transition->transitionPropertyName() != vm.propertyNames->underscoreProto && m_visitedUnderscoreProto.isEmpty())
                             return ExistingProperty { transition, transition->transitionOffset() };
                     }
-                } else if (!structure->isDictionary()) {
+                } else if (!originalStructure->isDictionary()) {
                     // This check avoids refcount churn in the common case of a cached Identifier.
                     if (SUPPRESS_UNCOUNTED_LOCAL AtomStringImpl* ident = existingIdentifier(vm, m_lexer.currentToken())) {
                         PropertyOffset offset = 0;
-                        Structure* newStructure = Structure::addPropertyTransitionToExistingStructure(structure, ident, 0, offset);
+                        Structure* newStructure = Structure::addPropertyTransitionToExistingStructure(originalStructure, ident, 0, offset);
                         if (newStructure) [[likely]] {
                             if constexpr (parserMode == StrictJSON)
                                 return ExistingProperty { newStructure, offset };
@@ -1462,6 +1465,12 @@ JSValue LiteralParser<CharType, reviverMode>::parseRecursively(VM& vm, uint8_t* 
             if (!value) [[unlikely]]
                 return { };
 
+            // After parseRecursively, user code may have run (e.g. due to a __proto__ setter in a
+            // nested object), which may have changed the structure of the object. This invalidates
+            // any cached transition, so reset it to Identifier to take the slow path.
+            if (object->structure() != originalStructure && std::holds_alternative<ExistingProperty>(property)) [[unlikely]]
+                property = Identifier::fromUid(vm, std::get<ExistingProperty>(property).structure->transitionPropertyName());
+
             // When creating JSON object in this fast path, we know the following.
             //   1. The object is definitely JSFinalObject.
             //   2. The object rarely has duplicate properties.
@@ -1471,10 +1480,10 @@ JSValue LiteralParser<CharType, reviverMode>::parseRecursively(VM& vm, uint8_t* 
                 auto& [newStructure, offset] = std::get<ExistingProperty>(property);
 
                 Butterfly* newButterfly = object->butterfly();
-                if (structure->outOfLineCapacity() != newStructure->outOfLineCapacity()) {
-                    ASSERT(newStructure != structure);
-                    newButterfly = object->allocateMoreOutOfLineStorage(vm, structure->outOfLineCapacity(), newStructure->outOfLineCapacity());
-                    object->nukeStructureAndSetButterfly(vm, structure->id(), newButterfly);
+                if (originalStructure->outOfLineCapacity() != newStructure->outOfLineCapacity()) {
+                    ASSERT(newStructure != originalStructure);
+                    newButterfly = object->allocateMoreOutOfLineStorage(vm, originalStructure->outOfLineCapacity(), newStructure->outOfLineCapacity());
+                    object->nukeStructureAndSetButterfly(vm, originalStructure->id(), newButterfly);
                 }
 
                 validateOffset(offset);

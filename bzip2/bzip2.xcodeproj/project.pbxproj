@@ -7,6 +7,20 @@
 	objects = {
 
 /* Begin PBXAggregateTarget section */
+		2AFAF1112F554B5900CDBE6D /* tests */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = 2AFAF1122F554B5900CDBE6D /* Build configuration list for PBXAggregateTarget "tests" */;
+			buildPhases = (
+				2AFAF1162F554B7F00CDBE6D /* Copy Test Scripts */,
+				2AFAF11A2F554BAD00CDBE6D /* Copy Test Plist */,
+			);
+			dependencies = (
+			);
+			name = tests;
+			packageProductDependencies = (
+			);
+			productName = tests;
+		};
 		FD7ABC9614770045007D197F /* bzip2_libs */ = {
 			isa = PBXAggregateTarget;
 			buildConfigurationList = FD7ABC9814770045007D197F /* Build configuration list for PBXAggregateTarget "bzip2_libs" */;
@@ -27,6 +41,7 @@
 				FD7ABCA0147700EE007D197F /* PBXTargetDependency */,
 				FD7ABCA2147700EF007D197F /* PBXTargetDependency */,
 				FD7ABCA4147700F1007D197F /* PBXTargetDependency */,
+				2AFAF1152F554B6900CDBE6D /* PBXTargetDependency */,
 			);
 			name = bzip2_executables;
 			productName = bzip2_executables;
@@ -76,6 +91,10 @@
 /* End PBXAggregateTarget section */
 
 /* Begin PBXBuildFile section */
+		2AFAF1172F554B9F00CDBE6D /* test_bzip2.sh in Copy Test Scripts */ = {isa = PBXBuildFile; fileRef = 2AFAF10D2F554B0300CDBE6D /* test_bzip2.sh */; };
+		2AFAF1182F554BA300CDBE6D /* test_bzip2recover.sh in Copy Test Scripts */ = {isa = PBXBuildFile; fileRef = 2AFAF10E2F554B0300CDBE6D /* test_bzip2recover.sh */; };
+		2AFAF1192F554BA700CDBE6D /* test_common.sh in Copy Test Scripts */ = {isa = PBXBuildFile; fileRef = 2AFAF10F2F554B0300CDBE6D /* test_common.sh */; };
+		2AFAF11B2F554BDE00CDBE6D /* bzip2.plist in Copy Test Plist */ = {isa = PBXBuildFile; fileRef = 2AFAF10C2F554B0300CDBE6D /* bzip2.plist */; };
 		2C19EB461886FCDA003C194D /* crc32vec.s in Sources */ = {isa = PBXBuildFile; fileRef = 2C19EB451886FCCE003C194D /* crc32vec.s */; };
 		2C19EB471886FCDB003C194D /* crc32vec.s in Sources */ = {isa = PBXBuildFile; fileRef = 2C19EB451886FCCE003C194D /* crc32vec.s */; };
 		2C4E91CF18638FA600841850 /* crc32vec.s in Sources */ = {isa = PBXBuildFile; fileRef = 2C4E91CE18638E6000841850 /* crc32vec.s */; };
@@ -106,6 +125,13 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
+		2AFAF1142F554B6900CDBE6D /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = FD9B87C6104C7D8B0096D791 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 2AFAF1112F554B5900CDBE6D;
+			remoteInfo = tests;
+		};
 		FD7ABC9A1477004C007D197F /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = FD9B87C6104C7D8B0096D791 /* Project object */;
@@ -165,6 +191,30 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
+		2AFAF1162F554B7F00CDBE6D /* Copy Test Scripts */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /AppleInternal/Tests/bzip2;
+			dstSubfolderSpec = 0;
+			files = (
+				2AFAF1172F554B9F00CDBE6D /* test_bzip2.sh in Copy Test Scripts */,
+				2AFAF1182F554BA300CDBE6D /* test_bzip2recover.sh in Copy Test Scripts */,
+				2AFAF1192F554BA700CDBE6D /* test_common.sh in Copy Test Scripts */,
+			);
+			name = "Copy Test Scripts";
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		2AFAF11A2F554BAD00CDBE6D /* Copy Test Plist */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /AppleInternal/CoreOS/BATS/unit_tests;
+			dstSubfolderSpec = 0;
+			files = (
+				2AFAF11B2F554BDE00CDBE6D /* bzip2.plist in Copy Test Plist */,
+			);
+			name = "Copy Test Plist";
+			runOnlyForDeploymentPostprocessing = 1;
+		};
 		FD9B88A8104C8F090096D791 /* Copy Scripts */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 8;
@@ -193,6 +243,10 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		2AFAF10C2F554B0300CDBE6D /* bzip2.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = bzip2.plist; sourceTree = "<group>"; };
+		2AFAF10D2F554B0300CDBE6D /* test_bzip2.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = test_bzip2.sh; sourceTree = "<group>"; };
+		2AFAF10E2F554B0300CDBE6D /* test_bzip2recover.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = test_bzip2recover.sh; sourceTree = "<group>"; };
+		2AFAF10F2F554B0300CDBE6D /* test_common.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = test_common.sh; sourceTree = "<group>"; };
 		2C19EB451886FCCE003C194D /* crc32vec.s */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.asm; name = crc32vec.s; path = bzip2/arm64/crc32vec.s; sourceTree = "<group>"; };
 		2C4E91CE18638E6000841850 /* crc32vec.s */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.asm; name = crc32vec.s; path = bzip2/x86_64/crc32vec.s; sourceTree = "<group>"; };
 		81A74C2C185E80F400B6A38B /* libs.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = libs.xcconfig; path = xcodeconfig/libs.xcconfig; sourceTree = "<group>"; };
@@ -257,6 +311,17 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		2AFAF1102F554B0300CDBE6D /* tests */ = {
+			isa = PBXGroup;
+			children = (
+				2AFAF10C2F554B0300CDBE6D /* bzip2.plist */,
+				2AFAF10D2F554B0300CDBE6D /* test_bzip2.sh */,
+				2AFAF10E2F554B0300CDBE6D /* test_bzip2recover.sh */,
+				2AFAF10F2F554B0300CDBE6D /* test_common.sh */,
+			);
+			path = tests;
+			sourceTree = "<group>";
+		};
 		FD9B87C4104C7D8B0096D791 = {
 			isa = PBXGroup;
 			children = (
@@ -267,6 +332,7 @@
 				FD9B8837104C82710096D791 /* Tools */,
 				FD9B88C3104C93630096D791 /* Documentation */,
 				FD9B87DA104C7E630096D791 /* Products */,
+				2AFAF1102F554B0300CDBE6D /* tests */,
 			);
 			sourceTree = "<group>";
 		};
@@ -419,6 +485,12 @@
 			isa = PBXProject;
 			attributes = {
 				LastUpgradeCheck = 1220;
+				TargetAttributes = {
+					2AFAF1112F554B5900CDBE6D = {
+						CreatedOnToolsVersion = 26.3;
+						ProvisioningStyle = Automatic;
+					};
+				};
 			};
 			buildConfigurationList = FD9B87C9104C7D8B0096D791 /* Build configuration list for PBXProject "bzip2" */;
 			compatibilityVersion = "Xcode 3.2";
@@ -445,6 +517,7 @@
 				FD9B87FA104C7ECB0096D791 /* bzip2recover */,
 				FD9B880E104C7F830096D791 /* Scripts and Documentation */,
 				FD9B88D8104C96600096D791 /* testbots */,
+				2AFAF1112F554B5900CDBE6D /* tests */,
 			);
 		};
 /* End PBXProject section */
@@ -536,7 +609,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "\"$PROJECT_DIR\"/xcodescripts/testbot.sh";
+			shellScript = "\"$PROJECT_DIR\"/xcodescripts/testbot.sh\n";
 			showEnvVarsInLog = 0;
 		};
 /* End PBXShellScriptBuildPhase section */
@@ -593,6 +666,11 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
+		2AFAF1152F554B6900CDBE6D /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 2AFAF1112F554B5900CDBE6D /* tests */;
+			targetProxy = 2AFAF1142F554B6900CDBE6D /* PBXContainerItemProxy */;
+		};
 		FD7ABC9B1477004C007D197F /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = FD9B87D8104C7E630096D791 /* libbz2.dylib */;
@@ -636,6 +714,14 @@
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
+		2AFAF1132F554B5900CDBE6D /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Release;
+		};
 		FD7ABC9714770045007D197F /* Release */ = {
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 81A74C2C185E80F400B6A38B /* libs.xcconfig */;
@@ -749,6 +835,14 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		2AFAF1122F554B5900CDBE6D /* Build configuration list for PBXAggregateTarget "tests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				2AFAF1132F554B5900CDBE6D /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 		FD7ABC9814770045007D197F /* Build configuration list for PBXAggregateTarget "bzip2_libs" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (

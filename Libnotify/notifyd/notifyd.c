@@ -119,7 +119,7 @@ get_notifyd_workloop(void)
 	return global.workloop;
 }
 
-static const char *
+const char *
 notify_type_name(uint32_t t)
 {
 	switch (t)

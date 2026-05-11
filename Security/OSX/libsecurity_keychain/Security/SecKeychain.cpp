@@ -43,6 +43,7 @@
 #include <dlfcn.h>
 #include <libspindump_priv.h>
 #include <os/feature_private.h>
+#include <corecrypto/cc.h>
 
 extern "C" {
 #include "ctkloginhelper.h"
@@ -1761,12 +1762,30 @@ OSStatus SecKeychainStoreUnlockKeyWithPubKeyHashAndPassword(CFDataRef pubKeyHash
 		secnotice("SecKeychain", "did not get kcpass");
 		return errSecInternalComponent;
 	}
-
+ 
     CFRef<CFDataRef> masterKey;
     if (os_feature_enabled(Security, ProtectLoginKeychainWithDP)) {
         // everything needed to setup DP was already done
         // during the authorization which retrieved the user's password
-        secnotice("SecKeychain", "Keychain unlock setup not needed (DP)");
+        Keychain kc = KeychainImpl::required(userKeychain);
+        const char *pwdUTF8 = CFStringGetCStringPtr(pwd, kCFStringEncodingUTF8);
+        char pwdBuffer[buffer_size];
+        if (pwdUTF8 == NULL) {
+            if (CFStringGetCString(pwd, pwdBuffer, sizeof(pwdBuffer), kCFStringEncodingUTF8)) {
+                pwdUTF8 = pwdBuffer;
+            }
+        }
+        if (pwdUTF8) {
+            secnotice("SecKeychain", "Keychain trigger (DP)");
+            
+            // return value ignored because this happens just to trigger re-key
+            kc->unlock(CssmData(const_cast<char *>(pwdUTF8), strlen(pwdUTF8)));
+            if (pwdUTF8 == pwdBuffer) {
+                cc_clear(sizeof(pwdBuffer), pwdBuffer);
+            }
+        } else {
+            secnotice("SecKeychain", "Keychain trigger (DP) failed - password structure invalid");
+        }
     } else {
         result = SecKeychainGetMasterKey(userKeychain, masterKey.take(), pwd);
         if (result != errSecSuccess) {

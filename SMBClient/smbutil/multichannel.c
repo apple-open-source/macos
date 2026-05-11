@@ -163,7 +163,11 @@ format_nic_info(struct nic_properties *props, bool is_server)
     if (!is_server) {
         if_indextoname((uint32_t)props->if_index, buf);
         json_add_str(dict, "ifname", buf);
-        json_add_str(dict, "media_type", IFM_TYPE(props->nic_type) == IFM_ETHER ? "wired" : "wireless");
+        uint32_t media_type = IFM_TYPE(props->nic_type);
+        const char *media_type_str = (media_type == IFM_ETHER)    ? "wired"    :
+                                     (media_type == IFM_IEEE80211) ? "wireless" :
+                                                                     "tunnel";
+        json_add_str(dict, "media_type", media_type_str);
     } else {
         /*
          * <73460888> For the server we do not know the nic type as it is
@@ -636,9 +640,13 @@ stat_multichannel(char *share_mp, enum OutputFormat output_format, uint8_t flags
 
                 char c_if_type[40]="    N/A";
                 if (p->iod_prop_c_if != (uint64_t)(-1)) {
+                    const char *if_type_str =
+                        (p->iod_prop_c_if_type == IFM_ETHER)    ? "Ethernet" :
+                        (p->iod_prop_c_if_type == IFM_IEEE80211) ? "wifi"     :
+                                                                   "tunnel";
                     sprintf(c_if_type, " %-6s (%-8s) %-12s ",
                             c_if,
-                            (p->iod_prop_c_if_type == IFM_ETHER) ? "Ethernet" : "wifi",
+                            if_type_str,
                             client_rss_buf);
                 }
 

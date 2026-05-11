@@ -61,9 +61,9 @@ archive_read_extract(struct archive *_a, struct archive_entry *entry, int flags)
 
 #ifdef HAVE_MAC_QUARANTINE
 		/* propagate the quarantine flag */
-
-		if (a->qf) {
-			archive_write_disk_set_quarantine(extract->ad, a->qf);
+		if (a->qf != NULL) {
+			if (archive_write_disk_set_quarantine(extract->ad, a->qf) != ARCHIVE_OK)
+				return (ARCHIVE_FATAL);
 		}
 #endif // HAVE_MAC_QUARANTINE
 

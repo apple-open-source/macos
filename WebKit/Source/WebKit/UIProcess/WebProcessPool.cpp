@@ -1039,8 +1039,11 @@ void WebProcessPool::initializeNewWebProcess(WebProcessProxy& process, WebsiteDa
 
 #if ENABLE(NOTIFICATIONS)
     // FIXME: There should be a generic way for supplements to add to the intialization parameters.
-    if (websiteDataStore)
+    if (websiteDataStore) {
+        if (websiteDataStore->configuration().overridePersistentNotificationMinimumLifetimeForTesting())
+            parameters.overridePersistentNotificationMinimumLifetime = Seconds(*websiteDataStore->configuration().overridePersistentNotificationMinimumLifetimeForTesting());
         parameters.notificationPermissions = websiteDataStore->client().notificationPermissions();
+    }
     if (parameters.notificationPermissions.isEmpty())
         parameters.notificationPermissions = protectedSupplement<WebNotificationManagerProxy>()->notificationPermissions();
 #endif
@@ -2330,7 +2333,7 @@ std::tuple<Ref<WebProcessProxy>, RefPtr<SuspendedPageProxy>, ASCIILiteral> WebPr
         bool isSameSiteWithRelatedPage = false;
         if (!page.openerFrameIdentifier() && pageConfiguration->relatedPage()) {
             RefPtr relatedPage = pageConfiguration->relatedPage();
-            URL relatedPageURL { relatedPage->pageLoadState().url() };
+            auto& relatedPageURL = relatedPage->pageLoadState().url();
             isSameSiteWithRelatedPage = relatedPageURL.isValid() && targetSite.matches(relatedPageURL);
         }
         if (!isSameSiteWithRelatedPage)
@@ -2348,7 +2351,7 @@ std::tuple<Ref<WebProcessProxy>, RefPtr<SuspendedPageProxy>, ASCIILiteral> WebPr
 
     if (sourceURL.isEmpty()) {
         if (RefPtr relatedPage = pageConfiguration->relatedPage()) {
-            sourceURL = URL { relatedPage->pageLoadState().url() };
+            sourceURL = relatedPage->pageLoadState().url();
             WEBPROCESSPOOL_RELEASE_LOG(ProcessSwapping, "processForNavigationInternal: Using related page's URL as source URL for process swap decision (page=%p)", pageConfiguration->relatedPage());
         }
     }

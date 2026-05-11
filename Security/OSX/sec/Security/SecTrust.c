@@ -3374,8 +3374,11 @@ OSStatus SecTrustSetClientAuditToken(SecTrustRef trust, CFDataRef auditToken) {
 }
 
 CFArrayRef SecTrustGetAppleAnchors(void) {
-    // TODO: rdar://144133514 (provide new copy apple anchor function that takes policy) and XPC to trustd to get answer
     return SecGetAppleTrustAnchors(false);
+}
+
+CFArrayRef SecTrustCopyAppleAnchors(CFStringRef _Nullable policyId) {
+    return SecTrustCopyAppleTrustAnchors(false, policyId);
 }
 
 OSStatus SecTrustSetURLRequestAttribution(SecTrustRef trust, uint64_t attribution) {

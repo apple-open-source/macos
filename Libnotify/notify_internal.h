@@ -134,6 +134,7 @@ struct notify_globals_s
 	table_n_t registration_table;
 	table_t name_node_table;
 	atomic_uint_fast32_t token_id;
+	atomic_uint_fast32_t ipc_registration_count;  /* active IPC registration count */
 
 	dispatch_once_t make_background_send_queue_once;
 	dispatch_queue_t background_send_queue;

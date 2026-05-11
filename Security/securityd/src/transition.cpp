@@ -805,8 +805,15 @@ static void check_derivedentropy_entitlement(Process & proc)
 kern_return_t ucsp_server_unlockDbWithPassphrase(UCSP_ARGS, DbHandle db, DATA_IN(passphrase))
 {
 	BEGIN_IPC(unlockDbWithPassphrase)
-    Server::keychain(db)->unlockDb(DATA(passphrase), true);
+	Server::keychain(db)->unlockDb(DATA(passphrase), true, false);
 	END_IPC(DL)
+}
+
+kern_return_t ucsp_server_unlockDbWithPassphraseAlwaysCheck(UCSP_ARGS, DbHandle db, DATA_IN(passphrase))
+{
+    BEGIN_IPC(unlockDbWithPassphraseAlwaysCheck)
+    Server::keychain(db)->unlockDb(DATA(passphrase), true, true);
+    END_IPC(DL)
 }
 
 kern_return_t ucsp_server_unlockKeybagWithPassphrase(UCSP_ARGS, DbHandle db, DATA_IN(passphrase))
@@ -819,6 +826,7 @@ kern_return_t ucsp_server_unlockKeybagWithPassphrase(UCSP_ARGS, DbHandle db, DAT
 kern_return_t ucsp_server_pushForLaterUnlock(UCSP_ARGS, KeyHandle *kh, DATA_IN(passphrase))
 {
     BEGIN_IPC(pushForLaterUnlock)
+    check_derivedentropy_entitlement(connection.process());
     secnotice("dp_login", "pushing passphrase for later unlock");
     *kh = storeHandleData(DATA(passphrase));
     END_IPC(DL)
@@ -832,7 +840,7 @@ kern_return_t ucsp_server_unlockDbWithHandle(UCSP_ARGS, DbHandle db, KeyHandle k
     if (!retrieveHandleData(kh, handleData)) {
         CssmError::throwMe(CSSMERR_CSP_INVALID_KEY_REFERENCE);
     }
-    Server::keychain(db)->unlockDb(handleData, false); // keybag was already unlocked if we're here
+    Server::keychain(db)->unlockDb(handleData, false, true); // keybag was already unlocked if we're here
     END_IPC(DL)
 }
 

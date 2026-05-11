@@ -326,25 +326,32 @@ exit:
 
 //======================================================================================================================
 
-static void
+static bool
 rsa_public_key_parse(uint8_t * const key, const size_t key_size,
 	uint8_t ** const out_modulus, CFIndex * const out_modulus_len,
 	uint8_t ** const out_exponent, CFIndex * const out_exponent_len)
 {
 	// <https://datatracker.ietf.org/doc/html/rfc3110#section-2>
 
+	require_return_value(key_size >= 1, false);
 	uint8_t exponent_len_bytes_len;
 	if (key[0] != 0) {
 		*out_exponent_len = key[0];
 		exponent_len_bytes_len = 1;
 	} else {
+		require_return_value(key_size >= 3, false);
 		*out_exponent_len = get_uint16_from_bytes(&key[1]);
 		exponent_len_bytes_len = 3;
 	}
 
+	// validate that the exponent fits within the buffer.
+	const size_t exponent_end = exponent_len_bytes_len + (size_t)*out_exponent_len;
+	require_return_value(exponent_end < key_size, false);
+
 	*out_exponent = key + exponent_len_bytes_len;
-	*out_modulus_len = (CFIndex)(key_size - (((size_t)*out_exponent_len) + exponent_len_bytes_len));
-	*out_modulus = key + exponent_len_bytes_len + *out_exponent_len;
+	*out_modulus_len = (CFIndex)(key_size - exponent_end);
+	*out_modulus = key + exponent_end;
+	return true;
 }
 
 //======================================================================================================================
@@ -363,7 +370,8 @@ sec_key_create_rsa(const uint8_t * const key, const size_t key_size, dns_obj_err
 
 	SecRSAPublicKeyParams params;
 	bzero(&params, sizeof(params));
-	rsa_public_key_parse(key_copy, key_size, &params.modulus, &params.modulusLength, &params.exponent, &params.exponentLength);
+	const bool parsed = rsa_public_key_parse(key_copy, key_size, &params.modulus, &params.modulusLength, &params.exponent, &params.exponentLength);
+	require_action(parsed, exit, err = DNSSEC_ERROR_PARAM_ERR);
 
 	rsa_key = SecKeyCreateRSAPublicKey(kCFAllocatorDefault, (const uint8_t *)&params, sizeof(params), kSecKeyEncodingRSAPublicParams);
 	err = DNSSEC_ERROR_NO_ERROR;

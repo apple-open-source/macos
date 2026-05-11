@@ -665,6 +665,27 @@
     XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateLoggedOut] wait:20*NSEC_PER_SEC], "CKKS state machine should enter 'loggedout'");
 }
 
+- (void)testPairingCompleteFetch {
+    // When CKKS is asked to do a fetch due to octagon pairing completion, ensure that the QoS is user-initiated.
+    [self putFakeKeyHierarchyInCloudKit: self.keychainZoneID];
+    [self saveTLKMaterialToKeychain:self.keychainZoneID];
+
+    [self expectCKModifyKeyRecords:0 currentKeyPointerRecords:0 tlkShareRecords:1 zoneID:self.keychainZoneID];
+    [self startCKKSSubsystem];
+    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:20*NSEC_PER_SEC], @"key state should enter 'ready'");
+    XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateReady] wait:20*NSEC_PER_SEC], @"CKKS state machine should enter 'ready'");
+    OCMVerifyAllWithDelay(self.mockDatabase, 20);
+    [self waitForCKModifications];
+
+    self.silentFetchesAllowed = false;
+    [self expectCKFetchWithFilter:^BOOL(FakeCKFetchRecordZoneChangesOperation * _Nonnull frzco) {
+        XCTAssertEqual(frzco.qualityOfService, NSQualityOfServiceUserInitiated, "QoS should be user-initiated");
+        return YES;
+    } runBeforeFinished:^{}];
+
+    [self.defaultCKKS rpcFetchBecause:CKKSFetchBecauseOctagonPairingComplete];
+    OCMVerifyAllWithDelay(self.mockDatabase, 20);
+}
 @end
 
 #endif // OCTAGON

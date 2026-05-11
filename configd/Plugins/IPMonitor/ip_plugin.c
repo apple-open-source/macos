@@ -8418,7 +8418,10 @@ IPMonitorProcessChanges(SCDynamicStoreRef session, CFArrayRef changed_keys,
 
     /* grab a snapshot of everything we need */
     services_info = services_info_copy(session, service_changes);
-    assert(services_info != NULL);
+    if (services_info == NULL) {
+	my_log(LOG_NOTICE, "%s: services_info_copy() returned NULL", __func__);
+	goto done;
+    }
 
     /* grab the service order */
     service_order = service_order_get(services_info);
@@ -8698,11 +8701,6 @@ IPMonitorProcessChanges(SCDynamicStoreRef session, CFArrayRef changed_keys,
     if (nat64_changed) {
 	changes |= NETWORK_CHANGE_NAT64;
     }
-    my_CFRelease(&service_changes);
-    my_CFRelease(&services_info);
-    my_CFRelease(&ipv4_service_changes);
-    my_CFRelease(&ipv6_service_changes);
-
     if (changes != 0) {
 	network_change_msg = CFStringCreateMutable(NULL, 0);
 	process_nwi_changes(network_change_msg,
@@ -8725,12 +8723,6 @@ IPMonitorProcessChanges(SCDynamicStoreRef session, CFArrayRef changed_keys,
     }
 
     keyChangeListApplyToStore(&keys, session);
-    my_CFRelease(&old_primary_dns);
-    my_CFRelease(&old_primary_proxy);
-#if	!TARGET_OS_IPHONE
-    my_CFRelease(&old_primary_smb);
-#endif	// !TARGET_OS_IPHONE
-
     if (changes != 0) {
 	dispatch_async(__network_change_queue(), ^{
 	    post_network_change(changes);
@@ -8756,6 +8748,18 @@ IPMonitorProcessChanges(SCDynamicStoreRef session, CFArrayRef changed_keys,
     if (old_nwi_state != NULL) {
 	nwi_state_free(old_nwi_state);
     }
+
+ done:
+    my_CFRelease(&old_primary_dns);
+    my_CFRelease(&old_primary_proxy);
+#if	!TARGET_OS_IPHONE
+    my_CFRelease(&old_primary_smb);
+#endif	// !TARGET_OS_IPHONE
+    my_CFRelease(&service_changes);
+    my_CFRelease(&services_info);
+    my_CFRelease(&ipv4_service_changes);
+    my_CFRelease(&ipv6_service_changes);
+
     keyChangeListFree(&keys);
 
     /* release the name/index cache */

@@ -159,4 +159,30 @@ static dispatch_queue_t noteQueue;
 	});
 }
 
+#pragma mark - Registration Limit Tests (rdar://167539905)
+
+/// Test that registrations succeed again after canceling some.
+- (void)testRegistrationLimitRecovery
+{
+	const int batchSize = 5000;
+	const int numBatches = 5;
+	int tokens[batchSize];
+
+	for (int batch = 0; batch < numBatches; batch++) {
+		// Register batch
+		for (int i = 0; i < batchSize; i++) {
+			char name[64];
+			snprintf(name, sizeof(name), "com.apple.test.recovery.batch%d.%d", batch, i);
+			uint32_t status = notify_register_check(name, &tokens[i]);
+			XCTAssertEqual(status, NOTIFY_STATUS_OK,
+				@"Batch %d registration %d should succeed", batch, i);
+		}
+
+		// Cancel all
+		for (int i = 0; i < batchSize; i++) {
+			notify_cancel(tokens[i]);
+		}
+	}
+}
+
 @end

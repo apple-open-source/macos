@@ -98,7 +98,7 @@ ifeq "$(CONTENT_PLATFORM)" "osx"
 	# Create symlinks at the firmlink paths, but prepend a fixed prefix
 	# which will be removed at Mastering time to avoid any overlapping
 	# files issues.
-	$(_v) set -o pipefail && cat usr/share/firmlinks | awk -F '\t' '{ \
+	$(_v) set -o pipefail && cat usr/share/firmlinks | grep -v '/pkg' | awk -F '\t' '{ \
 		if (NF!=2) { print sprintf("echo \"\033[0;31mMake sure to use tabs instead of spaces for firmlinks\033[0m\"; exit 1;"); exit 1}; \
 		print "mkdir -p", "$(Destination)/\$$(dirname $(DATA_SYMLINK_PREFIX)"$$1")"; \
 		relpath=$$2; sub("[^/]*$$", "", relpath); gsub("[^/]+", "..", relpath); \

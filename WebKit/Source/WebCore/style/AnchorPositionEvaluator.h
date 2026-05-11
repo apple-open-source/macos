@@ -66,6 +66,15 @@ struct AnchorScrollSnapshot {
     bool operator==(const AnchorScrollSnapshot&) const = default;
 };
 
+class AnchorStickySnapshot {
+    SingleThreadWeakPtr<const RenderBoxModelObject> m_sticky;
+    LayoutSize m_stickySnapshot { };
+public:
+    inline LayoutSize adjustmentForCurrentScrollPosition() const;
+    AnchorStickySnapshot(const RenderBoxModelObject& sticky, LayoutSize snapshot);
+    bool operator==(const AnchorStickySnapshot&) const = default;
+};
+
 class AnchorScrollAdjuster {
 public:
     AnchorScrollAdjuster(RenderBox& anchored, const RenderBoxModelObject& defaultAnchor);
@@ -79,9 +88,11 @@ public:
     bool isHidden() const { return m_isHidden; }
     void setHidden(bool hide) { m_isHidden = hide; }
 
-    inline void addSnapshot(const RenderBox& scroller);
+    inline void addScrollSnapshot(const RenderBox& scroller);
     inline void addViewportSnapshot(const RenderView&);
     bool hasViewportSnapshot() const { return m_adjustForViewport; }
+
+    inline void addStickySnapshot(const RenderBoxModelObject& sticky);
 
     enum Diff : uint8_t { New, SnapshotsDiffer, SnapshotsMatch };
     bool recaptureDiffers(const AnchorScrollAdjuster&) const; // Snapshot differences can require invalidation.
@@ -98,14 +109,13 @@ private:
 
     CheckedRef<RenderBox> m_anchored;
     Vector<AnchorScrollSnapshot, 1> m_scrollSnapshots;
+    Vector<AnchorStickySnapshot> m_stickySnapshots;
     bool m_needsXAdjustment : 1 { false };
     bool m_needsYAdjustment : 1 { false };
     bool m_adjustForViewport : 1 { false };
     bool m_hasChainedAnchor : 1 { false };
-    bool m_hasStickyAnchor : 1 { false };
     bool m_isHidden : 1 { false };
     bool m_hasFallback : 1 { false };
-    LayoutSize m_stickySnapshot;
     LayoutSizeLimits m_fallbackLimits;
 };
 
@@ -115,9 +125,23 @@ class BuilderState;
 struct BuilderPositionTryFallback;
 
 enum class AnchorPositionResolutionStage : uint8_t {
+    // Initial state, we've found which anchors the element uses, but we haven't
+    // resolved anchor names to the concrete elements.
     FindAnchors,
-    ResolveAnchorFunctions,
+
+    // State when an anchor-positioned element has resolved its anchors,
+    // but its anchor(s) is/are also anchor-positioned. The element waits
+    // here until the its anchor(s) is/are Positioned, in which case it'll
+    // transition to Resolved.
+    WaitingForAnchorToBePositioned,
+
+    // The anchor-positioned element has resolved the anchors it refers to.
+    // If we determine any anchor(s) in itself is/are anchor-positioned,
+    // we kick it back to WaitingForAnchorToBePositioned.
     Resolved,
+
+    // The anchor-positioned element has been laid out and its position determined.
+    // This occurs after a Resolved element went through the layout process.
     Positioned,
 };
 

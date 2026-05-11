@@ -41,7 +41,7 @@ struct fmap {
 	void		*map;
 	unsigned char	*buf;
 	int		 fd;
-	size_t		 mapsz;
+	off_t		 mapsz;
 	size_t		 bufsz;		/* Full size of the buffer. */
 	size_t		 datasz;	/* Just the valid portion of the buf. */
 	off_t		 dataoff;	/* Offset into the file. */
@@ -182,7 +182,7 @@ fmap_open_mmap(struct fmap *fm, const char *path, int fd, size_t sz)
  * output.
  */
 struct fmap *
-fmap_open(const char *path, int fd, size_t sz)
+fmap_open(const char *path, int fd, off_t sz)
 {
 	struct fmap *fm;
 
@@ -191,7 +191,16 @@ fmap_open(const char *path, int fd, size_t sz)
 		return NULL;
 
 	fm->fd = fd;
-	fm->ftype = fmap_env_type();
+
+	/*
+	 * We don't want to impede sending files > 4G from 32-bit platforms, so
+	 * we force bufio to run a sliding window since we can't map the whole
+	 * file.
+	 */
+	if (sz > SIZE_MAX)
+		fm->ftype = FT_BUFIO;
+	else
+		fm->ftype = fmap_env_type();
 
 	assert(fm->ftype != FT_NULL);
 	switch (fm->ftype) {
@@ -289,8 +298,9 @@ fmap_buf_slide(struct fmap *fm, off_t offset, size_t datasz)
 	assert(fm->ftype == FT_BUFIO);
 
 	if (offset > fm->dataoff && offset < fm->dataoff + fm->datasz) {
-		size_t clip = offset - fm->dataoff;
+		off_t clip = offset - fm->dataoff;
 
+		assert(clip < SIZE_MAX);
 		/* Clip the first part we won't use, then adjust. */
 		memmove(fm->buf, fm->buf + clip, fm->datasz - clip);
 
@@ -380,7 +390,7 @@ fmap_data(struct fmap *fm, off_t offset, size_t datasz)
 #if defined(__APPLE__) && !defined(NDEBUG)
 		/* Temporary diagnostics */
 		if (offset + datasz > fm->mapsz) {
-			ERRX1("Invalid access; mapsz=%zu, [%llu, %llu) requested",
+			ERRX1("Invalid access; mapsz=%llu, [%llu, %llu) requested",
 			    fm->mapsz, offset, offset + datasz);
 		}
 #endif
@@ -401,7 +411,7 @@ fmap_data(struct fmap *fm, off_t offset, size_t datasz)
 	return NULL;
 }
 
-size_t
+off_t
 fmap_size(struct fmap *fm)
 {
 

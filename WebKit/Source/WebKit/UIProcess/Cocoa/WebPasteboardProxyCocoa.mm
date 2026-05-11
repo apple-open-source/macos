@@ -66,6 +66,23 @@ static PasteboardDataLifetime determineDataLifetime(std::optional<WebPageProxyId
     return PasteboardDataLifetime::Persistent;
 }
 
+#if ENABLE(ATTACHMENT_ELEMENT)
+
+static void addAllowedAttachmentFilePaths(const IPC::Connection& connection, std::optional<WebPageProxyIdentifier> pageID, const Vector<String>& paths)
+{
+    if (!pageID)
+        return;
+
+    RefPtr page = WebProcessProxy::webPage(*pageID);
+    if (!page)
+        return;
+
+    for (auto& path : paths)
+        WebProcessProxy::fromConnection(connection)->addAllowedAttachmentFilePath(path);
+}
+
+#endif // ENABLE(ATTACHMENT_ELEMENT)
+
 void WebPasteboardProxy::grantAccessToCurrentTypes(WebProcessProxy& process, const String& pasteboardName)
 {
     grantAccess(process, pasteboardName, PasteboardAccessType::Types);
@@ -201,8 +218,7 @@ void WebPasteboardProxy::getPasteboardPathnamesForType(IPC::Connection& connecti
 {
     MESSAGE_CHECK_COMPLETION(!pasteboardType.isEmpty(), connection, completionHandler({ }, { }));
 
-    // FIXME: This should consult canAccessPasteboardData() instead, and avoid responding with file paths if it returns false.
-    if (!canAccessPasteboardTypes(connection, pasteboardName))
+    if (!canAccessPasteboardData(connection, pasteboardName))
         return completionHandler({ }, { });
 
     auto dataOwner = determineDataOwner(connection, pasteboardName, pageID, PasteboardAccessIntent::Read);
@@ -222,6 +238,9 @@ void WebPasteboardProxy::getPasteboardPathnamesForType(IPC::Connection& connecti
 
                 return valueOrDefault(SandboxExtension::createHandle(filename, SandboxExtension::Type::ReadOnly));
             });
+#if ENABLE(ATTACHMENT_ELEMENT)
+            addAllowedAttachmentFilePaths(connection, pageID, pathnames);
+#endif
 #endif
         }
         completionHandler(WTF::move(pathnames), WTF::move(sandboxExtensions));
@@ -508,7 +527,14 @@ void WebPasteboardProxy::allPasteboardItemInfo(IPC::Connection& connection, cons
     MESSAGE_CHECK_COMPLETION(dataOwner, connection, completionHandler({ }));
 
     PlatformPasteboard::performAsDataOwner(*dataOwner, [&] {
-        completionHandler(PlatformPasteboard(pasteboardName).allPasteboardItemInfo(changeCount));
+        auto allInfo = PlatformPasteboard(pasteboardName).allPasteboardItemInfo(changeCount);
+#if ENABLE(ATTACHMENT_ELEMENT)
+        if (allInfo) {
+            for (auto& info : *allInfo)
+                addAllowedAttachmentFilePaths(connection, pageID, info.pathsForFileUpload);
+        }
+#endif
+        completionHandler(WTF::move(allInfo));
     });
 }
 
@@ -521,7 +547,12 @@ void WebPasteboardProxy::informationForItemAtIndex(IPC::Connection& connection, 
     MESSAGE_CHECK_COMPLETION(dataOwner, connection, completionHandler(std::nullopt));
 
     PlatformPasteboard::performAsDataOwner(*dataOwner, [&] {
-        completionHandler(PlatformPasteboard(pasteboardName).informationForItemAtIndex(index, changeCount));
+        auto info = PlatformPasteboard(pasteboardName).informationForItemAtIndex(index, changeCount);
+#if ENABLE(ATTACHMENT_ELEMENT)
+        if (info)
+            addAllowedAttachmentFilePaths(connection, pageID, info->pathsForFileUpload);
+#endif
+        completionHandler(WTF::move(info));
     });
 }
 

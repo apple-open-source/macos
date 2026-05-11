@@ -202,6 +202,7 @@ public:
     void lockAll(bool forSleep);
     void unlock(DbHandle db);
     void unlock(DbHandle db, const CssmData &passPhrase);
+    void unlockAlwaysCheck(DbHandle db, const CssmData &passPhrase);
 
     // for indirect unlocking via DP keychain
     void unlockKeybag(DbHandle db, const CssmData &passphrase);

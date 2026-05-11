@@ -50,7 +50,7 @@ int MKBKeyBagGetAKSHandle(MKBKeyBagHandleRef _Nonnull keybag, int32_t *_Nullable
 int MKBGetDeviceLockState(CFDictionaryRef _Nullable options);
 CF_RETURNS_RETAINED CFDictionaryRef _Nullable MKBUserTypeDeviceMode(CFDictionaryRef _Nullable options, CFErrorRef _Nullable * _Nullable error);
 int MKBForegroundUserSessionID( CFErrorRef _Nullable * _Nullable error);
-CF_RETURNS_RETAINED CFDictionaryRef MKBGetDeviceConfigurations(CFDictionaryRef options);
+CF_RETURNS_RETAINED CFDictionaryRef MKBGetDeviceConfigurations(CFDictionaryRef _Nullable options);
 #define kMobileKeyBagSuccess (0)
 #define kMobileKeyBagError (-1)
 #define kMobileKeyBagDeviceLockedError (-2)
@@ -88,6 +88,10 @@ CF_RETURNS_RETAINED CFDictionaryRef MKBGetDeviceConfigurations(CFDictionaryRef o
 + (void)enableCacheFlow;
 + (void)resetCacheFlow;
 + (bool)cacheFlowEnabled;
+
++ (uint64_t)passcodeGeneration;
++ (void)setPasscodeGeneration:(uint64_t)generation;
++ (void)incrementPasscodeGeneration;
 
 @end
 

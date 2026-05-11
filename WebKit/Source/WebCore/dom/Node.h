@@ -334,7 +334,8 @@ public:
     inline void setParentNode(ContainerNode*);
     inline Node& rootNode() const;
     WEBCORE_EXPORT Node& traverseToRootNode() const;
-    Node& shadowIncludingRoot() const;
+    Node& shadowIncludingRoot() const { return *m_shadowIncludingRoot; }
+    void resetShadowIncludingRoot() { m_shadowIncludingRoot = this; }
 
     struct GetRootNodeOptions {
         bool composed;
@@ -342,7 +343,6 @@ public:
     Node& getRootNode(const GetRootNodeOptions&) const;
     
     inline WebCoreOpaqueRoot opaqueRoot() const;
-    WebCoreOpaqueRoot traverseToOpaqueRoot() const;
 
     void queueTaskKeepingThisNodeAlive(TaskSource, Function<void ()>&&);
     void queueTaskToDispatchEvent(TaskSource, Ref<Event>&&);
@@ -541,6 +541,8 @@ public:
         bool treeScopeChanged { false };
     };
     virtual void removedFromAncestor(RemovalType, ContainerNode& oldParentOfRemovedTree);
+
+    void updateShadowIncludingRootForSubtree();
 
     virtual String description() const;
     virtual String debugDescription() const;
@@ -809,6 +811,9 @@ private:
     void derefEventTarget() final;
 
     void trackForDebugging();
+
+    void updateShadowIncludingRoot();
+
     void materializeRareData();
 
     Vector<Ref<MutationObserverRegistration>>* mutationObserverRegistry();
@@ -839,6 +844,7 @@ private:
 
     CheckedPtr<ContainerNode> m_parentNode;
     TreeScope* m_treeScope { nullptr };
+    Node* m_shadowIncludingRoot { nullptr };
     Node* m_previousSibling { nullptr };
     CheckedPtr<Node> m_next;
     RenderObject* m_renderer { nullptr };

@@ -125,6 +125,13 @@
 			remoteGlobalIDString = EE986A9E2F0C8D6300C51417;
 			remoteInfo = "notifyd-testing-lib";
 		};
+		EEA797A02F7331AA00D0E00A /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = EEA7973E2F73247B00D0E00A;
+			remoteInfo = notify_shm_deny_test_helper;
+		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -264,6 +271,7 @@
 		EE3BD0722E1C835E00650B34 /* libCrashReporterClient.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libCrashReporterClient.a; path = Platforms/AppleTVOS.platform/Developer/SDKs/AppleTVOS26.4.Internal.sdk/usr/local/lib/libCrashReporterClient.a; sourceTree = DEVELOPER_DIR; };
 		EE986A9F2F0C8D6300C51417 /* libnotifyd-testing-lib.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libnotifyd-testing-lib.a"; sourceTree = BUILT_PRODUCTS_DIR; };
 		EE986C5C2F0C9DE600C51417 /* notifyd-xctests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "notifyd-xctests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
+		EEA797442F73247B00D0E00A /* notify_shm_deny_test_helper */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = notify_shm_deny_test_helper; sourceTree = BUILT_PRODUCTS_DIR; };
 		EEA9DBD92F11AFD30002ED21 /* libbsm.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libbsm.tbd; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.4.Internal.sdk/usr/lib/libbsm.tbd; sourceTree = DEVELOPER_DIR; };
 		EEA9DBDA2F11AFDC0002ED21 /* libCrashReporterClient.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libCrashReporterClient.a; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.4.Internal.sdk/usr/local/lib/libCrashReporterClient.a; sourceTree = DEVELOPER_DIR; };
 		F74F76AC25DB8EF8008B3BB8 /* notify_old_ipc.defs */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.mig; path = notify_old_ipc.defs; sourceTree = "<group>"; };
@@ -304,6 +312,13 @@
 				service.c,
 			);
 			target = EE986A9E2F0C8D6300C51417 /* notifyd-testing-lib */;
+		};
+		EEA797472F73254500D0E00A /* PBXFileSystemSynchronizedBuildFileExceptionSet */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				notify_shm_deny_test_helper.c,
+			);
+			target = EEA7973E2F73247B00D0E00A /* notify_shm_deny_test_helper */;
 		};
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
@@ -357,7 +372,7 @@
 		EE9867DE2EFC90CE00C51417 /* xcodescripts */ = {isa = PBXFileSystemSynchronizedRootGroup; explicitFileTypes = {}; explicitFolders = (); path = xcodescripts; sourceTree = "<group>"; };
 		EE9867EE2F0843B600C51417 /* xcodeconfig */ = {isa = PBXFileSystemSynchronizedRootGroup; explicitFileTypes = {}; explicitFolders = (); path = xcodeconfig; sourceTree = "<group>"; };
 		EE9867F92F08474000C51417 /* notifyutil */ = {isa = PBXFileSystemSynchronizedRootGroup; exceptions = (EE9867FC2F08474000C51417 /* PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet */, ); explicitFileTypes = {}; explicitFolders = (); path = notifyutil; sourceTree = "<group>"; };
-		EE9868A32F0851CB00C51417 /* tests */ = {isa = PBXFileSystemSynchronizedRootGroup; exceptions = (EE9868A82F0851CB00C51417 /* PBXFileSystemSynchronizedBuildFileExceptionSet */, EE9868A92F0851CB00C51417 /* PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet */, EE9868AA2F0851CB00C51417 /* PBXFileSystemSynchronizedBuildFileExceptionSet */, EE9868AB2F0851CB00C51417 /* PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet */, ); explicitFileTypes = {}; explicitFolders = (); path = tests; sourceTree = "<group>"; };
+		EE9868A32F0851CB00C51417 /* tests */ = {isa = PBXFileSystemSynchronizedRootGroup; exceptions = (EE9868A82F0851CB00C51417 /* PBXFileSystemSynchronizedBuildFileExceptionSet */, EE9868A92F0851CB00C51417 /* PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet */, EE9868AA2F0851CB00C51417 /* PBXFileSystemSynchronizedBuildFileExceptionSet */, EE9868AB2F0851CB00C51417 /* PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet */, EEA797472F73254500D0E00A /* PBXFileSystemSynchronizedBuildFileExceptionSet */, ); explicitFileTypes = {}; explicitFolders = (); path = tests; sourceTree = "<group>"; };
 		EE9869592F08A01B00C51417 /* notifyd */ = {isa = PBXFileSystemSynchronizedRootGroup; exceptions = (EE9869612F08A01B00C51417 /* PBXFileSystemSynchronizedBuildFileExceptionSet */, EE9869622F08A01B00C51417 /* PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet */, EE9869632F08A01B00C51417 /* PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet */, EE9869642F08A01B00C51417 /* PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet */, EE986AB12F0C948E00C51417 /* PBXFileSystemSynchronizedBuildFileExceptionSet */, ); explicitFileTypes = {}; explicitFolders = (); path = notifyd; sourceTree = "<group>"; };
 		EE986C5D2F0C9DE600C51417 /* notifyd-xctests */ = {isa = PBXFileSystemSynchronizedRootGroup; explicitFileTypes = {}; explicitFolders = (); path = "notifyd-xctests"; sourceTree = "<group>"; };
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -444,6 +459,7 @@
 				1864C88B23F227AC00A383C1 /* notify_test_helper */,
 				955DB9262BA377F200D816AE /* notify_loopback_test_helper */,
 				EE986A9F2F0C8D6300C51417 /* libnotifyd-testing-lib.a */,
+				EEA797442F73247B00D0E00A /* notify_shm_deny_test_helper */,
 			);
 			name = Libnotify;
 			sourceTree = "<group>";
@@ -589,6 +605,7 @@
 			buildToolPath = /usr/bin/make;
 			buildWorkingDirectory = tests;
 			dependencies = (
+				EEA797A12F7331AA00D0E00A /* PBXTargetDependency */,
 				955DB92B2BA39B8100D816AE /* PBXTargetDependency */,
 				1864C88D23F227C200A383C1 /* PBXTargetDependency */,
 			);
@@ -768,6 +785,21 @@
 			productReference = EE986C5C2F0C9DE600C51417 /* notifyd-xctests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
 		};
+		EEA7973E2F73247B00D0E00A /* notify_shm_deny_test_helper */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = EEA797412F73247B00D0E00A /* Build configuration list for PBXNativeTarget "notify_shm_deny_test_helper" */;
+			buildPhases = (
+				EEA7973F2F73247B00D0E00A /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = notify_shm_deny_test_helper;
+			productName = notifyutil;
+			productReference = EEA797442F73247B00D0E00A /* notify_shm_deny_test_helper */;
+			productType = "com.apple.product-type.tool";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -812,6 +844,7 @@
 				1886390E20E1A22F00C8BEA9 /* notifybench */,
 				1864C88323F227AC00A383C1 /* notify_test_helper */,
 				955DB91D2BA377F200D816AE /* notify_loopback_test_helper */,
+				EEA7973E2F73247B00D0E00A /* notify_shm_deny_test_helper */,
 				3FA21AC7148AA93000099D2F /* cli_apps */,
 				72FA84F61BD6E9DF00A4CC6F /* darwintests */,
 				72FA84FB1BD6EAB900A4CC6F /* tests */,
@@ -976,6 +1009,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		EEA7973F2F73247B00D0E00A /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -1008,6 +1048,11 @@
 			isa = PBXTargetDependency;
 			target = EE986A9E2F0C8D6300C51417 /* notifyd-testing-lib */;
 			targetProxy = EE986C612F0C9DE600C51417 /* PBXContainerItemProxy */;
+		};
+		EEA797A12F7331AA00D0E00A /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = EEA7973E2F73247B00D0E00A /* notify_shm_deny_test_helper */;
+			targetProxy = EEA797A02F7331AA00D0E00A /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -1458,6 +1503,36 @@
 			};
 			name = Debug;
 		};
+		EEA797422F73247B00D0E00A /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReferenceAnchor = EE9867EE2F0843B600C51417 /* xcodeconfig */;
+			baseConfigurationReferenceRelativePath = notifyutil.xcconfig;
+			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				INSTALL_PATH = /AppleInternal/Tests/Libnotify/;
+				OTHER_LDFLAGS = (
+					"$(inherited)",
+					"-lsandbox",
+				);
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Release;
+		};
+		EEA797432F73247B00D0E00A /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReferenceAnchor = EE9867EE2F0843B600C51417 /* xcodeconfig */;
+			baseConfigurationReferenceRelativePath = notifyutil.xcconfig;
+			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				INSTALL_PATH = /AppleInternal/Tests/Libnotify/;
+				OTHER_LDFLAGS = (
+					"$(inherited)",
+					"-lsandbox",
+				);
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Debug;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -1574,6 +1649,15 @@
 			buildConfigurations = (
 				EE986C632F0C9DE600C51417 /* Release */,
 				EE986C642F0C9DE600C51417 /* Debug */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		EEA797412F73247B00D0E00A /* Build configuration list for PBXNativeTarget "notify_shm_deny_test_helper" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				EEA797422F73247B00D0E00A /* Release */,
+				EEA797432F73247B00D0E00A /* Debug */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

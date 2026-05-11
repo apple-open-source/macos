@@ -135,9 +135,9 @@ extern NSString *const kSecurityRTCEventNameOTLocalCKKSResetOperation;
 // MARK: iCSC reliability
 extern NSString *const kSecurityRTCEventNameEscrowPasscodeEnableCacheFlow;
 extern NSString *const kSecurityRTCEventNameEscrowPasscodeCacheAvailable;
+extern NSString *const kSecurityRTCEventNameEscrowRepairGenerateRecordPasscodeUnlocked;
+extern NSString *const kSecurityRTCEventNameEscrowRepairGenerateRecordPasscodeChanged;
 extern NSString *const kSecurityRTCEventNameEscrowRepairOperation;
-extern NSString *const kSecurityRTCEventNameEscrowRepairOperationPasscodeChanged;
-extern NSString *const kSecurityRTCEventNameEscrowRepairOperationPasscodeUnlocked;
 
 // MARK: RPD
 extern NSString *const kSecurityRTCEventNamePerformCKServerUnreadableDataRemoval;
@@ -292,6 +292,10 @@ extern NSString *const kSecurityRTCFieldAccountIsDBR;
 
 /* Piggybacking RTC Fields */
 extern NSString *const kSecurityRTCFieldTotalViableEscrowRecords;
+
+/* SEP Based Escrow Repair Fields (from CoreCDP) */
+extern NSString *const kSecurityRTCFieldSEPBasedEscrowRepairState;
+extern NSString *const kSecurityRTCFieldSEPBasedEscrowRepairRateLimitDaysLeft;
 
 NS_ASSUME_NONNULL_END
 

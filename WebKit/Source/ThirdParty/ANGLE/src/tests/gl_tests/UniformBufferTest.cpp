@@ -790,7 +790,7 @@ TEST_P(UniformBufferTest, VeryLargeReadback)
 // block before larger one.
 TEST_P(UniformBufferTest, MultipleSizesSmallBeforeBig)
 {
-    constexpr size_t kSizeOfVec4  = 4 * sizeof(float);
+    constexpr GLint kSizeOfVec4   = 4 * sizeof(float);
     constexpr char kUniformName[] = "uni";
     constexpr char kFS1[]         = R"(#version 300 es
 precision highp float;
@@ -817,8 +817,9 @@ void main() {
 
     GLint offsetAlignmentInBytes;
     glGetIntegerv(GL_UNIFORM_BUFFER_OFFSET_ALIGNMENT, &offsetAlignmentInBytes);
-    ASSERT_EQ(offsetAlignmentInBytes % kSizeOfVec4, 0U);
-    GLint offsetAlignmentInVec4 = offsetAlignmentInBytes / kSizeOfVec4;
+    ASSERT_TRUE(offsetAlignmentInBytes < kSizeOfVec4 || offsetAlignmentInBytes % kSizeOfVec4 == 0);
+    GLint offsetAlignmentInVec4 =
+        offsetAlignmentInBytes < kSizeOfVec4 ? 1 : offsetAlignmentInBytes / kSizeOfVec4;
 
     // Insert padding required by implementation to have first unform block at a non-zero
     // offset.
@@ -4612,9 +4613,9 @@ TEST_P(UniformBufferTest, BufferDataInLoop)
 {
     glClear(GL_COLOR_BUFFER_BIT);
 
-    // Use large buffer size to get around suballocation, so that we will gets a new buffer with
+    // Use large buffer size to get around suballocation, so that we will get a new buffer with
     // bufferData call.
-    static constexpr size_t kBufferSize = 4 * 1024 * 1024;
+    static constexpr size_t kBufferSize = 64 * 1024 * 1024;
     std::vector<float> floatData;
     floatData.resize(kBufferSize / (sizeof(float)), 0.0f);
     floatData[0] = 0.5f;
@@ -4774,8 +4775,52 @@ TEST_P(WebGL2UniformBufferTest, LargeArrayOfStructs)
     ANGLE_GL_PROGRAM(program, vs.c_str(), kFragmentShader);
 }
 
+class UniformBufferShadowBufferTest : public UniformBufferTest
+{
+  protected:
+    UniformBufferShadowBufferTest() {}
+};
+
+// Test that using an array buffer as a uniform buffer works correctly, especially
+// when the buffer size is not a multiple of the uniform block size, and the backend
+// expects padded buffers (e.g. Metal with shadow buffers).
+TEST_P(UniformBufferShadowBufferTest, ArrayBufferBoundAsUniformBufferWithBool)
+{
+    constexpr char kFS[] =
+        R"(#version 300 es
+        precision highp float;
+        layout(std140) uniform U { bool b; };
+        out vec4 my_FragColor;
+        void main()
+        {
+            my_FragColor = b ? vec4(0.0, 1.0, 0.0, 1.0) : vec4(1.0, 0.0, 0.0, 1.0);
+        })";
+
+    ANGLE_GL_PROGRAM(program, essl3_shaders::vs::Simple(), kFS);
+    glUseProgram(program);
+
+    GLuint buffer;
+    glGenBuffers(1, &buffer);
+    glBindBuffer(GL_ARRAY_BUFFER, buffer);
+    // Create a buffer of 5 bytes (not a multiple of std140 block size or 16).
+    constexpr uint8_t data[5] = {1, 0, 0, 0, 0};
+    glBufferData(GL_ARRAY_BUFFER, 5, data, GL_STATIC_DRAW);
+
+    GLuint blockIndex = glGetUniformBlockIndex(program, "U");
+    glUniformBlockBinding(program, blockIndex, 0);
+    glBindBufferBase(GL_UNIFORM_BUFFER, 0, buffer);
+
+    drawQuad(program, essl3_shaders::PositionAttrib(), 0.5f);
+    EXPECT_GL_NO_ERROR();
+    EXPECT_PIXEL_COLOR_EQ(0, 0, GLColor::green);
+}
+
 GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(UniformBufferTest);
 ANGLE_INSTANTIATE_TEST_ES3(UniformBufferTest);
+
+GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(UniformBufferShadowBufferTest);
+ANGLE_INSTANTIATE_TEST_ES3_AND(UniformBufferShadowBufferTest,
+                               ES3_METAL().enable(Feature::UseShadowBuffersWhenAppropriate));
 
 GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(UniformBlockWithOneLargeArrayMemberTest);
 ANGLE_INSTANTIATE_TEST_ES3(UniformBlockWithOneLargeArrayMemberTest);

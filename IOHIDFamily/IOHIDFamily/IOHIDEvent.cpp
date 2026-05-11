@@ -1744,6 +1744,12 @@ IOHIDEvent * IOHIDEvent::withBytes(     const void *            bytes,
             break;
         }
         
+
+        // Validate eventDataSize against remaining input buffer before any allocation.
+        if ((size - offset) < eventDataSize) {
+            break;
+        }
+
         IOHIDEvent *event = new IOHIDEvent;
 
         if ( !event ) {
@@ -1751,8 +1757,7 @@ IOHIDEvent * IOHIDEvent::withBytes(     const void *            bytes,
         }
 
         if (!event->initWithType(eventDataType, eventDataSize - sz) ||
-            eventDataSize != event->_data->size ||
-            (size - (attributeLength + offset)) < eventDataSize) {
+            eventDataSize != event->_data->size) {
             event->release();
             break;
         }

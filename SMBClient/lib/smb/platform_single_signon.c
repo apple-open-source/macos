@@ -415,20 +415,28 @@ CFArrayRef smb_od_dns_srv_lookup_parallel_hostnames(CFArrayRef queries,
     
     // Process each query
     for (CFIndex i = 0; i < queryCount; i++) {
-        CFStringRef query = CFArrayGetValueAtIndex(queries, i);
-        
+        /*
+         * Retain query before the block captures it. In a C file, blocks do not
+         * automatically retain CFTypeRef objects — they copy the raw pointer only.
+         * Without this retain, the string can be freed by the caller before the
+         * block executes (e.g. if dispatch_group_wait times out), causing a
+         * use-after-free crash (EXC_ARM_PAC_FAIL in _CFTypeGetClass).
+         */
+        CFStringRef query = (CFStringRef)CFRetain(CFArrayGetValueAtIndex(queries, i));
+
         if (semaphore) {
+            dispatch_retain(semaphore);
             dispatch_semaphore_wait(semaphore, DISPATCH_TIME_FOREVER);
         }
-        
+
         dispatch_group_async(group, queue, ^{
             CFArrayRef result = smb_od_dns_srv_lookup(query, timeout);
-            
+
             if (result) {
                 // Extract hostnames and add to set
                 dispatch_sync(serialQueue, ^{
                     CFArrayAppendValue(allResults, result);
-                    
+
                     CFIndex recordCount = CFArrayGetCount(result);
                     for (CFIndex j = 0; j < recordCount; j++) {
                         CFDictionaryRef record = CFArrayGetValueAtIndex(result, j);
@@ -438,25 +446,32 @@ CFArrayRef smb_od_dns_srv_lookup_parallel_hostnames(CFArrayRef queries,
                         }
                     }
                 });
+                /* allResults now holds its own retain on result; release ours */
+                CFRelease(result);
             }
-            
+
+            /* Release the retain taken above before dispatching this block */
+            CFRelease(query);
+
             if (semaphore) {
                 dispatch_semaphore_signal(semaphore);
+                dispatch_release(semaphore);
             }
         });
     }
-    
-    // Wait and cleanup (give extra 2 seconds for smb_od_dns_srv_lookup() to finish
-    dispatch_group_wait(group, dispatch_time(DISPATCH_TIME_NOW, (timeout +2) * NSEC_PER_SEC));
+
+    /*
+     * Wait indefinitely for all blocks to complete. Each smb_od_dns_srv_lookup()
+     * call has its own internal 5-second timeout and always completes, so this
+     * wait will not hang. A finite timeout here is unsafe: if it expires while
+     * blocks are still queued (e.g. during heavy system load at boot), the caller
+     * frees the query strings and the still-pending blocks crash with
+     * EXC_ARM_PAC_FAIL when they access the freed CFStringRef.
+     */
+    dispatch_group_wait(group, DISPATCH_TIME_FOREVER);
     
     CFArrayRef result = create_array_from_set(uniqueHostnames);
 
-    // Cleanup all results
-    CFIndex resultCount = CFArrayGetCount(allResults);
-    for (CFIndex i = 0; i < resultCount; i++) {
-        CFRelease(CFArrayGetValueAtIndex(allResults, i));
-    }
-    
     /*
      * allResults contains the complete results back from smb_od_dns_srv_lookup and includes
      * host, port, priority and weight. If we ever want to sort in a different way, we have

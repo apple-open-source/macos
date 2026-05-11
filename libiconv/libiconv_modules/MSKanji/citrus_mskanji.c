@@ -1,4 +1,3 @@
-/* $FreeBSD$ */
 /*	$NetBSD: citrus_mskanji.c,v 1.13 2008/06/14 16:01:08 tnozaki Exp $	*/
 
 /*-
@@ -62,8 +61,6 @@
  * SUCH DAMAGE.
  */
 
-
-#include <sys/cdefs.h>
 #include <sys/types.h>
 
 #include <assert.h>

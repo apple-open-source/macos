@@ -26,7 +26,7 @@
 #include "singlediskrep.h"
 #include "sigblob.h"
 #include <DiskImages/DiskImages.h>
-#undef check	// sadness is having to live with C #defines of this kind...
+#import "undef_foundation_macros.h"
 #include <security_utilities/unix++.h>
 
 namespace Security {

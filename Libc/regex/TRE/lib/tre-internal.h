@@ -15,7 +15,11 @@
 
 #ifdef HAVE_WCTYPE_H
 #include <wctype.h>
-#endif /* !HAVE_WCTYPE_H */
+#endif /* HAVE_WCTYPE_H */
+
+#ifdef HAVE_SYS_TYPES_H
+#include <sys/types.h>
+#endif /* HAVE_SYS_TYPES_H */
 
 #include <limits.h>
 #include <ctype.h>
@@ -28,6 +32,10 @@
 
 #include "tre.h"
 #include "tre-last-matched.h"
+
+#define TRE_MAX_RE	65536
+#define TRE_MAX_STRING	INT_MAX
+#define TRE_MAX_STACK	1048576
 
 #ifdef TRE_DEBUG
 #include <stdio.h>
@@ -339,19 +347,19 @@ tre_fill_pmatch(size_t nmatch, regmatch_t pmatch[ __restrict ], int cflags,
 		const tre_tnfa_t * __restrict tnfa, const tre_tag_t * __restrict tags, int match_eo);
 
 __private_extern__ reg_errcode_t
-tre_tnfa_run_parallel(const tre_tnfa_t * __restrict tnfa, const void * __restrict string, int len,
-		      tre_str_type_t type, tre_tag_t * __restrict match_tags, int eflags,
-		      int * __restrict match_end_ofs);
+tre_tnfa_run_parallel(const tre_tnfa_t * __restrict tnfa, const void * __restrict string,
+		      ssize_t len, tre_str_type_t type, tre_tag_t * __restrict match_tags,
+		      int eflags, int * __restrict match_end_ofs);
 
 __private_extern__ reg_errcode_t
 tre_tnfa_run_backtrack(const tre_tnfa_t * __restrict tnfa, const void * __restrict string,
-		       int len, tre_str_type_t type, tre_tag_t * __restrict match_tags,
+		       ssize_t len, tre_str_type_t type, tre_tag_t * __restrict match_tags,
 		       int eflags, int * __restrict match_end_ofs);
 
 #ifdef TRE_APPROX
 __private_extern__ reg_errcode_t
-tre_tnfa_run_approx(const tre_tnfa_t * __restrict tnfa, const void * __restrict string, int len,
-		    tre_str_type_t type, tre_tag_t * __restrict match_tags,
+tre_tnfa_run_approx(const tre_tnfa_t * __restrict tnfa, const void * __restrict string,
+		    ssize_t len, tre_str_type_t type, tre_tag_t * __restrict match_tags,
 		    regamatch_t * __restrict match, regaparams_t params,
 		    int eflags, int * __restrict match_end_ofs);
 #endif /* TRE_APPROX */

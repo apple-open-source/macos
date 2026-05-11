@@ -146,6 +146,9 @@ public enum ContainerError: Error {
     case machineIDVanishedFromTDL
     case allowedMIDHashMismatch
     case deletedMIDHashMismatch
+#if APPLE_FEATURE_DBR
+    case badDBRState(state: Int)
+#endif
 }
 
 extension ContainerError: LocalizedError {
@@ -275,6 +278,10 @@ extension ContainerError: LocalizedError {
             return "allowedMIDHashMismatch"
         case .deletedMIDHashMismatch:
             return "deletedMIDHashMismatch"
+#if APPLE_FEATURE_DBR
+        case .badDBRState(state: let state):
+            return "bad DBR state: \(state)"
+#endif
         }
     }
 }
@@ -412,6 +419,10 @@ extension ContainerError: CustomNSError {
             return 63
         case .deletedMIDHashMismatch:
             return 64
+#if APPLE_FEATURE_DBR
+        case .badDBRState:
+            return 65
+#endif
         }
     }
 
@@ -547,36 +558,78 @@ internal func traceError(_ error: Error?) -> String {
 }
 
 func doPeerSecretsFixUps() throws {
-    let updateQuery: [CFString: Any] = [
-        kSecAttrAccessible: kSecAttrAccessibleWhenUnlockedThisDeviceOnly,
-    ]
+    let newAccessibility = kSecAttrAccessibleWhenUnlockedThisDeviceOnly
 
-    // Update keys (Escrow + Recovery keys)
-    let keysQuery: [CFString: Any] = [
-        kSecClass: kSecClassKey,
-        kSecAttrAccessGroup: "com.apple.security.octagon",
-        kSecUseDataProtectionKeychain: true,
-        kSecAttrAccessible: kSecAttrAccessibleWhenUnlocked,
-        kSecAttrSynchronizable: false,
-    ]
-
-    let keysStatus = SecItemUpdate(keysQuery as CFDictionary, updateQuery as CFDictionary)
-    if keysStatus != errSecSuccess && keysStatus != errSecItemNotFound {
-        throw ContainerError.failedToStoreSecret(errorCode: Int(keysStatus))
-    }
+    // Update keys (Escrow + Recovery keys) in batches to avoid holding
+    // the securityd DB lock for the entire set of items. Each item requires
+    // decrypt + re-encrypt via AKS, and a bulk SecItemUpdate holds the
+    // exclusive lock for all rows, starving other securityd clients. (rdar://174428566)
+    try updateItemsAccessibilityInBatches(
+        itemClass: kSecClassKey,
+        accessGroup: "com.apple.security.octagon",
+        fromAccessible: kSecAttrAccessibleWhenUnlocked,
+        toAccessible: newAccessibility
+    )
 
     // Update secrets (bottle entropy)
-    let secretsQuery: [CFString: Any] = [
-        kSecClass: kSecClassInternetPassword,
-        kSecAttrAccessGroup: "com.apple.security.octagon",
+    try updateItemsAccessibilityInBatches(
+        itemClass: kSecClassInternetPassword,
+        accessGroup: "com.apple.security.octagon",
+        fromAccessible: kSecAttrAccessibleWhenUnlocked,
+        toAccessible: newAccessibility
+    )
+}
+
+private func updateItemsAccessibilityInBatches(
+    itemClass: CFString,
+    accessGroup: String,
+    fromAccessible: CFString,
+    toAccessible: CFString,
+    batchSize: Int = 10
+) throws {
+    let fetchQuery: [CFString: Any] = [
+        kSecClass: itemClass,
+        kSecAttrAccessGroup: accessGroup,
         kSecUseDataProtectionKeychain: true,
-        kSecAttrAccessible: kSecAttrAccessibleWhenUnlocked,
+        kSecAttrAccessible: fromAccessible,
         kSecAttrSynchronizable: false,
+        kSecReturnPersistentRef: true,
+        kSecMatchLimit: batchSize,
     ]
 
-    let secretsStatus = SecItemUpdate(secretsQuery as CFDictionary, updateQuery as CFDictionary)
-    if secretsStatus != errSecSuccess && secretsStatus != errSecItemNotFound {
-        throw ContainerError.failedToStoreSecret(errorCode: Int(secretsStatus))
+    let updateAttrs: [CFString: Any] = [
+        kSecAttrAccessible: toAccessible,
+    ]
+
+    while true {
+        var result: CFTypeRef?
+        let fetchStatus = SecItemCopyMatching(fetchQuery as CFDictionary, &result)
+
+        if fetchStatus == errSecItemNotFound {
+            break
+        }
+        guard fetchStatus == errSecSuccess else {
+            throw ContainerError.failedToStoreSecret(errorCode: Int(fetchStatus))
+        }
+
+        let refs: [Data]
+        if let multiple = result as? [Data] {
+            refs = multiple
+        } else {
+            break
+        }
+
+        for persistentRef in refs {
+            let status = SecItemUpdate(
+                [kSecValuePersistentRef: persistentRef] as CFDictionary,
+                updateAttrs as CFDictionary
+            )
+            if status != errSecSuccess && status != errSecItemNotFound {
+                throw ContainerError.failedToStoreSecret(errorCode: Int(status))
+            }
+        }
+        // Updated items changed accessibility, so they no longer match
+        // fetchQuery. Next iteration naturally gets the next batch.
     }
 }
 
@@ -1066,6 +1119,10 @@ class Container: NSObject, ConfiguredCloudKit {
     internal var containerMO: ContainerMO
     internal var model: TPModel
     private var dbAdapter: DBAdapter
+
+    func testOnlyGetDBAdapter() -> DBAdapter {
+        return self.dbAdapter
+    }
     internal var escrowCacheTimeout: TimeInterval
 
     // Used in tests only. Set when an identity is prepared using a policy version override
@@ -1144,7 +1201,7 @@ class Container: NSObject, ConfiguredCloudKit {
     // So that TPModel can read directly from the DB, rather than keeping a copy of everything internally
     class DBAdapter: TPModelDBAdapterProtocol {
         private let moc: NSManagedObjectContext
-        private let containerMO: ContainerMO
+        private var containerMO: ContainerMO
         private var hmacKey: Data?
 
         init(moc: NSManagedObjectContext,
@@ -1153,6 +1210,10 @@ class Container: NSObject, ConfiguredCloudKit {
             self.moc = moc
             self.containerMO = containerMO
             self.hmacKey = hmacKey
+        }
+
+        func updateContainerMO(_ newContainerMO: ContainerMO) {
+            self.containerMO = newContainerMO
         }
 
         func getHmacKey() -> Data? {
@@ -1633,6 +1694,7 @@ class Container: NSObject, ConfiguredCloudKit {
                 logger.error("containerMO could not be fetched again?")
                 fatalError("containerMO could not be fetched again?")
             }
+            dbAdapter.updateContainerMO(newContainerMO)
             return (newContainerMO, model, dbAdapter)
         }
 
@@ -2581,7 +2643,29 @@ class Container: NSObject, ConfiguredCloudKit {
         reply(nil)
     }
 
-    func enableWalrus(preRecords: [OTSerializedPlistEscrowRecord], extraArgs: TPWalrusExtraArguments, flowID: String?, deviceSessionID: String?, reply: @escaping (Error?) -> Void) {
+#if APPLE_FEATURE_DBR
+    static func ExtractPDPState(extraArgs: TPWalrusExtraArguments) throws -> PDPState {
+        let pdpStateInt = Int(extraArgs.pdpState)
+        let pdpState = PDPState(rawValue: pdpStateInt)
+        guard let pdpState else {
+            logger.error("cannot enable walrus in unknown PDP state \(pdpStateInt)")
+            throw ContainerError.badDBRState(state: pdpStateInt)
+        }
+        switch pdpState {
+        case .UNRECOGNIZED:
+            logger.error("cannot enable walrus in unknown PDP state \(pdpStateInt)")
+            throw ContainerError.badDBRState(state: pdpStateInt)
+        default:
+            return pdpState
+        }
+    }
+#endif
+
+    func enableWalrus(preRecords: [OTSerializedPlistEscrowRecord],
+                      extraArgs: TPWalrusExtraArguments,
+                      flowID: String?,
+                      deviceSessionID: String?,
+                      reply: @escaping (Error?) -> Void) {
         let sem = self.grabSemaphore()
         let reply: (Error?) -> Void = {
             let logType: OSLogType = $0 == nil ? .info : .error
@@ -2590,90 +2674,95 @@ class Container: NSObject, ConfiguredCloudKit {
             reply($0)
         }
 
-        self.moc.performAndWait {
-            guard let egoPeerID = self.containerMO.egoPeerID else {
-                logger.error("no prepared identity, cannot enable walrus")
-                reply(ContainerError.noPreparedIdentity)
+        self.fetchChangesAndUpdateTrustIfNeeded { _, _, fetchError in
+            if let fetchError {
+                logger.error("couldn't fetch changes, cannot enable walrus")
+                reply(fetchError)
                 return
             }
-
-            loadEgoKeyPair(identifier: signingKeyIdentifier(peerID: egoPeerID)) { signingKeyPair, error in
-                guard let signingKeyPair = signingKeyPair else {
-                    logger.error("handle: no signing key pair: \(String(describing: error), privacy: .public)")
-                    reply(error)
+            self.moc.performAndWait {
+                guard let egoPeerID = self.containerMO.egoPeerID else {
+                    logger.error("no prepared identity, cannot enable walrus")
+                    reply(ContainerError.noPreparedIdentity)
                     return
                 }
 
-                do {
-                    // Check our current walrus state before proceeding. If walrus is already enabled, exit.
-                    guard let stableInfoData = self.containerMO.egoPeerStableInfo else {
-                        logger.info("stableInfo does not exist")
-                        throw ContainerError.nonMember
-                    }
-                    guard let stableInfoSig = self.containerMO.egoPeerStableInfoSig else {
-                        logger.info("stableInfoSig does not exist")
-                        throw ContainerError.nonMember
-                    }
-                    guard let stableInfo = TPPeerStableInfo(data: stableInfoData, sig: stableInfoSig) else {
-                        logger.info("cannot create TPPeerStableInfo")
-                        throw ContainerError.invalidStableInfoOrSig
+                loadEgoKeyPair(identifier: signingKeyIdentifier(peerID: egoPeerID)) { signingKeyPair, error in
+                    guard let signingKeyPair = signingKeyPair else {
+                        logger.error("handle: no signing key pair: \(String(describing: error), privacy: .public)")
+                        reply(error)
+                        return
                     }
 
-                    // Convert OTSerializedPlistEscrowRecord to Cuttlefish PreRecordType
-                    let cuttlefishPreRecords: [EscrowRecordFormatQuery] = preRecords.map { preRecord in
-                        EscrowRecordFormatQuery.with {
-                            $0.label = preRecord.label
-                            $0.metadata = preRecord.metadata
-                            $0.blob = preRecord.blob
+                    do {
+                        // Convert OTSerializedPlistEscrowRecord to Cuttlefish PreRecordType
+                        let cuttlefishPreRecords: [EscrowRecordFormatQuery] = preRecords.map { preRecord in
+                            EscrowRecordFormatQuery.with {
+                                $0.label = preRecord.label
+                                $0.metadata = preRecord.metadata
+                                $0.blob = preRecord.blob
+                            }
                         }
-                    }
-                    var request = EnableWalrusRequest.with {
-                        $0.escrowRecords = cuttlefishPreRecords
-                        $0.changeToken = self.changeToken()
-                        $0.peerID = egoPeerID
-                        $0.metrics = Metrics.with {
-                            $0.deviceSessionID = deviceSessionID ?? ""
-                            $0.flowID = flowID ?? ""
+                        var request = EnableWalrusRequest.with {
+                            $0.escrowRecords = cuttlefishPreRecords
+                            $0.changeToken = self.changeToken()
+                            $0.peerID = egoPeerID
+                            $0.metrics = Metrics.with {
+                                $0.deviceSessionID = deviceSessionID ?? ""
+                                $0.flowID = flowID ?? ""
+                            }
                         }
-                    }
 #if APPLE_FEATURE_DBR
-                    request.isDbrv2 = extraArgs.isDBRv2
+                        request.isDbrv2 = extraArgs.isDBRv2
+                        request.pdpState = try Container.ExtractPDPState(extraArgs: extraArgs)
 #endif
-                    let updatedStableInfo = try self.onQueueGenerateUpdatedStableInfoForWalrusChange(signingKeyPair: signingKeyPair, walrusValue: true)
-                    request.stableInfoAndSig = SignedPeerStableInfo(updatedStableInfo)
-
-                    self.cuttlefish.enableWalrus(request) { response in
-                        switch response {
-                        case .success(let response):
-                            logger.notice("enableWalrus success")
-                            do {
-                                let responseChangesJson = try response.changes.jsonString()
-                                logger.info("EnableWalrus returned changes: \(responseChangesJson, privacy: .public)")
-                            } catch {
-                                logger.info("EnableWalrus returned changes, but they can't be serialized")
-                            }
-                            do {
-                                try self.persist(changes: response.changes)
-                                try self.fetchChangesAfterWalrusStateChange(changes: response.changes, reply: reply)
-                            } catch {
-                                logger.error("enableWalrus handling failed: \(String(describing: error), privacy: .public)")
-                                reply(error)
-                            }
-                        case .failure(let error):
-                            logger.error("enableWalrus failed: \(String(describing: error), privacy: .public)")
-                            reply(error)
-                            return
+                        let updatedStableInfo = try self.onQueueGenerateUpdatedStableInfoForWalrusChange(signingKeyPair: signingKeyPair, walrusValue: true)
+                        request.stableInfoAndSig = SignedPeerStableInfo(updatedStableInfo)
+#if APPLE_FEATURE_DBR
+                        logger.debug("Asking cuttlefish to enable walrus in dbr state: \(String(describing: request.pdpState)) with pre-records: \(request.escrowRecords.map { $0.label })")
+                        if let dbrPreRecord = request.escrowRecords.first(where: { $0.label == "com.apple.protectedcloudstorage.dbrv2.record" }) {
+                            logger.debug("DBR pre-record blob: \(dbrPreRecord.blob)")
                         }
+#else
+                        logger.debug("Asking cuttlefish to enable walrus with pre-records: \(request.escrowRecords.map { $0.label })")
+#endif
+                        self.cuttlefish.enableWalrus(request) { response in
+                            switch response {
+                            case .success(let response):
+                                logger.notice("enableWalrus success")
+                                do {
+                                    let responseChangesJson = try response.changes.jsonString()
+                                    logger.info("EnableWalrus returned changes: \(responseChangesJson, privacy: .public)")
+                                } catch {
+                                    logger.info("EnableWalrus returned changes, but they can't be serialized")
+                                }
+                                do {
+                                    try self.persist(changes: response.changes)
+                                    try self.fetchChangesAfterWalrusStateChange(changes: response.changes, reply: reply)
+                                } catch {
+                                    logger.error("enableWalrus handling failed: \(String(describing: error), privacy: .public)")
+                                    reply(error)
+                                }
+                            case .failure(let error):
+                                logger.error("enableWalrus failed: \(String(describing: error), privacy: .public)")
+                                reply(error)
+                                return
+                            }
+                        }
+                    } catch {
+                        logger.info("Could not attempt to enable walrus: \(error)")
+                        reply(error)
                     }
-                } catch {
-                    logger.info("Could not attempt to enable walrus: \(error)")
-                    reply(error)
                 }
             }
         }
     }
 
-    func disableWalrus(preRecords: [OTSerializedPlistEscrowRecord], extraArgs: TPWalrusExtraArguments, flowID: String?, deviceSessionID: String?, reply: @escaping (Error?) -> Void) {
+    func disableWalrus(preRecords: [OTSerializedPlistEscrowRecord],
+                       extraArgs: TPWalrusExtraArguments,
+                       flowID: String?,
+                       deviceSessionID: String?,
+                       reply: @escaping (Error?) -> Void) {
         let sem = self.grabSemaphore()
         let reply: (Error?) -> Void = {
             let logType: OSLogType = $0 == nil ? .info : .error
@@ -2681,69 +2770,83 @@ class Container: NSObject, ConfiguredCloudKit {
             sem.release()
             reply($0)
         }
-        self.moc.performAndWait {
-            guard let egoPeerID = self.containerMO.egoPeerID else {
-                logger.info("no prepared identity, cannot disable walrus")
-                reply(ContainerError.noPreparedIdentity)
+
+        self.fetchChangesAndUpdateTrustIfNeeded { _, _, fetchError in
+            if let fetchError {
+                logger.error("couldn't fetch changes, cannot disable walrus")
+                reply(fetchError)
                 return
             }
-
-            loadEgoKeyPair(identifier: signingKeyIdentifier(peerID: egoPeerID)) { signingKeyPair, error in
-                guard let signingKeyPair = signingKeyPair else {
-                    logger.error("handle: no signing key pair: \(String(describing: error), privacy: .public)")
-                    reply(error)
+            self.moc.performAndWait {
+                guard let egoPeerID = self.containerMO.egoPeerID else {
+                    logger.info("no prepared identity, cannot disable walrus")
+                    reply(ContainerError.noPreparedIdentity)
                     return
                 }
 
-                do {
-                    // Convert OTSerializedPlistEscrowRecord to Cuttlefish PreRecordType
-                    let cuttlefishPreRecords: [EscrowRecordFormatQuery] = preRecords.map { preRecord in
-                        EscrowRecordFormatQuery.with {
-                            $0.label = preRecord.label
-                            $0.metadata = preRecord.metadata
-                            $0.blob = preRecord.blob
-                        }
+                loadEgoKeyPair(identifier: signingKeyIdentifier(peerID: egoPeerID)) { signingKeyPair, error in
+                    guard let signingKeyPair = signingKeyPair else {
+                        logger.error("handle: no signing key pair: \(String(describing: error), privacy: .public)")
+                        reply(error)
+                        return
                     }
-                    var request = DisableWalrusRequest.with {
-                        $0.escrowRecords = cuttlefishPreRecords
-                        $0.changeToken = self.changeToken()
-                        $0.peerID = egoPeerID
-                        $0.metrics = Metrics.with {
-                            $0.deviceSessionID = deviceSessionID ?? ""
-                            $0.flowID = flowID ?? ""
-                        }
-                    }
-#if APPLE_FEATURE_DBR
-                    request.isDbrv2 = extraArgs.isDBRv2
-#endif
-                    let updatedStableInfo = try self.onQueueGenerateUpdatedStableInfoForWalrusChange(signingKeyPair: signingKeyPair, walrusValue: false)
-                    request.stableInfoAndSig = SignedPeerStableInfo(updatedStableInfo)
 
-                    self.cuttlefish.disableWalrus(request) { response in
-                        switch response {
-                        case .success(let response):
-                            logger.notice("disableWalrus success")
-                            do {
-                                let responseChangesJson = try response.changes.jsonString()
-                                logger.info("DisableWalrus returned changes: \(responseChangesJson, privacy: .public)")
-                            } catch {
-                                logger.info("DisableWalrus returned changes, but they can't be serialized")
+                    do {
+                        // Convert OTSerializedPlistEscrowRecord to Cuttlefish PreRecordType
+                        let cuttlefishPreRecords: [EscrowRecordFormatQuery] = preRecords.map { preRecord in
+                            EscrowRecordFormatQuery.with {
+                                $0.label = preRecord.label
+                                $0.metadata = preRecord.metadata
+                                $0.blob = preRecord.blob
                             }
-                            do {
-                                try self.persist(changes: response.changes)
-                                try self.fetchChangesAfterWalrusStateChange(changes: response.changes, reply: reply)
-                            } catch {
-                                logger.error("disableWalrus handling failed: \(String(describing: error), privacy: .public)")
-                                reply(error)
-                            }
-                        case .failure(let error):
-                            logger.error("disableWalrus failed: \(String(describing: error), privacy: .public)")
-                            reply(error)
-                            return
                         }
+                        var request = DisableWalrusRequest.with {
+                            $0.escrowRecords = cuttlefishPreRecords
+                            $0.changeToken = self.changeToken()
+                            $0.peerID = egoPeerID
+                            $0.metrics = Metrics.with {
+                                $0.deviceSessionID = deviceSessionID ?? ""
+                                $0.flowID = flowID ?? ""
+                            }
+                        }
+#if APPLE_FEATURE_DBR
+                        request.isDbrv2 = extraArgs.isDBRv2
+                        request.pdpState = try Container.ExtractPDPState(extraArgs: extraArgs)
+#endif
+                        let updatedStableInfo = try self.onQueueGenerateUpdatedStableInfoForWalrusChange(signingKeyPair: signingKeyPair, walrusValue: false)
+                        request.stableInfoAndSig = SignedPeerStableInfo(updatedStableInfo)
+
+#if APPLE_FEATURE_DBR
+                        logger.debug("Asking cuttlefish to disable walrus in dbr state: \(String(describing: request.pdpState)) with pre-records: \(request.escrowRecords.map { $0.label })")
+#else
+                        logger.debug("Asking cuttlefish to disable walrus with pre-records: \(request.escrowRecords.map { $0.label })")
+#endif
+                        self.cuttlefish.disableWalrus(request) { response in
+                            switch response {
+                            case .success(let response):
+                                logger.notice("disableWalrus success")
+                                do {
+                                    let responseChangesJson = try response.changes.jsonString()
+                                    logger.info("DisableWalrus returned changes: \(responseChangesJson, privacy: .public)")
+                                } catch {
+                                    logger.info("DisableWalrus returned changes, but they can't be serialized")
+                                }
+                                do {
+                                    try self.persist(changes: response.changes)
+                                    try self.fetchChangesAfterWalrusStateChange(changes: response.changes, reply: reply)
+                                } catch {
+                                    logger.error("disableWalrus handling failed: \(String(describing: error), privacy: .public)")
+                                    reply(error)
+                                }
+                            case .failure(let error):
+                                logger.error("disableWalrus failed: \(String(describing: error), privacy: .public)")
+                                reply(error)
+                                return
+                            }
+                        }
+                    } catch {
+                        reply(error)
                     }
-                } catch {
-                    reply(error)
                 }
             }
         }
@@ -5033,6 +5136,36 @@ class Container: NSObject, ConfiguredCloudKit {
         }
     }
 
+    func fetchEgoBottleID(reply: @escaping (String?, Error?) -> Void) {
+        let sem = self.grabSemaphore()
+        let reply: (String?, Error?) -> Void = {
+            let logType: OSLogType = $1 == nil ? .info : .error
+            logger.log(level: logType, "fetchEgoBottleID complete: \(traceError($1), privacy: .public)")
+            sem.release()
+            reply($0, $1)
+        }
+        logger.info("beginning a fetchEgoBottleID")
+
+        self.moc.performAndWait {
+            guard let egoPeerID = self.containerMO.egoPeerID else {
+                reply(nil, ContainerError.noPreparedIdentity)
+                return
+            }
+
+            guard let bottles = self.containerMO.bottles as? Set<BottleMO> else {
+                reply(nil, ContainerError.noBottleForPeer)
+                return
+            }
+
+            guard let bmo = (bottles.first { $0.peerID == egoPeerID }) else {
+                reply(nil, ContainerError.noBottleForPeer)
+                return
+            }
+
+            reply(bmo.bottleID, nil)
+        }
+    }
+
     func fetchViableBottles(from source: OTEscrowRecordFetchSource, flowID: String?, deviceSessionID: String?, reply: @escaping ([String]?, [String]?, Error?) -> Void) {
         let sem = self.grabSemaphore()
         self.fetchViableBottlesWithSemaphore(from: source, flowID: flowID, deviceSessionID: deviceSessionID) { result in
@@ -6138,6 +6271,7 @@ class Container: NSObject, ConfiguredCloudKit {
                      flowID: String?,
                      deviceSessionID: String?,
                      daysLeftOnRateLimit: Int,
+                     rateLimitState: Int,
                      reply: @escaping (OTEscrowCheckCallResult?, Error?) -> Void) {
         let sem = self.grabSemaphore()
         let ret = OTEscrowCheckCallResult()
@@ -6147,11 +6281,7 @@ class Container: NSObject, ConfiguredCloudKit {
         ret.repairReason = 0 // default case
         ret.repairDisabled = false // default case
         ret.daysLeftOnRateLimit = daysLeftOnRateLimit
-        if daysLeftOnRateLimit > 0 {
-            ret.rateLimitState = OTEscrowCheckRateLimitState.rateLimited.rawValue
-        } else {
-            ret.rateLimitState = OTEscrowCheckRateLimitState.notRateLimited.rawValue
-        }
+        ret.rateLimitState = rateLimitState
         let reply: (OTEscrowCheckCallResult?, Error?) -> Void = {
             let logType: OSLogType = $1 == nil ? .info : .error
             logger.log(level: logType, "escrow check complete: \(traceError($1), privacy: .public)")
@@ -6163,9 +6293,7 @@ class Container: NSObject, ConfiguredCloudKit {
             guard let egoPeerID = self.containerMO.egoPeerID else {
                 // No identity, nothing to do
                 logger.info("escrow check: No identity.")
-                ret.needsReenroll = false
-                ret.octagonTrusted = OctagonTrustStatus.notTrustedLocally.rawValue
-                reply(ret, ContainerError.noPreparedIdentity)
+                reply(nil, ContainerError.noPreparedIdentity)
                 return
             }
 

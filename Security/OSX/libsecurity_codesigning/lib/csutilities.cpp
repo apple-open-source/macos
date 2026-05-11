@@ -64,7 +64,7 @@ namespace Security {
 namespace CodeSigning {
 
 //
-// Test for the canonical Apple CA certificate
+// Test for a canonical Apple codesgining root CA certificate
 //
 bool isAppleCA(SecCertificateRef cert)
 {
@@ -73,7 +73,7 @@ bool isAppleCA(SecCertificateRef cert)
 		flags |= kSecAppleTrustAnchorFlagsIncludeTestAnchors;
 		flags |= kSecAppleTrustAnchorFlagsAllowNonProduction;
 	}
-	return SecIsAppleTrustAnchor(cert, flags);
+	return SecIsAppleTrustAnchorForPolicy(cert, kSecPolicyAppleCodeSigning, flags);
 }
 
 

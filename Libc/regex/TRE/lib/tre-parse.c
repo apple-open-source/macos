@@ -1307,7 +1307,7 @@ tre_parse(tre_parse_ctx_t *ctx)
   tre_parse_re_stack_symbol_t symbol;
   reg_errcode_t status = REG_OK;
   tre_stack_t *stack = ctx->stack;
-  int bottom = tre_stack_num_objects(stack);
+  size_t bottom = tre_stack_num_items(stack);
   int depth = 0;
   int temporary_cflags = 0;
   int bre_branch_begin;
@@ -1315,8 +1315,8 @@ tre_parse(tre_parse_ctx_t *ctx)
   const tre_char_t *tmp_re;
 #endif
 
-  DPRINT(("tre_parse: parsing '%.*" STRF "', len = %d cflags = 0%o\n",
-	  ctx->len, ctx->re, ctx->len, ctx->cflags));
+  DPRINT(("tre_parse: parsing '%.*" STRF "', len = %zu cflags = 0%o\n",
+	  (int)ctx->len, ctx->re, ctx->len, ctx->cflags));
 
   if (ctx->len <= 0) return REG_EMPTY;
   if (!ctx->nofirstsub)
@@ -1336,7 +1336,7 @@ tre_parse(tre_parse_ctx_t *ctx)
      an explicit stack instead of recursive functions mostly because of
      two reasons: compatibility with systems which have an overflowable
      call stack, and efficiency (both in lines of code and speed).  */
-  while (tre_stack_num_objects(stack) > bottom && status == REG_OK)
+  while (status == REG_OK && tre_stack_num_items(stack) > bottom)
     {
       symbol = tre_stack_pop_int(stack);
       switch (symbol)

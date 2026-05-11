@@ -28,6 +28,8 @@
 #include <Security/SecPolicyPriv.h>
 #include <Security/SecTrustPriv.h>
 #include <Security/SecTrustInternal.h>
+#include <utilities/SecInternalReleasePriv.h>
+#include <utilities/SecAppleAnchorPriv.h>
 #include "OSX/utilities/SecCFWrappers.h"
 #include "OSX/utilities/array_size.h"
 #include "OSX/sec/ipc/securityd_client.h"
@@ -1267,6 +1269,77 @@ errOut:
     CFReleaseNull(cert1);
     CFReleaseNull(cert2);
     CFReleaseNull(policy);
+}
+
+- (void)verifyNoTestAnchors:(NSArray *)anchors {
+    for (id anchor in anchors) {
+        SecCertificateRef cert = (__bridge SecCertificateRef)anchor;
+        NSString *name = CFBridgingRelease(SecCertificateCopySubjectSummary(cert));
+        if ([name containsString:@"Test"]) {
+            if (!SecIsInternalRelease()) {
+                XCTFail("Got a Test Apple Anchor on a prod system");
+            }
+        }
+    }
+}
+
+- (void)verifyContainsBuiltInAnchors:(NSArray *)anchors {
+    NSDictionary *builtInAnchors = CFBridgingRelease(SecCopyBuiltInAppleTrustAnchors(true));
+    for (id anchor in builtInAnchors) {
+        XCTAssert([anchors containsObject:anchor]);
+    }
+}
+
+- (void)testCopyAppleAnchorsForPolicy {
+    // Determine which test suite we're running in, as running in trustd should only return the built-in anchors
+    bool isXPCTests = [NSStringFromClass([self class]) isEqualToString:@"TrustInterfaceXPCTests"];
+    bool isBrideOS = TARGET_OS_BRIDGE; // bridgeOS doesn't have an OTA trust store
+    bool shouldBeBuiltInRootsOnly = !isXPCTests || isBrideOS;
+
+    NSUInteger builtInAnchorsCount = SecIsInternalRelease() ? 14 : 6;
+
+    NSUInteger allAnchorsCount = SecIsInternalRelease() ? 34 : 16; // 14 built-in anchors + all 20 OTA anchors
+    NSArray *nullAnchors = CFBridgingRelease(SecTrustCopyAppleAnchors(NULL));
+    XCTAssertNotNil(nullAnchors);
+    XCTAssertGreaterThanOrEqual(nullAnchors.count, shouldBeBuiltInRootsOnly ? builtInAnchorsCount : allAnchorsCount);
+    [self verifyNoTestAnchors:nullAnchors];
+    [self verifyContainsBuiltInAnchors:nullAnchors];
+
+    NSArray *basicAnchors = CFBridgingRelease(SecTrustCopyAppleAnchors(kSecPolicyAppleX509Basic));
+    XCTAssertNotNil(basicAnchors);
+    XCTAssertGreaterThanOrEqual(basicAnchors.count, shouldBeBuiltInRootsOnly ? builtInAnchorsCount : allAnchorsCount);
+    [self verifyNoTestAnchors:basicAnchors];
+    [self verifyContainsBuiltInAnchors:basicAnchors];
+
+    NSUInteger builtInAndSinglePurposeCount = SecIsInternalRelease() ? 18 : 8; // 14 built-in anchors + 4 OTA single-purpose anchors
+    NSArray *sslAnchors = CFBridgingRelease(SecTrustCopyAppleAnchors(kSecPolicyAppleSSLServer));
+    XCTAssertNotNil(sslAnchors);
+    XCTAssertGreaterThanOrEqual(sslAnchors.count, shouldBeBuiltInRootsOnly ? builtInAnchorsCount : builtInAndSinglePurposeCount);
+    [self verifyNoTestAnchors:sslAnchors];
+    [self verifyContainsBuiltInAnchors:sslAnchors];
+
+    NSArray *rcseAnchors = CFBridgingRelease(SecTrustCopyAppleAnchors(kSecPolicyAppleRCSEncryption));
+    XCTAssertNotNil(rcseAnchors);
+    XCTAssertGreaterThanOrEqual(rcseAnchors.count, 0); // custom policy so no apple anchors
+
+    NSArray *swAnchors = CFBridgingRelease(SecTrustCopyAppleAnchors(kSecPolicyAppleSoftwareSigning));
+    XCTAssertNotNil(swAnchors);
+    XCTAssertGreaterThanOrEqual(swAnchors.count, shouldBeBuiltInRootsOnly ? builtInAnchorsCount : builtInAndSinglePurposeCount);
+    [self verifyNoTestAnchors:swAnchors];
+    [self verifyContainsBuiltInAnchors:swAnchors];
+
+    NSArray *pinnedSSLAnchors = CFBridgingRelease(SecTrustCopyAppleAnchors(kSecPolicyAppleGenericAppleSSLPinned));
+    XCTAssertNotNil(pinnedSSLAnchors);
+    XCTAssertGreaterThanOrEqual(pinnedSSLAnchors.count, shouldBeBuiltInRootsOnly ? builtInAnchorsCount : builtInAndSinglePurposeCount);
+    [self verifyNoTestAnchors:pinnedSSLAnchors];
+    [self verifyContainsBuiltInAnchors:pinnedSSLAnchors];
+
+    NSUInteger builtInAndMultiPurposeCount = SecIsInternalRelease() ? 22 : 10; // 14 built-in anchors + 8 OTA multi-purpose anchors
+    NSArray *pinnedAnchors = CFBridgingRelease(SecTrustCopyAppleAnchors(kSecPolicyAppleGenericApplePinned));
+    XCTAssertNotNil(pinnedAnchors);
+    XCTAssertGreaterThanOrEqual(pinnedAnchors.count, shouldBeBuiltInRootsOnly ? builtInAnchorsCount : builtInAndMultiPurposeCount);
+    [self verifyNoTestAnchors:pinnedAnchors];
+    [self verifyContainsBuiltInAnchors:pinnedAnchors];
 }
 
 @end

@@ -137,13 +137,16 @@ typedef CF_ENUM(uint16_t, tls_ciphersuite_t) {
  * @constant tls_ciphersuite_group_legacy
  * @constant tls_ciphersuite_group_ats
  * @constant tls_ciphersuite_group_ats_compatibility
+ * @constant tls_ciphersuite_group_ats_fcp_v2_1
  */
+API_AVAILABLE(macos(10.15), ios(13.0), watchos(6.0), tvos(13.0), visionos(1.0))
 typedef CF_ENUM(uint16_t, tls_ciphersuite_group_t) {
     tls_ciphersuite_group_default,
     tls_ciphersuite_group_compatibility,
     tls_ciphersuite_group_legacy,
     tls_ciphersuite_group_ats,
     tls_ciphersuite_group_ats_compatibility,
+    tls_ciphersuite_group_ats_fcp_v2_1 API_AVAILABLE(macos(26.5), ios(26.5), tvos(26.5), watchos(26.5), visionos(26.5)),
 };
 
 /*!

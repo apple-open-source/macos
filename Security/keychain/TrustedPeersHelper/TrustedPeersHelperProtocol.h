@@ -213,6 +213,7 @@ NS_ASSUME_NONNULL_BEGIN
 @interface TPWalrusExtraArguments : NSObject <NSSecureCoding>
 #if APPLE_FEATURE_DBR
 @property BOOL isDBRv2;
+@property int pdpState;
 #endif
 @end
 
@@ -571,6 +572,10 @@ NS_ASSUME_NONNULL_BEGIN
                                                       NSData* _Nullable signingPublicKey,
                                                       NSError* _Nullable error))reply;
 
+- (void)fetchEgoBottleIDWithSpecificUser:(TPSpecificUser* _Nullable)specificUser
+                                   reply:(void (^)(NSString* _Nullable bottleID,
+                                                   NSError* _Nullable error))reply;
+
 - (void)fetchPolicyDocumentsWithSpecificUser:(TPSpecificUser* _Nullable)specificUser
                                     versions:(NSSet<TPPolicyVersion*>*)versions
                                        reply:(void (^)(NSDictionary<TPPolicyVersion*, NSData*>* _Nullable entries,
@@ -646,6 +651,7 @@ NS_ASSUME_NONNULL_BEGIN
                                     flowID:(NSString* _Nullable)flowID
                            deviceSessionID:(NSString* _Nullable)deviceSessionID
                        daysLeftOnRateLimit:(NSInteger)daysLeftOnRateLimit
+                            rateLimitState:(NSInteger)rateLimitState
                                      reply:(void (^)(OTEscrowCheckCallResult* _Nullable result, NSError* _Nullable))reply;
 
 - (void)getSupportAppInfoWithSpecificUser:(TPSpecificUser* _Nullable)specificUser

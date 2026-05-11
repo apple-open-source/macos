@@ -172,6 +172,7 @@ enum ExtendedDirtyBitType
     EXTENDED_DIRTY_BIT_POLYGON_OFFSET_POINT_ENABLED,  // NV_polygon_mode
     EXTENDED_DIRTY_BIT_POLYGON_OFFSET_LINE_ENABLED,   // NV_polygon_mode
     EXTENDED_DIRTY_BIT_SHADER_DERIVATIVE_HINT,        // shader derivative hint
+    EXTENDED_DIRTY_BIT_FETCH_PER_SAMPLE_ENABLED,      // FETCH_PER_SAMPLE_ARM
     EXTENDED_DIRTY_BIT_SHADING_RATE_QCOM,             // QCOM_shading_rate
     EXTENDED_DIRTY_BIT_SHADING_RATE_EXT,              // EXT_fragment_shading_rate
     EXTENDED_DIRTY_BIT_LOGIC_OP_ENABLED,              // ANGLE_logic_op
@@ -279,6 +280,9 @@ class PrivateState : angle::NonCopyable
     // Primitive restart
     bool isPrimitiveRestartEnabled() const { return mPrimitiveRestart; }
     void setPrimitiveRestart(bool enabled);
+
+    // FETCH_PER_SAMPLE_ARM
+    void setFetchPerSample(bool enabled);
 
     // Face culling state manipulation
     bool isCullFaceEnabled() const { return mRasterizer.cullFace; }
@@ -434,6 +438,7 @@ class PrivateState : angle::NonCopyable
     ShadingRate getShadingRateEXT() const { return mShadingRateEXT; }
     void setShadingRateCombinerOps(CombinerOp combinerOp0, CombinerOp combinerOp1);
     const std::array<CombinerOp, 2> &getShadingRateCombinerOps() const { return mCombinerOps; }
+    bool getFetchPerSample() const { return mFetchPerSample; }
 
     // Pixel pack state manipulation
     void setPackAlignment(GLint alignment);
@@ -633,11 +638,14 @@ class PrivateState : angle::NonCopyable
     void setPerfMonitorActive(bool active) { mIsPerfMonitorActive = active; }
     bool isPerfMonitorActive() const { return mIsPerfMonitorActive; }
 
-    VertexArrayID allocateVertexID()
+    bool allocateVertexID(VertexArrayID *outId)
     {
-        VertexArrayID vertexArray = {mVertexArrayHandleAllocator.allocate()};
-        mVertexArrayMap.assign(vertexArray, nullptr);
-        return vertexArray;
+        if (!mVertexArrayHandleAllocator.allocate(&outId->value))
+        {
+            return false;
+        }
+        mVertexArrayMap.assign(*outId, nullptr);
+        return true;
     }
     bool isVertexArrayGenerated(VertexArrayID vertexArray) const
     {
@@ -673,6 +681,10 @@ class PrivateState : angle::NonCopyable
                                bool normalized,
                                bool pureInteger,
                                GLuint relativeOffset);
+
+    GLuint getGroupMarkerCount() const { return mGroupMarkerCount; }
+    void incrementGroupMarkers() { mGroupMarkerCount++; }
+    void decrementGroupMarkers() { mGroupMarkerCount--; }
 
   private:
     bool hasConstantColor(GLenum sourceRGB, GLenum destRGB) const;
@@ -725,6 +737,10 @@ class PrivateState : angle::NonCopyable
 
     ClipOrigin mClipOrigin;
     ClipDepthMode mClipDepthMode;
+
+    // GL_EXT_debug_marker
+    // Keeps track of debug group marker count. Pop calls are ignored if there is no marker to pop.
+    GLuint mGroupMarkerCount;
 
     // GL_ANGLE_provoking_vertex
     ProvokingVertexConvention mProvokingVertex;
@@ -892,6 +908,10 @@ class State : angle::NonCopyable
     TextureCapsMap *getMutableTextureCaps() { return mPrivateState.getMutableTextureCaps(); }
     Extensions *getMutableExtensions() { return mPrivateState.getMutableExtensions(); }
     Limitations *getMutableLimitations() { return mPrivateState.getMutableLimitations(); }
+
+    GLuint getGroupMarkerCount() const { return mPrivateState.getGroupMarkerCount(); }
+    void incrementGroupMarkers() { mPrivateState.incrementGroupMarkers(); }
+    void decrementGroupMarkers() { mPrivateState.decrementGroupMarkers(); }
 
     const TextureCaps &getTextureCap(GLenum internalFormat) const
     {
@@ -1432,6 +1452,7 @@ class State : angle::NonCopyable
     const Rectangle &getViewport() const { return mPrivateState.getViewport(); }
     ShadingRate getShadingRateQCOM() const { return mPrivateState.getShadingRateQCOM(); }
     ShadingRate getShadingRateEXT() const { return mPrivateState.getShadingRateEXT(); }
+    bool getFetchPerSample() const { return mPrivateState.getFetchPerSample(); }
     const std::array<CombinerOp, 2> &getShadingRateCombinerOps() const
     {
         return mPrivateState.getShadingRateCombinerOps();

@@ -590,6 +590,14 @@ OSStatus SecTrustSetClientAuditToken(SecTrustRef trust, CFDataRef _Nullable audi
 CFArrayRef SecTrustGetAppleAnchors(void);
 
 /*!
+ @function SecTrustCopyAppleAnchors
+ @abstract Returns the Apple anchors
+ @param policyId Policy identifier (kSecPolicy* constant or result of SecPolicyGetOidString) or null to get all Apple Anchors
+ @result Array of SecCertificateRefs representing the Apple Anchors permitted for the input policyId.
+ */
+CFArrayRef SecTrustCopyAppleAnchors(CFStringRef _Nullable policyId);
+
+/*!
  @function SecTrustSetURLRequestAttribution
  @abstract Set NSURLRequestAttribution state for any network request made for this trust evaluation
  @param trust Trust object to modify

@@ -659,9 +659,11 @@
     [self fetchCurrentPointerExpectingError:@"ProtectedCloudStorage" fetchCloudValue:true];
 }
 
+// MARK: Out-of-Band PCS Identity fetching tests
 - (void)testFetchPCSIdentityByKeyOutOfBand {
     SecResetLocalSecuritydXPCFakeEntitlements();
     SecAddLocalSecuritydXPCFakeEntitlement(kSecEntitlementPrivateCKKSPlaintextFields, kCFBooleanTrue);
+    SecAddLocalSecuritydXPCFakeEntitlement(kSecEntitlementPrivateCKKSReadCurrentItemPointers, kCFBooleanTrue);
 
     NSNumber* servIdentifier = @3;
     NSData* publicKey = [@"asdfasdf" dataUsingEncoding:NSUTF8StringEncoding];
@@ -684,7 +686,7 @@
 
     CKKSPCSIdentityQuery* query = [[CKKSPCSIdentityQuery alloc] initWithServiceNumber:servIdentifier accessGroup:@"com.apple.security.ckks" publicKey:[publicKey base64EncodedStringWithOptions:0] zoneID:self.protectedCloudStorageZoneID.zoneName];
     NSArray* queries = @[query];
-    
+
     SecItemFetchPCSIdentityOutOfBand(queries, true, ^(NSArray<CKKSPCSIdentityQueryResult *> *pcsIdentities, NSError *error) {
         XCTAssertNil(error, "Should not have errored");
         XCTAssertNotEqual(pcsIdentities.count, 0, "Items should have been returned");
@@ -700,12 +702,13 @@
 
     XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:10*NSEC_PER_SEC], @"key state should enter 'ready'");
     XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateReady] wait:10*NSEC_PER_SEC], @"CKKS state machine should enter 'ready'");
-    
+
 }
 
 - (void)testFetchPCSIdentityByKeyOutOfBandForItemsEncryptedUnderDifferentSyncKeysInSameZone {
     SecResetLocalSecuritydXPCFakeEntitlements();
     SecAddLocalSecuritydXPCFakeEntitlement(kSecEntitlementPrivateCKKSPlaintextFields, kCFBooleanTrue);
+    SecAddLocalSecuritydXPCFakeEntitlement(kSecEntitlementPrivateCKKSReadCurrentItemPointers, kCFBooleanTrue);
 
     NSNumber* servIdentifier = @3;
     NSData* publicKey = [@"asdfasdf" dataUsingEncoding:NSUTF8StringEncoding];
@@ -762,6 +765,7 @@
 - (void)testFetchPCSIdentityByKeyRecordNotFound {
     SecResetLocalSecuritydXPCFakeEntitlements();
     SecAddLocalSecuritydXPCFakeEntitlement(kSecEntitlementPrivateCKKSPlaintextFields, kCFBooleanTrue);
+    SecAddLocalSecuritydXPCFakeEntitlement(kSecEntitlementPrivateCKKSReadCurrentItemPointers, kCFBooleanTrue);
 
     NSNumber* servIdentifier = @3;
     NSData* publicKey = [@"asdfasdf" dataUsingEncoding:NSUTF8StringEncoding];
@@ -780,17 +784,17 @@
     [self startCKKSSubsystem];
 
     XCTestExpectation* currentExpectation = [self expectationWithDescription: @"fetchPCSIdentityOutOfBand callback occured"];
-    
+
     CKKSPCSIdentityQuery* query = [[CKKSPCSIdentityQuery alloc] initWithServiceNumber:@(0) accessGroup:@"com.apple.security.ckks" publicKey:[publicKey base64EncodedStringWithOptions:0] zoneID:self.protectedCloudStorageZoneID.zoneName];
     NSArray* queries = @[query];
-    
+
     SecItemFetchPCSIdentityOutOfBand(queries, true, ^(NSArray<CKKSPCSIdentityQueryResult *> *pcsIdentities, NSError *error) {
         XCTAssertNotNil(error, "Should have errored");
         XCTAssertEqual(error.code, CKKSNoSuchRecord, "PCS Item does not exist");
         XCTAssertEqual(pcsIdentities.count, 0, "Items should not have been returned");
         [currentExpectation fulfill];
     });
-    
+
     [self waitForExpectations:@[currentExpectation] timeout:10];
     [self releaseCloudKitFetchHold];
 
@@ -802,6 +806,7 @@
 - (void)testFetchPCSIdentityByKeyMultipleItemsSucceeds {
     SecResetLocalSecuritydXPCFakeEntitlements();
     SecAddLocalSecuritydXPCFakeEntitlement(kSecEntitlementPrivateCKKSPlaintextFields, kCFBooleanTrue);
+    SecAddLocalSecuritydXPCFakeEntitlement(kSecEntitlementPrivateCKKSReadCurrentItemPointers, kCFBooleanTrue);
 
     NSNumber* servIdentifier = @3;
     NSData* publicKey = [@"asdfasdf" dataUsingEncoding:NSUTF8StringEncoding];
@@ -811,7 +816,7 @@
     NSNumber* servIdentifier2 = @3;
     NSData* publicKey2 = [@"qwertyuiop" dataUsingEncoding:NSUTF8StringEncoding];
     NSData* publicIdentity2 = [@"otherdata" dataUsingEncoding:NSUTF8StringEncoding];
-    
+
     NSNumber* servIdentifier3 = @4;
     NSData* publicKey3 = [@"zxcvbnm" dataUsingEncoding:NSUTF8StringEncoding];
     NSData* publicIdentity3 = [@"someotherdata" dataUsingEncoding:NSUTF8StringEncoding];
@@ -844,7 +849,7 @@
     SecItemFetchPCSIdentityOutOfBand(queries, true, ^(NSArray<CKKSPCSIdentityQueryResult *> *pcsIdentities, NSError *error) {
         XCTAssertNil(error, "Should not have errored");
         XCTAssertEqual(pcsIdentities.count, 3, "Items should have been returned");
-        
+
         // Unsure if these are guaranteed to be in order
         XCTAssertEqual(pcsIdentities[0].serviceNumber, servIdentifier, "PCS Identity was found");
         XCTAssertEqualObjects(pcsIdentities[0].publicKey, queries[0].publicKey, "Returned public key matches expected public key");
@@ -857,7 +862,7 @@
         XCTAssertEqualObjects(pcsIdentities[2].serviceNumber, servIdentifier3, "PCS Identity was found");
         XCTAssertEqualObjects(pcsIdentities[2].publicKey, queries[2].publicKey, "Returned public key matches expected public key");
         XCTAssertNotNil(pcsIdentities[2].decryptedRecord, "Record for PCS Identity was found");
-        
+
         [currentExpectation fulfill];
     });
 
@@ -866,12 +871,13 @@
 
     XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:10*NSEC_PER_SEC], @"key state should enter 'ready'");
     XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateReady] wait:10*NSEC_PER_SEC], @"CKKS state machine should enter 'ready'");
-    
+
 }
 
 - (void)testFetchPCSIdentityByKeyMultipleItemsFailsOnErroneousZone {
     SecResetLocalSecuritydXPCFakeEntitlements();
     SecAddLocalSecuritydXPCFakeEntitlement(kSecEntitlementPrivateCKKSPlaintextFields, kCFBooleanTrue);
+    SecAddLocalSecuritydXPCFakeEntitlement(kSecEntitlementPrivateCKKSReadCurrentItemPointers, kCFBooleanTrue);
 
     NSNumber* servIdentifier = @3;
     NSData* publicKey = [@"asdfasdf" dataUsingEncoding:NSUTF8StringEncoding];
@@ -897,7 +903,7 @@
     [self startCKKSSubsystem];
 
     XCTestExpectation* currentExpectation = [self expectationWithDescription: @"fetchPCSIdentityOutOfBand callback occured"];
-    
+
     NSArray* queries = @[
         [[CKKSPCSIdentityQuery alloc] initWithServiceNumber:servIdentifier accessGroup:@"com.apple.security.ckks" publicKey:[publicKey base64EncodedStringWithOptions:0] zoneID:self.protectedCloudStorageZoneID.zoneName],
         [[CKKSPCSIdentityQuery alloc] initWithServiceNumber:servIdentifier2 accessGroup:@"com.apple.security.ckks" publicKey:[publicKey2 base64EncodedStringWithOptions:0] zoneID:@"zone-does-not-exist"]
@@ -909,13 +915,127 @@
         XCTAssertEqual(pcsIdentities.count, 0, "Items should not have been returned");
         [currentExpectation fulfill];
     });
-    
-    [self waitForExpectations:@[currentExpectation] timeout:10];
-    [self releaseCloudKitFetchHold];
 
-    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:10*NSEC_PER_SEC], @"key state should enter 'ready'");
-    XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateReady] wait:10*NSEC_PER_SEC], @"CKKS state machine should enter 'ready'");
-    
+    [self waitForExpectations:@[currentExpectation] timeout:10];
+}
+
+- (void)testFetchPCSIdentityByKeyOutOfBandFailsWithoutEntitlements {
+    SecResetLocalSecuritydXPCFakeEntitlements();
+    // Entitlements for OOB fetch are missing!
+
+    NSNumber* servIdentifier = @3;
+    NSData* publicKey = [@"asdfasdf" dataUsingEncoding:NSUTF8StringEncoding];
+    NSData* publicIdentity = [@"somedata" dataUsingEncoding:NSUTF8StringEncoding];
+
+    [self putFakeKeyHierarchyInCloudKit:self.keychainZoneID];
+    [self putSelfTLKSharesInCloudKit:self.keychainZoneID];
+
+    [self putFakeKeyHierarchyInCloudKit:self.protectedCloudStorageZoneID];
+    [self putSelfTLKSharesInCloudKit:self.protectedCloudStorageZoneID];
+
+    CKRecord* record = [self createFakeRecord:self.protectedCloudStorageZoneID recordName:@"7B598D31-F9C5-481E-98AC-5A507CDB2D90" withAccount: nil key: nil plaintextPCSServiceIdentifier: servIdentifier plaintextPCSPublicKey: publicKey plaintextPCSPublicIdentity: publicIdentity];
+    [self.zones[self.protectedCloudStorageZoneID] addToZone:record];
+
+    [self holdCloudKitFetches];
+
+    [self startCKKSSubsystem];
+
+    XCTestExpectation* currentExpectation = [self expectationWithDescription: @"fetchPCSIdentityOutOfBand callback occured"];
+
+    CKKSPCSIdentityQuery* query = [[CKKSPCSIdentityQuery alloc] initWithServiceNumber:servIdentifier accessGroup:@"com.apple.security.ckks" publicKey:[publicKey base64EncodedStringWithOptions:0] zoneID:self.protectedCloudStorageZoneID.zoneName];
+    NSArray* queries = @[query];
+
+    SecItemFetchPCSIdentityOutOfBand(queries, true, ^(NSArray<CKKSPCSIdentityQueryResult *> *pcsIdentities, NSError *error) {
+        XCTAssertNotNil(error, "Should have errored");
+        XCTAssertEqual(error.code, errSecMissingEntitlement, "Should have errored due to missing entitlements");
+        XCTAssertNil(pcsIdentities, "No items should have been returned");
+        [currentExpectation fulfill];
+    });
+
+    [self waitForExpectations:@[currentExpectation] timeout:10];
+}
+
+- (void)testFetchPCSIdentityByKeyOutOfBandFailsWithQueryAccessGroupNotAllowed {
+    SecResetLocalSecuritydXPCFakeEntitlements();
+    SecAddLocalSecuritydXPCFakeEntitlement(kSecEntitlementPrivateCKKSPlaintextFields, kCFBooleanTrue);
+    SecAddLocalSecuritydXPCFakeEntitlement(kSecEntitlementPrivateCKKSReadCurrentItemPointers, kCFBooleanTrue);
+
+    NSNumber* servIdentifier = @3;
+    NSData* publicKey = [@"asdfasdf" dataUsingEncoding:NSUTF8StringEncoding];
+    NSData* publicIdentity = [@"somedata" dataUsingEncoding:NSUTF8StringEncoding];
+
+    [self putFakeKeyHierarchyInCloudKit:self.keychainZoneID];
+    [self putSelfTLKSharesInCloudKit:self.keychainZoneID];
+
+    [self putFakeKeyHierarchyInCloudKit:self.protectedCloudStorageZoneID];
+    [self putSelfTLKSharesInCloudKit:self.protectedCloudStorageZoneID];
+
+    CKRecord* record = [self createFakeRecord:self.protectedCloudStorageZoneID recordName:@"7B598D31-F9C5-481E-98AC-5A507CDB2D90" withAccount: nil key: nil plaintextPCSServiceIdentifier: servIdentifier plaintextPCSPublicKey: publicKey plaintextPCSPublicIdentity: publicIdentity];
+    [self.zones[self.protectedCloudStorageZoneID] addToZone:record];
+
+    [self holdCloudKitFetches];
+
+    [self startCKKSSubsystem];
+
+    XCTestExpectation* currentExpectation = [self expectationWithDescription: @"fetchPCSIdentityOutOfBand callback occured"];
+
+    // Client specifies the ProtectedCloudStorage access group even though they don't have that entitlement.
+    CKKSPCSIdentityQuery* query = [[CKKSPCSIdentityQuery alloc] initWithServiceNumber:servIdentifier accessGroup:@"com.apple.ProtectedCloudStorage" publicKey:[publicKey base64EncodedStringWithOptions:0] zoneID:self.protectedCloudStorageZoneID.zoneName];
+    NSArray* queries = @[query];
+
+    SecItemFetchPCSIdentityOutOfBand(queries, true, ^(NSArray<CKKSPCSIdentityQueryResult *> *pcsIdentities, NSError *error) {
+        XCTAssertNotNil(error, "Should have errored");
+        XCTAssertEqual(error.code, errSecMissingEntitlement, "Should have errored due to missing entitlements");
+        XCTAssertNil(pcsIdentities, "No items should have been returned");
+        [currentExpectation fulfill];
+    });
+
+    [self waitForExpectations:@[currentExpectation] timeout:10];
+}
+
+- (void)testFetchPCSIdentityByKeyWithMultipleAgrpsFailsOnBadAgrp {
+    SecResetLocalSecuritydXPCFakeEntitlements();
+    SecAddLocalSecuritydXPCFakeEntitlement(kSecEntitlementPrivateCKKSPlaintextFields, kCFBooleanTrue);
+    SecAddLocalSecuritydXPCFakeEntitlement(kSecEntitlementPrivateCKKSReadCurrentItemPointers, kCFBooleanTrue);
+
+    NSNumber* servIdentifier = @3;
+    NSData* publicKey = [@"asdfasdf" dataUsingEncoding:NSUTF8StringEncoding];
+    NSData* publicIdentity = [@"somedata" dataUsingEncoding:NSUTF8StringEncoding];
+
+    NSNumber* servIdentifier2 = @4;
+    NSData* publicKey2 = [@"qwertyuiop" dataUsingEncoding:NSUTF8StringEncoding];
+    NSData* publicIdentity2 = [@"otherdata" dataUsingEncoding:NSUTF8StringEncoding];
+
+    [self putFakeKeyHierarchyInCloudKit:self.keychainZoneID];
+    [self putSelfTLKSharesInCloudKit:self.keychainZoneID];
+
+    [self putFakeKeyHierarchyInCloudKit:self.protectedCloudStorageZoneID];
+    [self putSelfTLKSharesInCloudKit:self.protectedCloudStorageZoneID];
+
+    CKRecord* record = [self createFakeRecord:self.protectedCloudStorageZoneID recordName:@"7B598D31-F9C5-481E-98AC-5A507CDB2D90" withAccount: nil key: nil plaintextPCSServiceIdentifier: servIdentifier plaintextPCSPublicKey: publicKey plaintextPCSPublicIdentity: publicIdentity];
+    CKRecord* record2 = [self createFakeRecord:self.protectedCloudStorageZoneID recordName:@"7B598D31-F9C5-481E-98AC-5A507CDB2D94" withAccount: nil key: nil plaintextPCSServiceIdentifier: servIdentifier2 plaintextPCSPublicKey: publicKey2 plaintextPCSPublicIdentity: publicIdentity2];
+
+    [self.zones[self.protectedCloudStorageZoneID] addToZone:record];
+    [self.zones[self.protectedCloudStorageZoneID] addToZone:record2];
+
+    [self holdCloudKitFetches];
+    [self startCKKSSubsystem];
+
+    XCTestExpectation* currentExpectation = [self expectationWithDescription: @"fetchPCSIdentityOutOfBand callback occured"];
+
+    NSArray<CKKSPCSIdentityQuery*>* queries = @[
+        [[CKKSPCSIdentityQuery alloc] initWithServiceNumber:servIdentifier accessGroup:@"com.apple.security.ckks" publicKey:[publicKey base64EncodedStringWithOptions:0] zoneID:self.protectedCloudStorageZoneID.zoneName],
+        [[CKKSPCSIdentityQuery alloc] initWithServiceNumber:servIdentifier2 accessGroup:@"BOGUS-ACCESS-GROUP" publicKey:[publicKey2 base64EncodedStringWithOptions:0] zoneID:self.protectedCloudStorageZoneID.zoneName],
+    ];
+
+    SecItemFetchPCSIdentityOutOfBand(queries, true, ^(NSArray<CKKSPCSIdentityQueryResult *> *pcsIdentities, NSError *error) {
+        XCTAssertNotNil(error, "Should have errored");
+        XCTAssertEqual(error.code, errSecMissingEntitlement, "Should have errored due to missing entitlement");
+        XCTAssertNil(pcsIdentities, "No items should have been returned");
+        [currentExpectation fulfill];
+    });
+
+    [self waitForExpectations:@[currentExpectation] timeout:10];
 }
 
 - (void)testFetchCurrentItemOutOfBand {
@@ -933,7 +1053,7 @@
     NSNumber* servIdentifier = @3;
     NSData* publicKey = [@"asdfasdf" dataUsingEncoding:NSUTF8StringEncoding];
     NSData* publicIdentity = [@"somedata" dataUsingEncoding:NSUTF8StringEncoding];
-    
+
     CKRecord* record = [self createFakeRecord:self.protectedCloudStorageZoneID recordName:@"7B598D31-F9C5-481E-98AC-5A507CDB2D91" withAccount: nil key: nil plaintextPCSServiceIdentifier: servIdentifier plaintextPCSPublicKey: publicKey plaintextPCSPublicIdentity: publicIdentity];
     [self.zones[self.protectedCloudStorageZoneID] addToZone:record];
 
@@ -948,16 +1068,16 @@
     CKRecordID* currentPointerRecordID = [[CKRecordID alloc] initWithRecordName: @"com.apple.security.ckks-pcsservice" zoneID:self.protectedCloudStorageZoneID];
     CKRecord* currentPointerRecord = self.zones[self.protectedCloudStorageZoneID].currentDatabase[currentPointerRecordID];
     XCTAssertNotNil(currentPointerRecord, "Found current item pointer in CloudKit");
-    
+
     [self holdCloudKitFetches];
     [self startCKKSSubsystem];
-    
+
     XCTestExpectation* currentExpectation = [self expectationWithDescription: @"fetchCurrentItemOutOfBand callback occured"];
 
     NSArray<CKKSCurrentItemQuery*>* queries = @[
         [[CKKSCurrentItemQuery alloc] initWithIdentifier:@"pcsservice" accessGroup: @"com.apple.security.ckks" zoneID:self.protectedCloudStorageZoneID.zoneName]
     ];
-    
+
     SecItemFetchCurrentItemOutOfBand(queries, true, ^(NSArray<CKKSCurrentItemQueryResult *> *currentItems, NSError *error) {
         XCTAssertNil(error, "Should not have errored");
         XCTAssertEqual(currentItems.count, 1, "Item was returned");
@@ -965,7 +1085,7 @@
         XCTAssertNotNil(currentItems[0].decryptedRecord, "Item record returned");
         [currentExpectation fulfill];
     });
-    
+
     [self waitForExpectations:@[currentExpectation] timeout:10];
     [self releaseCloudKitFetchHold];
 
@@ -988,7 +1108,7 @@
     NSNumber* servIdentifier = @3;
     NSData* publicKey = [@"asdfasdf" dataUsingEncoding:NSUTF8StringEncoding];
     NSData* publicIdentity = [@"somedata" dataUsingEncoding:NSUTF8StringEncoding];
-    
+
     CKRecord* record = [self createFakeRecord:self.protectedCloudStorageZoneID recordName:@"7B598D31-F9C5-481E-98AC-5A507CDB2D91" withAccount: nil key: nil plaintextPCSServiceIdentifier: servIdentifier plaintextPCSPublicKey: publicKey plaintextPCSPublicIdentity: publicIdentity];
     [self.zones[self.protectedCloudStorageZoneID] addToZone:record];
 
@@ -1006,20 +1126,20 @@
 
     [self holdCloudKitFetches];
     [self startCKKSSubsystem];
-    
+
     XCTestExpectation* currentExpectation = [self expectationWithDescription: @"fetchCurrentItemOutOfBand callback occured"];
 
     NSArray<CKKSCurrentItemQuery*>* queries = @[
         [[CKKSCurrentItemQuery alloc] initWithIdentifier:@"does-not-exist" accessGroup: @"com.apple.security.ckks" zoneID:self.protectedCloudStorageZoneID.zoneName]
     ];
-    
+
     SecItemFetchCurrentItemOutOfBand(queries, true, ^(NSArray<CKKSCurrentItemQueryResult *> *currentItems, NSError *error) {
         XCTAssertNotNil(error, "Should have errored");
         XCTAssertEqual(error.code, CKKSNoSuchRecord, "Record does not exist");
         XCTAssertEqual(currentItems.count, 0, "No items were returned");
         [currentExpectation fulfill];
     });
-    
+
     [self waitForExpectations:@[currentExpectation] timeout:10];
     [self releaseCloudKitFetchHold];
 
@@ -1043,7 +1163,7 @@
     NSNumber* servIdentifier = @3;
     NSData* publicKey = [@"asdfasdf" dataUsingEncoding:NSUTF8StringEncoding];
     NSData* publicIdentity = [@"somedata" dataUsingEncoding:NSUTF8StringEncoding];
-    
+
     CKRecord* record = [self createFakeRecord:self.protectedCloudStorageZoneID recordName:@"7B598D31-F9C5-481E-98AC-5A507CDB2D91" withAccount: nil key: nil plaintextPCSServiceIdentifier: servIdentifier plaintextPCSPublicKey: publicKey plaintextPCSPublicIdentity: publicIdentity];
     [self.zones[self.protectedCloudStorageZoneID] addToZone:record];
 
@@ -1058,15 +1178,15 @@
     CKRecordID* currentPointerRecordID = [[CKRecordID alloc] initWithRecordName: @"com.apple.security.ckks-pcsservice" zoneID:self.protectedCloudStorageZoneID];
     CKRecord* currentPointerRecord = self.zones[self.protectedCloudStorageZoneID].currentDatabase[currentPointerRecordID];
     XCTAssertNotNil(currentPointerRecord, "Found current item pointer in CloudKit");
-    
+
     // Add second record
     NSNumber* servIdentifier2 = @4;
     NSData* publicKey2 = [@"qwertyuiop" dataUsingEncoding:NSUTF8StringEncoding];
     NSData* publicIdentity2 = [@"otherdata" dataUsingEncoding:NSUTF8StringEncoding];
-    
+
     CKRecord* record2 = [self createFakeRecord:self.protectedCloudStorageZoneID recordName:@"7B598D31-F9C5-481E-98AC-5A507CDB2D94" withAccount: nil key: nil plaintextPCSServiceIdentifier: servIdentifier2 plaintextPCSPublicKey: publicKey2 plaintextPCSPublicIdentity: publicIdentity2];
     [self.zones[self.protectedCloudStorageZoneID] addToZone:record2];
-    
+
     // Create current item pointer
     CKKSCurrentItemPointer* cip2 = [[CKKSCurrentItemPointer alloc] initForIdentifier:@"com.apple.security.ckks-pcsservice2"
                                                                           contextID:self.defaultCKKS.operationDependencies.contextID
@@ -1078,17 +1198,17 @@
     CKRecordID* currentPointerRecordID2 = [[CKRecordID alloc] initWithRecordName: @"com.apple.security.ckks-pcsservice2" zoneID:self.protectedCloudStorageZoneID];
     CKRecord* currentPointerRecord2 = self.zones[self.protectedCloudStorageZoneID].currentDatabase[currentPointerRecordID2];
     XCTAssertNotNil(currentPointerRecord2, "Found current item pointer in CloudKit");
-    
+
     [self holdCloudKitFetches];
     [self startCKKSSubsystem];
-    
+
     XCTestExpectation* currentExpectation = [self expectationWithDescription: @"fetchCurrentItemOutOfBand callback occured"];
 
     NSArray<CKKSCurrentItemQuery*>* queries = @[
         [[CKKSCurrentItemQuery alloc] initWithIdentifier:@"pcsservice" accessGroup: @"com.apple.security.ckks" zoneID:self.protectedCloudStorageZoneID.zoneName],
         [[CKKSCurrentItemQuery alloc] initWithIdentifier:@"pcsservice2" accessGroup: @"com.apple.security.ckks" zoneID:self.protectedCloudStorageZoneID.zoneName]
     ];
-    
+
     SecItemFetchCurrentItemOutOfBand(queries, true, ^(NSArray<CKKSCurrentItemQueryResult *> *currentItems, NSError *error) {
         XCTAssertNil(error, "Should not have errored");
         XCTAssertEqual(currentItems.count, 2, "Items were returned");
@@ -1098,7 +1218,7 @@
         XCTAssertNotNil(currentItems[1].decryptedRecord, "Item record returned");
         [currentExpectation fulfill];
     });
-    
+
     [self waitForExpectations:@[currentExpectation] timeout:10];
     [self releaseCloudKitFetchHold];
 
@@ -1122,10 +1242,10 @@
     NSNumber* servIdentifier = @3;
     NSData* publicKey = [@"asdfasdf" dataUsingEncoding:NSUTF8StringEncoding];
     NSData* publicIdentity = [@"somedata" dataUsingEncoding:NSUTF8StringEncoding];
-    
+
     CKRecord* record = [self createFakeRecord: self.protectedCloudStorageZoneID recordName:@"7B598D31-F9C5-481E-98AC-5A507CDB2D91" withAccount: nil key: nil plaintextPCSServiceIdentifier: servIdentifier plaintextPCSPublicKey: publicKey plaintextPCSPublicIdentity: publicIdentity];
     [self.zones[self.protectedCloudStorageZoneID] addToZone:record];
-    
+
     // Create current item pointer
     CKKSCurrentItemPointer* cip = [[CKKSCurrentItemPointer alloc] initForIdentifier:@"com.apple.security.ckks-pcsservice"
                                                                           contextID:self.defaultCKKS.operationDependencies.contextID
@@ -1137,15 +1257,15 @@
     CKRecordID* currentPointerRecordID = [[CKRecordID alloc] initWithRecordName: @"com.apple.security.ckks-pcsservice" zoneID:self.protectedCloudStorageZoneID];
     CKRecord* currentPointerRecord = self.zones[self.protectedCloudStorageZoneID].currentDatabase[currentPointerRecordID];
     XCTAssertNotNil(currentPointerRecord, "Found current item pointer in CloudKit");
-    
+
     // Add second record
     NSNumber* servIdentifier2 = @4;
     NSData* publicKey2 = [@"qwertyuiop" dataUsingEncoding:NSUTF8StringEncoding];
     NSData* publicIdentity2 = [@"otherdata" dataUsingEncoding:NSUTF8StringEncoding];
-    
+
     CKRecord* record2 = [self createFakeRecord: self.protectedCloudStorageZoneID recordName:@"7B598D31-F9C5-481E-98AC-5A507CDB2D94" withAccount: nil key: nil plaintextPCSServiceIdentifier: servIdentifier2 plaintextPCSPublicKey: publicKey2 plaintextPCSPublicIdentity: publicIdentity2];
     [self.zones[self.protectedCloudStorageZoneID] addToZone:record2];
-    
+
     // Create current item pointer
     CKKSCurrentItemPointer* cip2 = [[CKKSCurrentItemPointer alloc] initForIdentifier:@"com.apple.security.ckks-pcsservice-2"
                                                                           contextID:self.defaultCKKS.operationDependencies.contextID
@@ -1157,18 +1277,18 @@
     CKRecordID* currentPointerRecordID2 = [[CKRecordID alloc] initWithRecordName: @"com.apple.security.ckks-pcsservice-2" zoneID:self.protectedCloudStorageZoneID];
     CKRecord* currentPointerRecord2 = self.zones[self.protectedCloudStorageZoneID].currentDatabase[currentPointerRecordID2];
     XCTAssertNotNil(currentPointerRecord2, "Found current item pointer in CloudKit");
-    
+
     [self holdCloudKitFetches];
     [self startCKKSSubsystem];
-    
+
     XCTestExpectation* currentExpectation = [self expectationWithDescription: @"fetchCurrentItemOutOfBand callback occured"];
-    
+
     NSArray<CKKSCurrentItemQuery*>* queries = @[
         [[CKKSCurrentItemQuery alloc] initWithIdentifier:@"pcsservice" accessGroup: @"com.apple.security.ckks" zoneID:self.protectedCloudStorageZoneID.zoneName],
         [[CKKSCurrentItemQuery alloc] initWithIdentifier:@"pcsservice-2" accessGroup: @"com.apple.security.ckks" zoneID:self.protectedCloudStorageZoneID.zoneName]
     ];
 
-    
+
     SecItemFetchCurrentItemOutOfBand(queries, true, ^(NSArray<CKKSCurrentItemQueryResult *> *currentItems, NSError *error) {
         XCTAssertNotNil(error, "Should have errored");
         XCTAssertEqual(error.code, CKKSNoSuchRecord, "Bad CIP");
@@ -1186,6 +1306,7 @@
 - (void)testFetchIdentitiesOutOfBandDisallowed {
     SecResetLocalSecuritydXPCFakeEntitlements();
     SecAddLocalSecuritydXPCFakeEntitlement(kSecEntitlementPrivateCKKSPlaintextFields, kCFBooleanTrue);
+    SecAddLocalSecuritydXPCFakeEntitlement(kSecEntitlementPrivateCKKSReadCurrentItemPointers, kCFBooleanTrue);
 
     NSNumber* servIdentifier = @3;
     NSData* publicKey = [@"asdfasdf" dataUsingEncoding:NSUTF8StringEncoding];
@@ -1200,18 +1321,18 @@
     CKRecord* record = [self createFakeRecord: self.protectedCloudStorageZoneID recordName:@"7B598D31-F9C5-481E-98AC-5A507CDB2D90" withAccount: nil key: nil plaintextPCSServiceIdentifier: servIdentifier plaintextPCSPublicKey: publicKey plaintextPCSPublicIdentity: publicIdentity];
     [self.zones[self.protectedCloudStorageZoneID] addToZone:record];
     [self startCKKSSubsystem];
-    
+
     // Ask CKKS to fetch & wait for it to finish processing incoming queue
     [self.defaultCKKS.zoneChangeFetcher notifyZoneChange:nil];
-    
+
     XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:10*NSEC_PER_SEC], @"key state should enter 'ready'");
     XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateReady] wait:10*NSEC_PER_SEC], @"CKKS state machine should enter 'ready'");
-        
+
     XCTestExpectation* OOBExpectation = [self expectationWithDescription: @"fetchPCSIdentityOutOfBand callback occured"];
 
     CKKSPCSIdentityQuery* query = [[CKKSPCSIdentityQuery alloc] initWithServiceNumber:servIdentifier accessGroup:@"com.apple.security.ckks" publicKey:[publicKey base64EncodedStringWithOptions:0] zoneID:self.protectedCloudStorageZoneID.zoneName];
     NSArray* queries = @[query];
-    
+
     SecItemFetchPCSIdentityOutOfBand(queries, false, ^(NSArray<CKKSPCSIdentityQueryResult *> *pcsIdentities, NSError *error) {
         XCTAssertNotNil(error, "Should have errored due to CKKS ready state");
         XCTAssertEqual(error.code, CKKSErrorOutOfBandFetchingDisallowed);
@@ -1225,6 +1346,7 @@
 - (void)testFetchIdentitiesOutOfBandDisallowedAfterRestart {
     SecResetLocalSecuritydXPCFakeEntitlements();
     SecAddLocalSecuritydXPCFakeEntitlement(kSecEntitlementPrivateCKKSPlaintextFields, kCFBooleanTrue);
+    SecAddLocalSecuritydXPCFakeEntitlement(kSecEntitlementPrivateCKKSReadCurrentItemPointers, kCFBooleanTrue);
 
     NSNumber* servIdentifier = @3;
     NSData* publicKey = [@"asdfasdf" dataUsingEncoding:NSUTF8StringEncoding];
@@ -1239,31 +1361,31 @@
     CKRecord* record = [self createFakeRecord: self.protectedCloudStorageZoneID recordName:@"7B598D31-F9C5-481E-98AC-5A507CDB2D90" withAccount: nil key: nil plaintextPCSServiceIdentifier: servIdentifier plaintextPCSPublicKey: publicKey plaintextPCSPublicIdentity: publicIdentity];
     [self.zones[self.protectedCloudStorageZoneID] addToZone:record];
     [self startCKKSSubsystem];
-    
+
     // Ask CKKS to fetch & wait for it to finish processing incoming queue
     [self.defaultCKKS.zoneChangeFetcher notifyZoneChange:nil];
-    
+
     XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:10*NSEC_PER_SEC], @"key state should enter 'ready'");
     XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateReady] wait:10*NSEC_PER_SEC], @"CKKS state machine should enter 'ready'");
-    
+
     // Now simulate a restart of securityd:
     // Tear down the CKKS object
     [self.defaultCKKS halt];
-    
+
     // Bring CKKS back up
     self.defaultCKKS = [self.injectedManager restartCKKSAccountSync:self.defaultCKKS];
     self.keychainView = [self.defaultCKKS viewStateForName:self.keychainZoneID.zoneName];
     [self beginSOSTrustedViewOperation:self.defaultCKKS];
-    
+
     // We want to ensure that the key hierarchy state machine doesn't progress
     [self holdCloudKitFetches];
-    
+
     // Verify that OOB fetch is disallowed.
     XCTestExpectation* OOBExpectation = [self expectationWithDescription: @"fetchPCSIdentityOutOfBand callback occured"];
 
     CKKSPCSIdentityQuery* query = [[CKKSPCSIdentityQuery alloc] initWithServiceNumber:servIdentifier accessGroup:@"com.apple.security.ckks" publicKey:[publicKey base64EncodedStringWithOptions:0] zoneID:self.protectedCloudStorageZoneID.zoneName];
     NSArray* queries = @[query];
-    
+
     SecItemFetchPCSIdentityOutOfBand(queries, false, ^(NSArray<CKKSPCSIdentityQueryResult *> *pcsIdentities, NSError *error) {
         XCTAssertNotNil(error, "Should have errored due to CKKS ready state");
         XCTAssertEqual(error.code, CKKSErrorOutOfBandFetchingDisallowed);
@@ -1279,21 +1401,21 @@
     SecResetLocalSecuritydXPCFakeEntitlements();
     SecAddLocalSecuritydXPCFakeEntitlement(kSecEntitlementPrivateCKKSPlaintextFields, kCFBooleanTrue);
     SecAddLocalSecuritydXPCFakeEntitlement(kSecEntitlementPrivateCKKSReadCurrentItemPointers, kCFBooleanTrue);
-    
+
     [self putFakeKeyHierarchyInCloudKit:self.keychainZoneID];
     [self putSelfTLKSharesInCloudKit:self.keychainZoneID];
 
     [self putFakeKeyHierarchyInCloudKit:self.protectedCloudStorageZoneID];
     [self putSelfTLKSharesInCloudKit:self.protectedCloudStorageZoneID];
-    
+
     // Create item record
     NSNumber* servIdentifier = @3;
     NSData* publicKey = [@"asdfasdf" dataUsingEncoding:NSUTF8StringEncoding];
     NSData* publicIdentity = [@"somedata" dataUsingEncoding:NSUTF8StringEncoding];
-    
+
     CKRecord* record = [self createFakeRecord: self.protectedCloudStorageZoneID recordName:@"7B598D31-F9C5-481E-98AC-5A507CDB2D91" withAccount: nil key: nil plaintextPCSServiceIdentifier: servIdentifier plaintextPCSPublicKey: publicKey plaintextPCSPublicIdentity: publicIdentity];
     [self.zones[self.protectedCloudStorageZoneID] addToZone:record];
-    
+
     // Create current item pointer
     CKKSCurrentItemPointer* cip = [[CKKSCurrentItemPointer alloc] initForIdentifier:@"com.apple.security.ckks-pcsservice"
                                                                           contextID:self.defaultCKKS.operationDependencies.contextID
@@ -1305,28 +1427,28 @@
     CKRecordID* currentPointerRecordID = [[CKRecordID alloc] initWithRecordName: @"com.apple.security.ckks-pcsservice" zoneID:self.protectedCloudStorageZoneID];
     CKRecord* currentPointerRecord = self.zones[self.protectedCloudStorageZoneID].currentDatabase[currentPointerRecordID];
     XCTAssertNotNil(currentPointerRecord, "Found current item pointer in CloudKit");
-    
+
     [self startCKKSSubsystem];
-    
+
     // Ask CKKS to fetch & wait for it to finish processing incoming queue
     [self.defaultCKKS.zoneChangeFetcher notifyZoneChange:nil];
-    
+
     XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:10*NSEC_PER_SEC], @"key state should enter 'ready'");
     XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateReady] wait:10*NSEC_PER_SEC], @"CKKS state machine should enter 'ready'");
-    
+
     XCTestExpectation* currentExpectation = [self expectationWithDescription: @"fetchCurrentItemOutOfBand callback occured"];
 
     NSArray<CKKSCurrentItemQuery*>* queries = @[
         [[CKKSCurrentItemQuery alloc] initWithIdentifier:@"pcsservice" accessGroup: @"com.apple.security.ckks" zoneID:self.protectedCloudStorageZoneID.zoneName]
     ];
-    
+
     SecItemFetchCurrentItemOutOfBand(queries, false, ^(NSArray<CKKSCurrentItemQueryResult *> *currentItems, NSError *error) {
         XCTAssertNotNil(error, "Should have errored due to CKKS ready state");
         XCTAssertEqual(error.code, CKKSErrorOutOfBandFetchingDisallowed);
         XCTAssertEqual(currentItems.count, 0, "No items were returned");
         [currentExpectation fulfill];
     });
-    
+
     [self waitForExpectations:@[currentExpectation] timeout:10];
 }
 
@@ -1334,21 +1456,21 @@
     SecResetLocalSecuritydXPCFakeEntitlements();
     SecAddLocalSecuritydXPCFakeEntitlement(kSecEntitlementPrivateCKKSPlaintextFields, kCFBooleanTrue);
     SecAddLocalSecuritydXPCFakeEntitlement(kSecEntitlementPrivateCKKSReadCurrentItemPointers, kCFBooleanTrue);
-    
+
     [self putFakeKeyHierarchyInCloudKit:self.keychainZoneID];
     [self putSelfTLKSharesInCloudKit:self.keychainZoneID];
 
     [self putFakeKeyHierarchyInCloudKit:self.protectedCloudStorageZoneID];
     [self putSelfTLKSharesInCloudKit:self.protectedCloudStorageZoneID];
-    
+
     // Create item record
     NSNumber* servIdentifier = @3;
     NSData* publicKey = [@"asdfasdf" dataUsingEncoding:NSUTF8StringEncoding];
     NSData* publicIdentity = [@"somedata" dataUsingEncoding:NSUTF8StringEncoding];
-    
+
     CKRecord* record = [self createFakeRecord: self.protectedCloudStorageZoneID recordName:@"7B598D31-F9C5-481E-98AC-5A507CDB2D91" withAccount: nil key: nil plaintextPCSServiceIdentifier: servIdentifier plaintextPCSPublicKey: publicKey plaintextPCSPublicIdentity: publicIdentity];
     [self.zones[self.protectedCloudStorageZoneID] addToZone:record];
-    
+
     // Create current item pointer
     CKKSCurrentItemPointer* cip = [[CKKSCurrentItemPointer alloc] initForIdentifier:@"com.apple.security.ckks-pcsservice"
                                                                           contextID:self.defaultCKKS.operationDependencies.contextID
@@ -1360,33 +1482,33 @@
     CKRecordID* currentPointerRecordID = [[CKRecordID alloc] initWithRecordName: @"com.apple.security.ckks-pcsservice" zoneID:self.protectedCloudStorageZoneID];
     CKRecord* currentPointerRecord = self.zones[self.protectedCloudStorageZoneID].currentDatabase[currentPointerRecordID];
     XCTAssertNotNil(currentPointerRecord, "Found current item pointer in CloudKit");
-    
+
     [self startCKKSSubsystem];
-    
+
     // Ask CKKS to fetch & wait for it to finish processing incoming queue
     [self.defaultCKKS.zoneChangeFetcher notifyZoneChange:nil];
-    
+
     XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:10*NSEC_PER_SEC], @"key state should enter 'ready'");
     XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateReady] wait:10*NSEC_PER_SEC], @"CKKS state machine should enter 'ready'");
-    
+
     // Now simulate a restart of securityd:
     // Tear down the CKKS object
     [self.defaultCKKS halt];
-    
+
     // Bring CKKS back up
     self.defaultCKKS = [self.injectedManager restartCKKSAccountSync:self.defaultCKKS];
     self.keychainView = [self.defaultCKKS viewStateForName:self.keychainZoneID.zoneName];
     [self beginSOSTrustedViewOperation:self.defaultCKKS];
-    
+
     // We want to ensure that the key hierarchy state machine doesn't progress
     [self holdCloudKitFetches];
-    
+
     // Verify that OOB fetch is disallowed.
     XCTestExpectation* currentExpectation = [self expectationWithDescription: @"fetchCurrentItemOutOfBand callback occured"];
     NSArray<CKKSCurrentItemQuery*>* queries = @[
         [[CKKSCurrentItemQuery alloc] initWithIdentifier:@"pcsservice" accessGroup: @"com.apple.security.ckks" zoneID:self.protectedCloudStorageZoneID.zoneName]
     ];
-    
+
     SecItemFetchCurrentItemOutOfBand(queries, false, ^(NSArray<CKKSCurrentItemQueryResult *> *currentItems, NSError *error) {
         XCTAssertNotNil(error, "Should have errored due to CKKS ready state");
         XCTAssertEqual(error.code, CKKSErrorOutOfBandFetchingDisallowed);
@@ -2304,6 +2426,117 @@
     XCTAssertNil(prefFromCloudKit, "persistent reference uuid should be nil");
 
     SecKeychainSetOverrideStaticPersistentRefsIsEnabled(false);
+}
+
+- (void)testWasCurrentAlreadySetToNonZero {
+    SecResetLocalSecuritydXPCFakeEntitlements();
+    SecAddLocalSecuritydXPCFakeEntitlement(kSecEntitlementPrivateCKKSPlaintextFields, kCFBooleanTrue);
+    SecAddLocalSecuritydXPCFakeEntitlement(kSecEntitlementPrivateCKKSWriteCurrentItemPointers, kCFBooleanTrue);
+    SecAddLocalSecuritydXPCFakeEntitlement(kSecEntitlementPrivateCKKSReadCurrentItemPointers, kCFBooleanTrue);
+
+    NSNumber* servIdentifier = @3;
+    NSData* publicKey = [@"asdfasdf" dataUsingEncoding:NSUTF8StringEncoding];
+    NSData* publicIdentity = [@"somedata" dataUsingEncoding:NSUTF8StringEncoding];
+
+    [self createAndSaveFakeKeyHierarchy: self.keychainZoneID]; // Make life easy for this test.
+    [self startCKKSSubsystem];
+
+    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:10*NSEC_PER_SEC], @"key state should enter 'ready'");
+    XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateReady] wait:10*NSEC_PER_SEC], @"CKKS state machine should enter 'ready'");
+
+    // Ensure there's no current pointer
+    [self fetchCurrentPointerExpectingError:false];
+    XCTestExpectation* keychainChanged = [self expectChangeForView:self.keychainZoneID.zoneName];
+
+    [self expectCKModifyItemRecords: 1 currentKeyPointerRecords: 1 zoneID:self.keychainZoneID
+                          checkItem: [self checkPCSFieldsBlock:self.keychainZoneID
+                                          PCSServiceIdentifier:(NSNumber *)servIdentifier
+                                                  PCSPublicKey:publicKey
+                                             PCSPublicIdentity:publicIdentity]];
+
+    NSDictionary* result = [self pcsAddItem:@"testaccount"
+                                       data:[@"asdf" dataUsingEncoding:NSUTF8StringEncoding]
+                          serviceIdentifier:(NSNumber*)servIdentifier
+                                  publicKey:(NSData*)publicKey
+                             publicIdentity:(NSData*)publicIdentity
+                              expectingSync:true];
+    XCTAssertNotNil(result, "Received result from adding item");
+    [self waitForExpectations:@[keychainChanged] timeout:8];
+
+    // Check that the record is where we expect it in CloudKit
+    [self waitForCKModifications];
+    CKRecordID* pcsItemRecordID = [[CKRecordID alloc] initWithRecordName: @"50184A35-4480-E8BA-769B-567CF72F1EC0" zoneID:self.keychainZoneID];
+    CKRecord* record = self.keychainZone.currentDatabase[pcsItemRecordID];
+    XCTAssertNotNil(record, "Found record in CloudKit at expected UUID");
+
+    NSData* persistentRef = result[(id)kSecValuePersistentRef];
+    NSData* sha1 = result[(id)kSecAttrSHA1];
+    XCTAssertNotNil(persistentRef, "Item should have a pRef");
+
+    // @TODO: CloudKit sets the `wascurrent` flag on the item record when a current item pointer is set. rdar://171332837 tracks adding this functionality to MockCloudKit for all CIP tests.
+    void (^setWasCurrentAndEtag)(void) = ^{
+        CKRecord* modifiedRecord = [record copy];
+        modifiedRecord[SecCKRecordServerWasCurrent] = @1;
+        [self.keychainZone addToZone:modifiedRecord];
+    };
+
+    [self expectCKModifyRecords:@{SecCKRecordCurrentItemType: @1}
+        deletedRecordTypeCounts:nil
+                         zoneID:self.keychainZoneID
+            checkModifiedRecord:nil
+          inspectOperationGroup:nil
+           runAfterModification:setWasCurrentAndEtag];
+
+    // Set the 'current' pointer.
+    XCTestExpectation* setCurrentExpectation = [self expectationWithDescription: @"callback occurs"];
+
+    // Ensure that setting the current pointer sends a notification
+    keychainChanged = [self expectChangeForView:self.keychainZoneID.zoneName];
+    SecItemSetCurrentItemAcrossAllDevices((__bridge CFStringRef)@"com.apple.security.ckks",
+                                          (__bridge CFStringRef)@"pcsservice",
+                                          (__bridge CFStringRef)@"keychain",
+                                          (__bridge CFDataRef)persistentRef,
+                                          (__bridge CFDataRef)sha1, NULL, NULL, ^ (CFErrorRef cferror) {
+                                              NSError* error = (__bridge NSError*)cferror;
+                                              XCTAssertNil(error, "No error setting current item");
+                                              [setCurrentExpectation fulfill];
+                                          });
+    OCMVerifyAllWithDelay(self.mockDatabase, 20);
+    [self waitForCKModifications];
+    [self waitForExpectations:@[keychainChanged, setCurrentExpectation] timeout:10];
+
+    // Unset the CIP, but keep the item record in CloudKit.
+    [self expectCKModifyRecords:nil
+        deletedRecordTypeCounts:@{SecCKRecordCurrentItemType: @1}
+                         zoneID:self.keychainZoneID
+            checkModifiedRecord:nil
+          inspectOperationGroup:nil
+           runAfterModification:nil];
+    XCTestExpectation* unsetCurrentExpectation = [self expectationWithDescription: @"unsetting current item works"];
+    SecItemUnsetCurrentItemsAcrossAllDevices((__bridge CFStringRef)@"com.apple.security.ckks", (__bridge CFArrayRef)@[@"pcsservice"], (__bridge CFStringRef)@"keychain", ^(CFErrorRef cferror) {
+        NSError* error = (__bridge NSError*)cferror;
+        XCTAssertNil(error, "should have received no error unsetting current item");
+        [unsetCurrentExpectation fulfill];
+    });
+    [self waitForExpectations:@[unsetCurrentExpectation] timeout:10];
+    OCMVerifyAllWithDelay(self.mockDatabase, 20);
+
+    // Now try to set the CIP to the same item again. CKKS should reject it.
+    setCurrentExpectation = [self expectationWithDescription: @"callback for second call occurs"];
+    SecItemSetCurrentItemAcrossAllDevices((__bridge CFStringRef)@"com.apple.security.ckks",
+                                          (__bridge CFStringRef)@"pcsservice",
+                                          (__bridge CFStringRef)@"keychain",
+                                          (__bridge CFDataRef)persistentRef,
+                                          (__bridge CFDataRef)sha1, NULL, NULL, ^ (CFErrorRef cferror) {
+                                              NSError* error = (__bridge NSError*)cferror;
+                                              XCTAssertNotNil(error, "should have gotten an error setting current item");
+                                              XCTAssertEqualObjects(error.domain, CKKSErrorDomain, "Error should be CKKSErrorDomain");
+                                              XCTAssertEqual(error.code, CKKSErrorItemAlreadyWasCurrent, "Error should indicate that item was already set");
+                                              [setCurrentExpectation fulfill];
+                                          });
+    [self waitForExpectations:@[setCurrentExpectation] timeout:10];
+    OCMVerifyAllWithDelay(self.mockDatabase, 20);
+    SecResetLocalSecuritydXPCFakeEntitlements();
 }
 
 @end

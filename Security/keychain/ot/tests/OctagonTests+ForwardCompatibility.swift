@@ -1191,6 +1191,7 @@ class OctagonForwardCompatibilityTests: OctagonTestsBase {
         self.startCKAccountStatusMock()
 
 #if os(visionOS)
+
         let oldDeviceInfo = self.mockDeviceInfo.mockModelID
         self.mockDeviceInfo.mockModelID = "iPad7,1"
         let pastPeerContext = self.makeInitiatorContext(contextID: "pastPeer")

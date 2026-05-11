@@ -301,6 +301,7 @@ typedef struct {
     unsigned int        fWakeOnLAN;
     unsigned int        fWakeOnRing;
     unsigned int        fAutomaticRestart;
+    unsigned int        fAutomaticRestartAtConnect;
     unsigned int        fSleepOnPowerButton;
     unsigned int        fWakeOnClamshell;
     unsigned int        fWakeOnACChange;

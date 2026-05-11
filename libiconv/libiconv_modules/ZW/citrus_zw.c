@@ -1,4 +1,3 @@
-/* $FreeBSD$ */
 /* $NetBSD: citrus_zw.c,v 1.4 2008/06/14 16:01:08 tnozaki Exp $ */
 
 /*-
@@ -30,7 +29,6 @@
  *
  */
 
-#include <sys/cdefs.h>
 #include <sys/types.h>
 
 #include <assert.h>

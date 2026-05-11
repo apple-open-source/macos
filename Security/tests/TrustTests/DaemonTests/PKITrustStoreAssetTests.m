@@ -136,14 +136,14 @@
     NSURL *testAnchorsUrl = CFBridgingRelease(SecCopyURLForFileInPrivateTrustdDirectory(CFSTR("ConstrainedTestAnchors.plist")));
     XCTAssert([testAnchors writeToURL:testAnchorsUrl error:nil]);
 
-    /* Intialize the Trust Store */
+    /* Re-Intialize the Trust Store and anchor table */
     SecOTAPKIRef store = SecOTAPKICopyCurrentOTAPKIRef();
     XCTAssertNotEqual(NULL, store);
+    SecOTAPKISetConstrainedAnchorLookupTable(NULL);
 
     /* Verify that the test anchors are in the constrained anchors */
     NSDictionary *anchorLookupTable = CFBridgingRelease(SecOTAPKICopyConstrainedAnchorLookupTable());
     XCTAssertNotNil(anchorLookupTable);
-
     SecCertificateRef anchor = SecCertificateCreateWithBytes(NULL, _constrained_test_anchor, sizeof(_constrained_test_anchor));
     NSString *anchorLookupKey = CFBridgingRelease(SecCertificateCopyAnchorLookupKey(anchor));
     XCTAssertNotNil(anchorLookupKey);

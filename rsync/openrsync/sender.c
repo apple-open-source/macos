@@ -1627,13 +1627,22 @@ rsync_sender(struct sess *sess, int fdin,
 			}
 
 			/*
-			 * If the file is zero-length, the map will
-			 * fail, but either way we want to unset that
-			 * we're waiting for the file to open and set
-			 * that we're ready for the output channel.
+			 * If the file shrank in --append mode, then we should
+			 * avoid touching it entirely.
 			 */
-
-			if ((up.stat.mapsz = st.st_size) > 0) {
+			if (sess->opts->append && up.cur->blks != NULL &&
+			    (off_t)st.st_size < up.cur->blks->size) {
+				WARNX("%s: skipping diminished file",
+				    f->path);
+				sess->total_errors++;
+				send_up_reset(&up);
+			} else if ((up.stat.mapsz = st.st_size) > 0) {
+				/*
+				 * If the file is zero-length, the map will
+				 * fail, but either way we want to unset that
+				 * we're waiting for the file to open and set
+				 * that we're ready for the output channel.
+				 */
 				up.stat.map = fmap_open(f->path, up.stat.fd,
 				    st.st_size);
 				if (up.stat.map == NULL)

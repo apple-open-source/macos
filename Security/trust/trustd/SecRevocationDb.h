@@ -105,6 +105,17 @@ struct __SecValidInfo {
  */
 void SecValidInfoSetAnchor(SecValidInfoRef validInfo, SecCertificateRef anchor);
 
+/*!
+	@function SecValidInfoCreateCopy
+	@abstract Creates a deep copy of a SecValidInfo reference.
+	@param info The SecValidInfo reference to copy.
+	@result A new SecValidInfo reference with its own retained copies of all fields,
+	or NULL if the input is NULL or allocation fails.
+	@discussion Use this to obtain a private mutable copy of a SecValidInfo that may
+	be shared (e.g. returned from the revocation database cache).
+ */
+CF_RETURNS_RETAINED SecValidInfoRef SecValidInfoCreateCopy(SecValidInfoRef info);
+
 static inline bool SecValidInfoIsRevoked(SecValidInfoRef info) {
     /* either not present on an allowlist, or present on a blocklist */
     return (!info->isOnList && info->valid) || (info->isOnList && !info->valid);

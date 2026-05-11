@@ -27,6 +27,7 @@ static void TestFormatCalendarToResult(void);
 // rdar://
 static void TestOpen(void);
 static void TestFlexibleDayPeriods(void); // rdar://140657084
+static void TestSafariCrash(void); // rdar://170463660
 #endif  // APPLE_ICU_CHANGES
 
 void addDateIntervalFormatTest(TestNode** root);
@@ -43,6 +44,7 @@ void addDateIntervalFormatTest(TestNode** root)
 // rdar://
     TESTCASE(TestOpen);
     TESTCASE(TestFlexibleDayPeriods); // rdar://140657084
+    TESTCASE(TestSafariCrash); // rdar://170463660
 #endif  // APPLE_ICU_CHANGES
 }
 
@@ -993,6 +995,18 @@ static void TestFlexibleDayPeriods(void) {
     }
 }
 
+// rdar://170463660
+static void TestSafariCrash(void) {
+    UErrorCode err = U_ZERO_ERROR;
+    UDateIntervalFormat* dtitf = udtitvfmt_open("nv-u-ca-gregory-nu-latn", u"BBBBB", -1, u"America/Los_Angeles", -1, &err);
+    UChar result[200];
+    udtitvfmt_format(dtitf, 42, 42, result, 200, NULL, &err); // with the bug in place, this line crashes
+    
+    if (assertSuccess("Formatting failed", &err)) {
+        assertUEquals("Wrong formatting result", u"PM", result);
+    }
+    udtitvfmt_close(dtitf);
+}
 
 #endif  // APPLE_ICU_CHANGES
 

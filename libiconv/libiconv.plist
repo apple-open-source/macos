@@ -6,11 +6,11 @@
 		<key>OpenSourceProject</key>
 		<string>libiconv</string>
 		<key>OpenSourceVersion</key>
-		<string>2022-08-11</string>
+		<string>2026-01-22</string>
 		<key>OpenSourceWebsiteURL</key>
-		<string>https://cgit.freebsd.org/src/tree/lib/libc/iconv?id=693f88c9da8dccf173b40fd57d1d15504a54e9b4</string>
+		<string>https://cgit.freebsd.org/src/tree/lib/libc/iconv?id=dec3ea45b65442b4f3cafcd8a672f1e13b69a066</string>
 		<key>OpenSourceImportDate</key>
-		<string>2022-08-16</string>
+		<string>2026-02-25</string>
 		<key>OpenSourceModifications</key>
 		<array>
 			<string>iconv.c: export _libiconv_version (74104092)</string>

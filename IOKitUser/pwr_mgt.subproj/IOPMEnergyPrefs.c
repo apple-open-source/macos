@@ -87,6 +87,7 @@ PMSettingDescriptorStruct defaultSettings[] =
     {kIOPMReduceBrightnessKey,                          0,   1,  1},
     {kIOPMReduceSpeedKey,                               0,   0,  1},
     {kIOPMRestartOnPowerLossKey,                        0,   0,  0},
+    {kIOPMRestartOnPowerConnectKey,                     0,   0,  0},
     {kIOPMSleepOnPowerButtonKey,                        1,   1,  1},
 #if TARGET_OS_IPHONE
     {kIOPMSystemSleepKey,                               2147483647, 2147483647, 2147483647},
@@ -275,6 +276,7 @@ bool isA_GenericPref(CFStringRef key)
         CFSTR(kIOPMGPUSwitchKey),
         CFSTR(kIOPMReduceBrightnessKey),
         CFSTR(kIOPMRestartOnPowerLossKey),
+        CFSTR(kIOPMRestartOnPowerConnectKey),
         CFSTR(kIOPMSystemSleepKey),
         CFSTR(kIOPMWakeOnLANKey),
         CFSTR(kIOPMCarrierMode),

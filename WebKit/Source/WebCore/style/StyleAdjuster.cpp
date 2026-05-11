@@ -1085,6 +1085,17 @@ void Adjuster::adjustForSiteSpecificQuirks(RenderStyle& style) const
             style.setEffectiveDisplay(DisplayType::None);
     }
 
+    // zillow.com rdar://171279940
+    // FIXME(309831): Remove after rdar://172303198 is implemented.
+    if (documentQuirks.needsZillowFloorplanMarginQuirk()) {
+        if (m_element->hasTagName(imgTag)) {
+            if (RefPtr parent = m_element->parentElement(); parent && parent->idForStyleResolution() == "floorplan_panel"_s) {
+                style.setMarginLeft(CSS::Keyword::Auto { });
+                style.setMarginRight(CSS::Keyword::Auto { });
+            }
+        }
+    }
+
 #if PLATFORM(IOS_FAMILY)
     if (documentQuirks.needsGoogleMapsScrollingQuirk()) {
         static MainThreadNeverDestroyed<const AtomString> className("PUtLdf"_s);
@@ -1147,7 +1158,9 @@ void Adjuster::adjustForSiteSpecificQuirks(RenderStyle& style) const
         //     animation-fill-mode: none, forwards;
         //     animation-name: menu-grow-left, menu-fade-in;
         auto menuGrowLeftAnimation = Style::Animation { { ScopedName { "menu-grow-left"_s } } };
+        menuGrowLeftAnimation.setDelay(0_css_s);
         menuGrowLeftAnimation.setDuration(.18_css_s);
+        menuGrowLeftAnimation.setFillMode(AnimationFillMode::None);
 
         auto menuFadeInAnimation = Style::Animation { { ScopedName { "menu-fade-in"_s } } };
         menuFadeInAnimation.setDelay(.06_css_s);
@@ -1155,8 +1168,8 @@ void Adjuster::adjustForSiteSpecificQuirks(RenderStyle& style) const
         menuFadeInAnimation.setFillMode(AnimationFillMode::Forwards);
 
         auto& animations = style.ensureAnimations();
-        animations.append(WTF::move(menuGrowLeftAnimation));
-        animations.append(WTF::move(menuFadeInAnimation));
+        animations = Style::Animations { WTF::move(menuGrowLeftAnimation), WTF::move(menuFadeInAnimation) };
+        animations.prepareForUse();
     }
 
 #if PLATFORM(IOS_FAMILY)

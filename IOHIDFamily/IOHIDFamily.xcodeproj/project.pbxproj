@@ -1527,6 +1527,7 @@
 		D00473912D56908700ED759B /* TestSavannaTimeSync.m in Sources */ = {isa = PBXBuildFile; fileRef = D00473902D56908700ED759B /* TestSavannaTimeSync.m */; platformFilters = (ios, macos, xros, ); };
 		D00891722DBC054700FF9838 /* HIDVirtualEventService_Internal.h in Headers */ = {isa = PBXBuildFile; fileRef = D00891712DBC053F00FF9838 /* HIDVirtualEventService_Internal.h */; };
 		D01036092DB7FD9B00873437 /* TestSavannaSpecMultipleIMUSamples.m in Sources */ = {isa = PBXBuildFile; fileRef = D01036082DB7FD6C00873437 /* TestSavannaSpecMultipleIMUSamples.m */; platformFilters = (ios, macos, xros, ); };
+		C4B1E1762F4FA62C00FB3426 /* TestIOHIDEventServiceUserClient.m in Sources */ = {isa = PBXBuildFile; fileRef = C4B1E1752F4FA62C00FB3426 /* TestIOHIDEventServiceUserClient.m */; };
 		D0130BDC2CEFCA9C002D622E /* IOHIDComplexEventDriver.h in Headers */ = {isa = PBXBuildFile; fileRef = D0130BDB2CEFCA96002D622E /* IOHIDComplexEventDriver.h */; };
 		D0130BDD2CEFCA9C002D622E /* IOHIDComplexEventDriver.h in Headers */ = {isa = PBXBuildFile; fileRef = D0130BDB2CEFCA96002D622E /* IOHIDComplexEventDriver.h */; };
 		D0130BDF2CEFCA9F002D622E /* IOHIDComplexEventDriver.cpp in Sources */ = {isa = PBXBuildFile; fileRef = D0130BDE2CEFCA9F002D622E /* IOHIDComplexEventDriver.cpp */; };
@@ -4680,6 +4681,7 @@
 		D00473902D56908700ED759B /* TestSavannaTimeSync.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = TestSavannaTimeSync.m; sourceTree = "<group>"; };
 		D00891712DBC053F00FF9838 /* HIDVirtualEventService_Internal.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HIDVirtualEventService_Internal.h; sourceTree = "<group>"; };
 		D01036082DB7FD6C00873437 /* TestSavannaSpecMultipleIMUSamples.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = TestSavannaSpecMultipleIMUSamples.m; sourceTree = "<group>"; };
+		C4B1E1752F4FA62C00FB3426 /* TestIOHIDEventServiceUserClient.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = TestIOHIDEventServiceUserClient.m; sourceTree = "<group>"; };
 		D0130BDB2CEFCA96002D622E /* IOHIDComplexEventDriver.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = IOHIDComplexEventDriver.h; sourceTree = "<group>"; };
 		D0130BDE2CEFCA9F002D622E /* IOHIDComplexEventDriver.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = IOHIDComplexEventDriver.cpp; sourceTree = "<group>"; };
 		D01C0A982A61C0160013C4D7 /* TestHID_IOHIDEventSystemClient_EventFilter.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = TestHID_IOHIDEventSystemClient_EventFilter.m; sourceTree = "<group>"; };
@@ -7265,6 +7267,7 @@
 				499B07862ADFD1F900A0CCC0 /* TestHIDDeviceAccessNoEntitlements.m */,
 				49EFB40D2D2DA08A008F704C /* TestHIDCollectionEvent.m */,
 				49FF133C2D6415BC00B3096A /* TestHIDCollectionEvent_filter.m */,
+				C4B1E1752F4FA62C00FB3426 /* TestIOHIDEventServiceUserClient.m */,
 				D125E7482D2E085900914C12 /* TestHIDGestureImbalanceDetectionSessionFilter.m */,
 			);
 			path = IOHIDFamilyUnitTests;
@@ -11286,6 +11289,7 @@
 				D8F1FF6B212E26AA00F5FA10 /* TestHIDIOHIDEventDriver_HeadsetRemoteTelephonyAndMediaPlayback.m in Sources */,
 				721DE34A2149C53800E82E6B /* TestHIDIOHIDPointerScrollFilter.m in Sources */,
 				D09ED5EB2D0CED3B00F38B42 /* TestSavannaSpecIMU.m in Sources */,
+				C4B1E1762F4FA62C00FB3426 /* TestIOHIDEventServiceUserClient.m in Sources */,
 				D862CB761E245616001AE29F /* TestHIDFastPath.m in Sources */,
 				D808C1121E1F607000FE7094 /* TestHIDDevice.m in Sources */,
 				72DD5F99237620E600B8EB71 /* TestHIDDigitizerButtonMask.m in Sources */,
@@ -11328,6 +11332,7 @@
 				D85DCFD81E370BD5006D9264 /* TestHIDIOKitVirtualService.m in Sources */,
 				72B7BEDE21E9273800786D6D /* TestHIDDisplayFramework.m in Sources */,
 				C4E3279B2ED65E53004ACD0E /* TestHIDTransaction.m in Sources */,
+				C4E3279B2ED65E53004ACD0E /* (null) in Sources */,
 				D811CC7A2D8C947100795252 /* HIDSensorTimeFilter.swift in Sources */,
 				7E67851A2718D6AC005C6C81 /* TestHIDEventSystemClientMultiThreaded.m in Sources */,
 				46E83C87204E59EE0091DF92 /* TestHIDIOHIDPostEvent.m in Sources */,

@@ -51,6 +51,7 @@
 			<string>Fix CVE-2022-0529 (89134214)</string>
                         <string>Modify version message to note that unzip was modified by Apple.</string>
                         <string>Refuse to create files (or directories) outside the initial extraction directory.</string>
+                        <string>Turn certain symbolic link warnings into errors.</string>
 		</array>
 		<key>OpenSourceProject</key>
 		<string>unzip</string>

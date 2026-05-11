@@ -63,6 +63,7 @@
 #include "trust/trustd/SecTrustLoggingServer.h"
 #include "trust/trustd/SecTrustExceptionResetCount.h"
 #include "trust/trustd/trustdFileLocations.h"
+#include "trust/trustd/SecAnchorCache.h"
 
 #if TARGET_OS_OSX
 #include <Security/SecTaskPriv.h>
@@ -545,6 +546,22 @@ static bool SecXPC_Valid_Update(SecurityClient * __unused client, xpc_object_t e
     return true;
 }
 
+static bool SecXPCTrustStoreCopyAppleAnchors(SecurityClient * __unused client, xpc_object_t event,
+                                             xpc_object_t reply, CFErrorRef *error)
+{
+    CFStringRef policyId = NULL;
+    bool result = false;
+    SecXPCDictionaryCopyStringOptional(event, kSecTrustPoliciesKey, &policyId, error);
+    CFDictionaryRef anchors = SecAnchorCacheCopyAppleAnchors(policyId);
+    CFReleaseNull(policyId);
+    if (anchors && CFDictionaryGetCount(anchors) != 0) {
+        SecXPCDictionarySetPList(reply, kSecXPCKeyResult, anchors, error);
+        result = true;
+    }
+    CFReleaseNull(anchors);
+    return result;
+}
+
 typedef bool(*SecXPCOperationHandler)(SecurityClient *client, xpc_object_t event, xpc_object_t reply, CFErrorRef *error);
 
 typedef struct {
@@ -583,6 +600,7 @@ struct trustd_operations {
     SecXPCServerOperation trust_store_remove_all;
     SecXPCServerOperation trust_reset_settings;
     SecXPCServerOperation trust_store_migrate_plist;
+    SecXPCServerOperation trust_store_copy_apple_anchors;
 };
 
 static struct trustd_operations trustd_ops = {
@@ -614,6 +632,7 @@ static struct trustd_operations trustd_ops = {
     .trust_settings_copy_data = { NULL, SecXPCTrustSettingsCopyData },
     .trust_store_remove_all = { kSecEntitlementModifyAnchorCertificates, SecXPCTrustStoreRemoveAll },
     .trust_reset_settings = { NULL, SecXPCTrustResetSettings },
+    .trust_store_copy_apple_anchors = { NULL, SecXPCTrustStoreCopyAppleAnchors },
 };
 
 static void trustd_xpc_dictionary_handler(const xpc_connection_t connection, xpc_object_t event) {
@@ -913,6 +932,9 @@ static void trustd_xpc_dictionary_handler(const xpc_connection_t connection, xpc
                     break;
                 case sec_trust_store_migrate_plist_id:
                     server_op = &trustd_ops.trust_store_migrate_plist;
+                    break;
+                case kSecXPCOpCopyAppleAnchors:
+                    server_op = &trustd_ops.trust_store_copy_apple_anchors;
                     break;
                 default:
                     break;

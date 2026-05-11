@@ -1051,8 +1051,12 @@ danglingPeerCleanup:(BOOL)danglingPeerCleanup
     }] icscRepairReset:arguments reply:reply];
 }
 
-+ (OTControl*)controlObject:(NSError* __autoreleasing *)error {
-    return [OTControl controlObject:false error:error];
+- (void)icscRepairInvalidateCacheVersion:(OTControlArguments*)arguments
+                                   reply:(void (^)(NSError *_Nullable error))reply
+{
+    [[self getConnection:^(NSError* error) {
+        reply(error);
+    }] icscRepairInvalidateCacheVersion:arguments reply:reply];
 }
 
 - (void)enableWalrus:(OTControlArguments*)arguments
@@ -1075,6 +1079,10 @@ danglingPeerCleanup:(BOOL)danglingPeerCleanup
     }] disableWalrus:arguments
           preRecords:preRecords
                reply:reply];
+}
+
++ (OTControl*)controlObject:(NSError* __autoreleasing *)error {
+    return [OTControl controlObject:false error:error];
 }
 
 + (OTControl*)controlObject:(bool)sync error:(NSError**)error

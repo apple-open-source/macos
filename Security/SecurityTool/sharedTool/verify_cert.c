@@ -175,6 +175,7 @@ int verify_cert(int argc, char * const *argv) {
                     unsigned long cmpLen = strlen(appleDataSecurityOidArc);
                     if (strlen(optarg) > cmpLen &&
                         !memcmp(optarg, appleDataSecurityOidArc, cmpLen)) {
+                        CFRELEASE(policyOidString);
                         policyOidString = CFStringCreateWithCString(NULL, optarg, kCFStringEncodingUTF8);
                     }
                 }

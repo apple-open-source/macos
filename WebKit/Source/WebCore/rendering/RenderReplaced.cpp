@@ -259,13 +259,9 @@ void RenderReplaced::paint(PaintInfo& paintInfo, const LayoutPoint& paintOffset)
     LayoutPoint adjustedPaintOffset = paintOffset + location();
 
     if (paintInfo.phase == PaintPhase::EventRegion) {
-#if ENABLE(INTERACTION_REGIONS_IN_EVENT_REGION)
         if (isRenderOrLegacyRenderSVGRoot() && !isSkippedContentRoot(*this))
             paintReplaced(paintInfo, adjustedPaintOffset);
         else if (visibleToHitTesting()) {
-#else
-        if (visibleToHitTesting()) {
-#endif
             auto borderRect = LayoutRect(adjustedPaintOffset, size());
             auto borderShape = BorderShape::shapeForBorderRect(style(), borderRect);
             paintInfo.eventRegionContext()->unite(borderShape.deprecatedPixelSnappedRoundedRect(document().deviceScaleFactor()), *this, style());
@@ -470,9 +466,11 @@ void RenderReplaced::computeAspectRatioInformationForRenderBox(RenderBox* conten
         intrinsicSize = RenderReplaced::computeIntrinsicSize();
         preferredAspectRatio = RenderReplaced::preferredAspectRatio();
     } else if (contentRenderer) {
+        bool contentIsRenderReplaced = false;
         if (auto* renderReplaced = dynamicDowncast<RenderReplaced>(contentRenderer)) {
             intrinsicSize = renderReplaced->computeIntrinsicSize();
             preferredAspectRatio = renderReplaced->preferredAspectRatio();
+            contentIsRenderReplaced = true;
         }
         if (style().aspectRatio().isRatio() || (style().aspectRatio().isAutoAndRatio() && preferredAspectRatio.isEmpty()))
             preferredAspectRatio = FloatSize::narrowPrecision(style().aspectRatio().width().value, style().aspectRatio().height().value);
@@ -486,7 +484,20 @@ void RenderReplaced::computeAspectRatioInformationForRenderBox(RenderBox* conten
         // Update our intrinsic size to match what the content renderer has computed, so that when we
         // constrain the size below, the correct intrinsic size will be obtained for comparison against
         // min and max widths.
-        if (!preferredAspectRatio.isEmpty() && !intrinsicSize.isZero())
+        if (contentIsRenderReplaced && isRenderWidget()) {
+            // For RenderWidget content (e.g. <object> embedding an SVG document), always update
+            // m_intrinsicSize to reflect current intrinsic dimensions, applying CSS default fallback
+            // values (300x150) for dimensions with no intrinsic value (e.g. percentage-sized or
+            // removed attributes). This prevents stale cached sizes when attributes like width/height
+            // are removed. Note: this does not apply to RenderImage (<img src="svg">), which manages
+            // its own intrinsic size via setIntrinsicSize() during image load.
+            auto sizeToCache = intrinsicSize;
+            if (!sizeToCache.width())
+                sizeToCache.setWidth(cDefaultWidth);
+            if (!sizeToCache.height())
+                sizeToCache.setHeight(cDefaultHeight);
+            m_intrinsicSize = LayoutSize(sizeToCache);
+        } else if (!preferredAspectRatio.isEmpty() && !intrinsicSize.isZero())
             m_intrinsicSize = LayoutSize(intrinsicSize);
 
         if (!isHorizontalWritingMode()) {

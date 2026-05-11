@@ -50,6 +50,15 @@ chmod +x run_cli_examples.sh
 python3 oid_validation.py
 ```
 
+### Pinning Parity Validation
+```bash
+# Validate pinning rule parity (see DEFAULT_COMPARISONS in test_pinning_parity.py)
+python3 test_pinning_parity.py
+
+# Compare two arbitrary suffixes (full parity required)
+python3 test_pinning_parity.py --suffix-a example.com --suffix-b example.co.uk
+```
+
 ## Test Data Files
 
 The suite includes comprehensive test data based on real certificate examples:
@@ -171,6 +180,7 @@ test_update_trust_store.py
 ```
 oid_validation.py             # OID validation utilities
 run_cli_examples.sh          # Interactive CLI demonstrations
+test_pinning_parity.py       # Pinning rule parity validation
 test_data_*.json             # Comprehensive test data files
 TEST_DOCUMENTATION.md        # Detailed testing documentation
 ```

@@ -1320,6 +1320,12 @@ void SecRevocationDbInitialize(void) {
         }
     });
 
+    /* if we are running on gen8, force a reset on the database to the on disk version  */
+    if (initializeDb == false && SecValidShouldDowngrade()) {
+        secnotice("validupdate", "trigger downgrade from gen8");
+        initializeDb = true;
+    }
+
     if (!initializeDb) {
         SecRevocationDbLogVersions();
         os_release(transaction);
@@ -1409,6 +1415,35 @@ static void SecValidInfoDestroy(CFTypeRef cf) {
     }
 }
 
+SecValidInfoRef SecValidInfoCreateCopy(SecValidInfoRef info) {
+    if (!info) { return NULL; }
+    SecValidInfoRef copy;
+    copy = CFTypeAllocate(SecValidInfo, struct __SecValidInfo, kCFAllocatorDefault);
+    if (!copy) { return NULL; }
+
+    copy->format = info->format;
+    copy->certHash = CFRetainSafe(info->certHash);
+    copy->issuerHash = CFRetainSafe(info->issuerHash);
+    copy->anchorHash = CFRetainSafe(info->anchorHash);
+    copy->isOnList = info->isOnList;
+    copy->valid = info->valid;
+    copy->complete = info->complete;
+    copy->checkOCSP = info->checkOCSP;
+    copy->knownOnly = info->knownOnly;
+    copy->requireCT = info->requireCT;
+    copy->noCACheck = info->noCACheck;
+    copy->overridable = info->overridable;
+    copy->hasDateConstraints = info->hasDateConstraints;
+    copy->hasNameConstraints = info->hasNameConstraints;
+    copy->hasPolicyConstraints = info->hasPolicyConstraints;
+    copy->notBeforeDate = CFRetainSafe(info->notBeforeDate);
+    copy->notAfterDate = CFRetainSafe(info->notAfterDate);
+    copy->nameConstraints = CFRetainSafe(info->nameConstraints);
+    copy->policyConstraints = CFRetainSafe(info->policyConstraints);
+
+    return copy;
+}
+
 void SecValidInfoSetAnchor(SecValidInfoRef validInfo, SecCertificateRef anchor) {
     if (!validInfo) {
         return;
@@ -1423,7 +1458,7 @@ void SecValidInfoSetAnchor(SecValidInfoRef validInfo, SecCertificateRef anchor) 
         }
         if (!_SecTrustRemoveOldAppleAnchorSource()) {
             // Fallback
-            if (SecIsAppleTrustAnchor(anchor, 0)) {
+            if (SecIsBuiltInAppleAnchor(anchor, 0)) {
                 validInfo->noCACheck = false;
             }
         }
@@ -2133,8 +2168,8 @@ setVersionAndExit:
     "WHERE filterid=?")
 // Given a logid and a timestamp, finds the most recently generated entry in crlitefiltercoverage that
 // has logid=logid and timestamp >= start and timestamp <= end
-#define selectCRLiteFilterCoverageForLogIDAndTimestampSQL CFSTR("SELECT filterid,generatedat FROM crlitefiltercoverage " \
-    "WHERE logid=?1 AND ?2 >= start AND ?2 <= end ORDER BY generatedat DESC LIMIT 1")
+#define selectCRLiteFilterCoverageForLogIDAndTimestampSQL CFSTR("SELECT filterid FROM crlitefiltercoverage " \
+    "WHERE logid=?1 AND ?2 >= start AND ?2 <= end ORDER BY generatedat")
 #define deleteAllCRLiteEntriesSQL CFSTR("" \
     "DELETE FROM crlitefiltercoverage; " \
     "DELETE FROM crlitefilters;")
@@ -4251,11 +4286,9 @@ static SecValidInfoRef _SecRevocationDbValidInfoForCertificate(SecRevocationDbCo
 
     bool isAppleAnchor = SecCertificateSourceContains(kSecAppleAnchorSource, certificate, NULL);
     if (!_SecTrustRemoveOldAppleAnchorSource()) {
-        isAppleAnchor =  isAppleAnchor || SecIsAppleTrustAnchor(certificate, 0);
+        isAppleAnchor =  isAppleAnchor || SecIsBuiltInAppleAnchor(certificate, 0);
     }
-    if (result && (isAppleAnchor ||
-                   SecIsAppleCodeSigningAnchor(certificate) ||
-                   SecIsAppleCodeSigningIssuer(issuerHash))) {
+    if (result && isAppleAnchor) {
         /* Prevent a catch-22. */
         secdebug("validupdate", "Valid db match for Apple trust anchor: %@, format=%d, flags=0x%lx",
                  certHash, format, flags);
@@ -4401,10 +4434,13 @@ errOut:
     return ok;
 }
 
-static int64_t _SecRevocationDbCRLiteGetMostRecentCoveringFilter(SecRevocationDbConnectionRef dbc, CFDataRef logID, CFDateRef timestamp, CFDateRef * CF_RETURNS_RETAINED outGeneratedAt, CFErrorRef *error) {
-    /* look up most recent filter that has coverage for the given logID and timestamp; returns filterId on success, -1 on error */
-    __block int64_t filterId = 0;
-    __block CFAbsoluteTime generatedAt = 0.0;
+static void
+_SecRevocationDbCRLiteMergeCoveringFilter(SecRevocationDbConnectionRef dbc,
+                                          CFDataRef logID,
+                                          CFDateRef timestamp,
+                                          CFMutableArrayRef matchedFilters)
+{
+    /* look up matching filter that has coverage for the given logID and timestamp; returns filterId on success, -1 on error */
     __block bool ok = (dbc != NULL);
     __block CFErrorRef localError = NULL;
     
@@ -4412,32 +4448,32 @@ static int64_t _SecRevocationDbCRLiteGetMostRecentCoveringFilter(SecRevocationDb
         ok &= SecDbBindBlob(selectCoverage, 1, CFDataGetBytePtr(logID), (size_t)CFDataGetLength(logID), SQLITE_TRANSIENT, &localError);
         ok &= SecDbBindDouble(selectCoverage, 2, (double)CFDateGetAbsoluteTime(timestamp), &localError);
         ok &= SecDbStep(dbc->dbconn, selectCoverage, &localError, ^(bool *stop) {
-            filterId = sqlite3_column_int64(selectCoverage, 0);
-            generatedAt = sqlite3_column_double(selectCoverage, 1);
+            int64_t filterId = sqlite3_column_int64(selectCoverage, 0);
+
+            CFNumberRef filter = CFNumberCreate(NULL, kCFNumberSInt64Type, &filterId);
+            CFArrayAppendValue(matchedFilters, filter);
+            CFReleaseNull(filter);
         });
         return ok;
     });
 
     if (!ok || localError) {
-        secerror("_SecRevocationDbCRLiteGetMostRecentCoveringFilter failed: %@", localError);
+        secerror("_SecRevocationDbCRLiteMergeCoveringFilter failed: %@", localError);
         TrustdHealthAnalyticsLogErrorCodeForDatabase(TARevocationDb, TAOperationRead, TAFatalError,
                                                      localError ? CFErrorGetCode(localError) : errSecInternalComponent);
     }
-    (void) CFErrorPropagate(localError, error);
-    
-    if (outGeneratedAt) {
-        *outGeneratedAt = CFDateCreate(NULL, generatedAt);
-    }
-    return filterId;
+    CFReleaseNull(localError);
 }
 
 
-static CFIndex _SecRevocationDbGetCRLiteFilterIdForSCTs(SecRevocationDbConnectionRef dbc, CFArrayRef scts, CFErrorRef *error) {
+static CFArrayRef
+_SecRevocationDbGetCRLiteFilterIdForSCTs(SecRevocationDbConnectionRef dbc, CFArrayRef scts) {
     // For each SCT, extract the logID and timestamp, and then issue an SQL query to find the most recently loaded filter that has coverage for that logID and timestamp
     __block CFErrorRef localError = NULL;
-    __block int64_t filterId = 0;
-    __block CFDateRef generatedAt = NULL;
+    CFMutableArrayRef matchedFilters = CFArrayCreateMutableForCFTypes(NULL);
+
     CFArrayForEach(scts, ^(const void *value) {
+        int64_t filterId = 0;
         CFDataRef sct = (CFDataRef)value;
         CFDataRef logID = NULL;
         CFDateRef timestamp = NULL;
@@ -4455,26 +4491,12 @@ static CFIndex _SecRevocationDbGetCRLiteFilterIdForSCTs(SecRevocationDbConnectio
             return;
         }
 
-        // Now, we can use SQL to find the most recently loaded filter that has coverage for that logID and timestamp
-        CFDateRef localGeneratedAt = NULL;
-        int64_t localFilterId = _SecRevocationDbCRLiteGetMostRecentCoveringFilter(dbc, logID, timestamp, &localGeneratedAt, &localError);
+        _SecRevocationDbCRLiteMergeCoveringFilter(dbc, logID, timestamp, matchedFilters);
         CFReleaseNull(logID);
         CFReleaseNull(timestamp);
-
-        // Stop looking once we find a filter that has coverage
-        if (localFilterId != 0 && localGeneratedAt != NULL) {
-            // Only update if we found a newer filter (based on generatedAt)
-            if (generatedAt == NULL || CFDateGetAbsoluteTime(localGeneratedAt) > CFDateGetAbsoluteTime(generatedAt)) {
-                filterId = localFilterId;
-                generatedAt = CFRetainSafe(localGeneratedAt);
-            }
-        }
-        CFReleaseNull(localGeneratedAt);
     });
 
-    CFReleaseNull(generatedAt);
-    (void) CFErrorPropagate(localError, error);
-    return filterId;
+    return matchedFilters;
 }
 
 static CF_RETURNS_RETAINED CFDataRef _SecRevocationDbGetCRLiteFilterData(SecRevocationDbConnectionRef dbc, CFIndex filterId, CFErrorRef *error) {
@@ -4549,45 +4571,56 @@ static SecCRLiteInfoRef _SecRevocationDbCopyMatchingCRLite(SecRevocationDbConnec
 
     secdebug("validupdate", "CRLite: found %" PRIdCFIndex " SCTs for cert", CFArrayGetCount(scts));
 
-    // 2. Search crlitefiltercoverage for a filterid that has coverage for any SCT, and choose the most recently generated filter
-    CFIndex filterId = _SecRevocationDbGetCRLiteFilterIdForSCTs(dbc, scts, &error);
-    if (filterId == 0) {
+    // 2. Search crlitefiltercoverage for a filterid that has coverage for any SCT, and choose
+    // all matching filters
+    CFArrayRef filters = _SecRevocationDbGetCRLiteFilterIdForSCTs(dbc, scts);
+    CFIndex count = CFArrayGetCount(filters);
+    if (count == 0) {
+        CFReleaseNull(filters);
         CFReleaseSafe(scts);
         secdebug("validupdate", "CRLite: no filter found for cert");
         return NULL;
     }
-    secdebug("validupdate", "CRLite: found filter %" PRIdCFIndex " for cert", filterId);
+    secdebug("validupdate", "CRLite: found filters %@ for cert", filters);
 
-    // 3. Load the found filter into a CRLiteRef object by querying crlitefilters
+    // 3. Load the found filters into a CRLiteRef object by querying crlitefilters
     // This does some caching internally
-    CRLiteRef crliteRef = _SecRevocationDbGetCRLiteFilterDataWithCache(dbc, filterId, &error);
-    if (error) {
-        secerror("Failed to load CRLite filter: %@", error);
-        CFReleaseSafe(scts);
+    bool isRevoked = false;
+
+    for (CFIndex idx = 0; isRevoked == false && idx < count; idx++) {
+        CFNumberRef filter = CFArrayGetValueAtIndex(filters, idx);
+        int64_t filterId = 0;
+        CFNumberGetValue(filter, kCFNumberSInt64Type, &filterId);
+        if (filterId == 0) {
+            continue;
+        }
+
+        CRLiteRef crliteRef = _SecRevocationDbGetCRLiteFilterDataWithCache(dbc, filterId, &error);
+        if (error) {
+            secerror("Failed to load CRLite filter: %@", error);
+            CFReleaseSafe(crliteRef);
+            continue;
+        }
+        secdebug("validupdate", "CRLite: loaded filter %" PRId64 " for cert", filterId);
+
+        // 4. Consult the CRLite filter for revocation information using SecCRLiteCertStatus
+        // This will return NULL if the certificate is not covered by the filter
+        SecCRLiteStatus crliteStatus = SecCRLiteCertStatus(crliteRef, certificate, issuer, scts, &error);
         CFReleaseSafe(crliteRef);
-        return NULL;
+        if (error) {
+            secerror("Failed to evaluate CRLite certificate revocation status against filter %" PRId64 ": %@", filterId, error);
+            continue;
+        }
+
+        if (crliteStatus == SecCRLiteStatusRevoked) {
+            isRevoked = true;
+        }
     }
-
-    secdebug("validupdate", "CRLite: loaded filter %" PRIdCFIndex " for cert", filterId);
-
-    // 4. Consult the CRLite filter for revocation information using SecCRLiteCertStatus
-    // This will return NULL if the certificate is not covered by the filter
-    SecCRLiteStatus crliteStatus = SecCRLiteCertStatus(crliteRef, certificate, issuer, scts, &error);
     CFReleaseSafe(scts);
-    if (error) {
-        secerror("Failed to evaluate CRLite certificate revocation status against filter %" PRIdCFIndex ": %@", filterId, error);
-        CFReleaseSafe(crliteRef);
-        return NULL;
-    }
-    CFReleaseSafe(crliteRef);
-    
-    if (crliteStatus == SecCRLiteStatusNotCovered) {
-        secdebug("validupdate", "CRLite: certificate is not covered by filter %" PRIdCFIndex, filterId);
-        return NULL;
-    }
+    CFReleaseNull(filters);
 
-    bool isRevoked = crliteStatus == SecCRLiteStatusRevoked;
-    secdebug("validupdate", "CRLite: certificate is covered by filter %" PRIdCFIndex " and isRevoked = %d", filterId, isRevoked);
+    secnotice("validupdate", "CRLite: certificate is %s", isRevoked ? "revoked" : "notRevoked");
+
     result = SecCRLiteInfoCreate(isRevoked, generationUsed, versionUsed);
     return result;
 }

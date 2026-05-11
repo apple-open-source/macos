@@ -140,9 +140,9 @@ NSString *const kSecurityRTCEventNameOTLocalCKKSResetOperation = @"com.apple.sec
 // MARK: iCSC reliability
 NSString *const kSecurityRTCEventNameEscrowPasscodeEnableCacheFlow = @"com.apple.security.escrowPasscodeEnableCacheFlow";
 NSString *const kSecurityRTCEventNameEscrowPasscodeCacheAvailable = @"com.apple.security.escrowPasscodeCacheAvailable";
+NSString *const kSecurityRTCEventNameEscrowRepairGenerateRecordPasscodeUnlocked = @"com.apple.security.escrowRepairGenerateRecordPasscodeUnlocked";
+NSString *const kSecurityRTCEventNameEscrowRepairGenerateRecordPasscodeChanged = @"com.apple.security.escrowRepairGenerateRecordPasscodeChanged";
 NSString *const kSecurityRTCEventNameEscrowRepairOperation = @"com.apple.security.escrowRepairOperation";
-NSString *const kSecurityRTCEventNameEscrowRepairOperationPasscodeChanged = @"com.apple.security.escrowRepairOperationPasscodeChanged";
-NSString *const kSecurityRTCEventNameEscrowRepairOperationPasscodeUnlocked = @"com.apple.security.escrowRepairOperationPasscodeUnlocked";
 
 // MARK: RPD
 NSString *const kSecurityRTCEventNamePerformCKServerUnreadableDataRemoval = @"com.apple.security.performCKServerUnreadableDataRemoval";
@@ -289,3 +289,7 @@ NSString *const kSecurityRTCFieldAccountIsDBR = @"accountIsDBR";
 
 // MARK: Piggybacking RTC Fields
 NSString *const kSecurityRTCFieldTotalViableEscrowRecords = @"totalViableEscrowRecords";
+
+// MARK: SEP Based Escrow Repair Fields (from CoreCDP)
+NSString *const kSecurityRTCFieldSEPBasedEscrowRepairState = @"sepBasedEscrowRepairState";
+NSString *const kSecurityRTCFieldSEPBasedEscrowRepairRateLimitDaysLeft = @"sepBasedEscrowRepairRateLimitDaysLeft";

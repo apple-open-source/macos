@@ -185,9 +185,6 @@ CFIndex SecCertificatePathVCIndexOfCAWithRevocationAdditions(SecCertificatePathV
 bool SecCertificatePathVCIsAllowlisted(SecCertificatePathVCRef certificatePath);
 void SecCertificatePathVCSetIsAllowlisted(SecCertificatePathVCRef certificatePath, bool isAllowlisted);
 
-/* Policy Tree */
-bool SecCertificatePathVCVerifyPolicyTree(SecCertificatePathVCRef path, bool anchor_trusted);
-
 /* Policy Graph (RFC 9618) */
 bool SecCertificatePathVCVerifyPolicyGraph(SecCertificatePathVCRef path, bool anchor_trusted);
 

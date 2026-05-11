@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001-2025 Apple Inc. All rights reserved.
+ * Copyright (c) 2001-2026 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -2624,6 +2624,7 @@ copyEligibleMatchingInterfaces(CFMutableArrayRef dblist,
     CFIndex		count;
     CFDictionaryRef	info;
     Boolean		is_builtin;
+    Boolean		is_hidden_configuration;
     CFMutableArrayRef	matches = NULL;
     CFStringRef		prefix;
     CFStringRef		type;
@@ -2646,6 +2647,8 @@ copyEligibleMatchingInterfaces(CFMutableArrayRef dblist,
 	goto done;
     }
     is_builtin = _SCNetworkInterfaceIsBuiltin(interface);
+    is_hidden_configuration =
+	_SCNetworkInterfaceIsHiddenConfiguration(interface);
 
     count = CFArrayGetCount(dblist);
     for (CFIndex i = 0; i < count; i++) {
@@ -2654,6 +2657,7 @@ copyEligibleMatchingInterfaces(CFMutableArrayRef dblist,
 	CFDictionaryRef		dbdict;
 	CFDictionaryRef		new_dbdict;
 	Boolean			this_is_builtin;
+	Boolean			this_is_hidden_configuration;
 	CFStringRef		this_prefix;
 	CFStringRef		this_type;
 	CFDictionaryRef		this_info;
@@ -2682,6 +2686,13 @@ copyEligibleMatchingInterfaces(CFMutableArrayRef dblist,
 	}
 	this_is_builtin = dict_get_boolean(dbdict, CFSTR(kIOBuiltin));
 	if (is_builtin != this_is_builtin) {
+	    continue;
+	}
+	this_is_hidden_configuration
+	    = dict_get_boolean(dbdict,
+			       kSCNetworkInterfaceHiddenConfigurationKey);
+	if (is_hidden_configuration
+	    != this_is_hidden_configuration) {
 	    continue;
 	}
 	in_use = dbdictInterfaceIsActive(dbdict);

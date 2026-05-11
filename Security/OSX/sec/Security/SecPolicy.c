@@ -4261,6 +4261,7 @@ SecPolicyRef SecPolicyCreateAppleSoftwareSigning(void) {
 
     /* Check revocation using any available method */
     add_element(options, kSecPolicyCheckRevocation, kSecPolicyCheckRevocationAny);
+    CFDictionaryAddValue(options, kSecPolicyCheckRevocationDbIgnored, kCFBooleanTrue);
 
     /* RSA key sizes are 2048-bit or larger. EC key sizes are P-256 or larger. */
     __Require(SecPolicyAddStrongKeySizeOptions(options), errOut);
@@ -5196,7 +5197,7 @@ SecPolicyRef SecPolicyCreateDeveloperIDInstaller(void)
     SecPolicyAddBasicCertOptions(options);
 
     /* Anchored to the Apple Roots */
-    __Require_Quiet(SecPolicyAddAppleAnchorOptions(options, kSecPolicyNameSoftwareSigning),
+    __Require_Quiet(SecPolicyAddAppleAnchorOptions(options, kSecPolicyNameDeveloperIDInstaller),
                   errOut);
 
     /* Exactly 3 certs in the chain */

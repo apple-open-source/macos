@@ -355,6 +355,7 @@ static bool is_trust_operation(enum SecXPCOperation op) {
         case sec_truststore_remove_all_id:
         case sec_trust_reset_settings_id:
         case sec_trust_store_migrate_plist_id:
+        case kSecXPCOpCopyAppleAnchors:
             return true;
         default:
             break;

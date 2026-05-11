@@ -82,6 +82,7 @@ struct trustd trustd_spi = {
     .sec_trust_settings_copy_data           = SecTrustSettingsCopyData,
     .sec_trust_reset_settings               = _SecTrustResetSettings,
     .sec_trust_store_migrate_plist          = SecTrustStoreMigratePropertyList,
+    .sec_trust_store_copy_apple_anchors     = SecAnchorCacheCopyAppleAnchors,
 };
 #endif
 

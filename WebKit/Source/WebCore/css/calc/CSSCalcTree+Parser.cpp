@@ -669,10 +669,10 @@ static Random::SharingOptions::Auto makeRandomSharingAuto(ParserState& state)
 
 static std::optional<Random::SharingOptions> consumeOptionalRandomSharingOptions(CSSParserTokenRange& tokens, ParserState& state)
 {
-    // <random-value-sharing-options> = [ [ auto | <dashed-ident> ] || element-shared ]
+    // <random-value-sharing> = [ auto | <dashed-ident> ] || element-scoped | fixed <number [0,1]>
 
     std::optional<Variant<Random::SharingOptions::Auto, AtomString>> identifier;
-    std::optional<CSS::Keyword::ElementShared> elementShared;
+    std::optional<CSS::Keyword::ElementScoped> elementScoped;
 
     CSSParserTokenRangeGuard guard { tokens };
 
@@ -690,37 +690,37 @@ static std::optional<Random::SharingOptions> consumeOptionalRandomSharingOptions
         }
         return false;
     };
-    auto consumeElementShared = [&] -> bool {
-        if (elementShared)
+    auto consumeElementScoped = [&] -> bool {
+        if (elementScoped)
             return false;
-        if (tokens.peek().id() == CSSValueElementShared) {
+        if (tokens.peek().id() == CSSValueElementScoped) {
             tokens.consumeIncludingWhitespace();
-            elementShared = CSS::Keyword::ElementShared { };
+            elementScoped = CSS::Keyword::ElementScoped { };
             return true;
         }
         return false;
     };
 
     for (unsigned i = 0; i < 2; ++i) {
-        if (consumeIdentifier() || consumeElementShared())
+        if (consumeIdentifier() || consumeElementScoped())
             continue;
         break;
     }
 
-    if (!identifier && !elementShared)
+    if (!identifier && !elementScoped)
         return { };
 
     guard.commit();
 
     return Random::SharingOptions {
-        .identifier = identifier.value_or(makeRandomSharingAuto(state)),
-        .elementShared = elementShared
+        .identifier = identifier.value_or(AtomString { }),
+        .elementScoped = elementScoped
     };
 }
 
 static std::optional<Random::Sharing> consumeOptionalRandomSharing(CSSParserTokenRange& tokens, ParserState& state)
 {
-    // <random-value-sharing> = [ [ auto | <dashed-ident> ] || element-shared ] | fixed <number [0,1]>
+    // <random-value-sharing> = [ auto | <dashed-ident> ] || element-scoped | fixed <number [0,1]>
 
     if (tokens.peek().id() == CSSValueFixed) {
         if (auto fixed = consumeOptionalRandomSharingFixed(tokens, state))
@@ -762,7 +762,7 @@ static std::optional<TypedChild> consumeRandom(CSSParserTokenRange& tokens, int 
     } else {
         sharing = Random::SharingOptions {
             .identifier = makeRandomSharingAuto(state),
-            .elementShared = { },
+            .elementScoped = CSS::Keyword::ElementScoped { },
         };
     }
 
@@ -996,6 +996,40 @@ static std::optional<TypedChild> consumeValueWithoutSimplifyingCalc(CSSParserTok
     return typedValue;
 }
 
+// Parse the fallback value specified in anchor() and anchor-size() as a <length> or
+// <length-percentage>. Additionally, unitless zero is allowed and gets treated as 0px.
+static std::optional<TypedChild> consumeAnchorFallback(CSSParserTokenRange& tokens, int depth, ParserState& state)
+{
+    auto typedFallback = consumeValueWithoutSimplifyingCalc(tokens, depth, state);
+    if (!typedFallback)
+        return { };
+
+    auto category = typedFallback->type.calculationCategory();
+    if (!category)
+        return { };
+
+    switch (*category) {
+    case CSS::Category::Length:
+    case CSS::Category::LengthPercentage:
+        return typedFallback;
+
+    case CSS::Category::Number: {
+        if (state.parserOptions.propertyOptions.unitlessZeroLength != UnitlessZeroQuirk::Allow)
+            return { };
+
+        // Allow unitless 0.
+        auto value = std::get<Number>(typedFallback->child.value);
+        if (value.value)
+            return { };
+
+        return TypedChild { makeNumeric(0, CSSUnitType::CSS_PX), Type::makeLength() };
+    }
+
+    default:
+        return { };
+    }
+}
+
 static std::optional<TypedChild> consumeAnchor(CSSParserTokenRange& tokens, int depth, ParserState& state)
 {
     // <anchor()> = anchor( <anchor-element>? && <anchor-side>, <length-percentage>? )
@@ -1047,17 +1081,15 @@ static std::optional<TypedChild> consumeAnchor(CSSParserTokenRange& tokens, int 
     std::optional<Child> fallback;
 
     if (CSSPropertyParserHelpers::consumeCommaIncludingWhitespace(tokens)) {
-        auto typedFallback = consumeValueWithoutSimplifyingCalc(tokens, depth, state);
-        if (!typedFallback)
+        auto maybeFallback = consumeAnchorFallback(tokens, depth, state);
+        if (!maybeFallback)
             return { };
 
-        auto category = typedFallback->type.calculationCategory();
-        if (!category)
-            return { };
-        if (*category != CSS::Category::Length && *category != CSS::Category::LengthPercentage)
-            return { };
+        fallback = WTF::move(maybeFallback->child);
 
-        fallback = WTF::move(typedFallback->child);
+        auto category = maybeFallback->type.calculationCategory();
+        ASSERT(category && (category == CSS::Category::Length || category == CSS::Category::LengthPercentage));
+
         type.percentHint = Type::determinePercentHint(*category);
     }
 
@@ -1122,7 +1154,7 @@ static std::optional<TypedChild> consumeAnchorSize(CSSParserTokenRange& tokens, 
         // if a comma follows...
         if (CSSPropertyParserHelpers::consumeCommaIncludingWhitespace(tokens)) {
             // it must be followed by the fallback value.
-            fallback = consumeValueWithoutSimplifyingCalc(tokens, depth, state);
+            fallback = consumeAnchorFallback(tokens, depth, state);
             if (!fallback)
                 return { };
         }
@@ -1130,21 +1162,15 @@ static std::optional<TypedChild> consumeAnchorSize(CSSParserTokenRange& tokens, 
     } else {
         // if <anchor-element> and <anchor-size> is not present
         // then an optional fallback value follows
-        fallback = consumeValueWithoutSimplifyingCalc(tokens, depth, state);
+        fallback = consumeAnchorFallback(tokens, depth, state);
     }
 
+    // Return type of this function. It's a <length> if it can be resolved, otherwise the
+    // <length-percentage> fallback is resolved, which could be a percentage.
     auto type = Type::makeLength();
-
-    // anchor-size() resolves to a <length> if it can be resolved, otherwise the fallback
-    // value is resolved, which is of type <length-percentage>. Therefore the overall type
-    // of anchor-size() is <length> or <length-percentage>, depending on the type of the
-    // fallback value.
     if (fallback) {
         auto category = fallback->type.calculationCategory();
-        if (!category)
-            return { };
-        if (*category != CSS::Category::Length && *category != CSS::Category::LengthPercentage)
-            return { };
+        ASSERT(category && (category == CSS::Category::Length || category == CSS::Category::LengthPercentage));
 
         type.percentHint = Type::determinePercentHint(*category);
     }

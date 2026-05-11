@@ -489,9 +489,25 @@ static inline void CFStringAppendHexData(CFMutableStringRef s, CFDataRef data) {
 }
 
 static inline CF_RETURNS_RETAINED CFStringRef CFDataCopyHexString(CFDataRef data) {
-    CFMutableStringRef hexString = CFStringCreateMutable(kCFAllocatorDefault, 2 * CFDataGetLength(data));
-    CFStringAppendHexData(hexString, data);
-    return hexString;
+    static const char hexchars[] = "0123456789ABCDEF";
+    const uint8_t *bytes = CFDataGetBytePtr(data);
+    CFIndex len = CFDataGetLength(data);
+    if (len <= 0) {
+        return CFStringCreateWithCString(kCFAllocatorDefault, "", kCFStringEncodingASCII);
+    }
+    size_t buflen = (size_t)(2 * len);
+    char *buf = (char *)malloc(buflen);
+    if (!buf) return NULL;
+    for (CFIndex ix = 0; ix < len; ix++) {
+        buf[2 * ix]     = hexchars[bytes[ix] >> 4];
+        buf[2 * ix + 1] = hexchars[bytes[ix] & 0xF];
+    }
+    CFStringRef result = CFStringCreateWithBytesNoCopy(kCFAllocatorDefault,
+                                                        (const UInt8 *)buf, (CFIndex)buflen,
+                                                        kCFStringEncodingASCII, false,
+                                                        kCFAllocatorMalloc);
+    if (!result) free(buf);
+    return result;
 }
 
 static inline void CFDataPerformWithHexString(CFDataRef data, void (^operation)(CFStringRef dataString)) {

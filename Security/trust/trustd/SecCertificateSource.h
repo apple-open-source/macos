@@ -107,8 +107,6 @@ extern const SecCertificateSourceRef kSecLegacyAnchorSource;
 #endif
 
 /* Functions exposed for unit testing */
-CFArrayRef CopyAnchorRecordsForSPKI(SecCertificateRef certificate);
-CFArrayRef CopyAnchorRecordsForCertificate(SecCertificateRef certificate);
 CFArrayRef CopyUsageConstraintsForCertificate(SecCertificateRef certificate);
 
 

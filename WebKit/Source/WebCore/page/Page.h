@@ -395,6 +395,8 @@ public:
     // Utility pages (e.g. SVG image pages) don't have an identifier currently.
     std::optional<PageIdentifier> identifier() const { return m_identifier; }
 
+    void willEnterBackForwardCache();
+
     WEBCORE_EXPORT uint64_t renderTreeSize() const;
     WEBCORE_EXPORT void destroyRenderTrees();
 
@@ -1095,6 +1097,8 @@ public:
     IDBClient::IDBConnectionToServer& idbConnection();
     WEBCORE_EXPORT IDBClient::IDBConnectionToServer* optionalIDBConnection();
     WEBCORE_EXPORT void clearIDBConnection();
+    WEBCORE_EXPORT void clearIDBConnectionOnAllDocuments();
+    WEBCORE_EXPORT void refreshIDBConnectionForWorkers();
 
     void setShowAllPlugins(bool showAll) { m_showAllPlugins = showAll; }
     bool showAllPlugins() const;

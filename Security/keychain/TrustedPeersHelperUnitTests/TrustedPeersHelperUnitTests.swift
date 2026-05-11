@@ -6706,4 +6706,91 @@ class TrustedPeersHelperUnitTests: XCTestCase {
         XCTAssertFalse(container.egoMachineIDRolled, "egoMachineIDRolled should be false")
         XCTAssertFalse(container.sentMetric, "should not have sent a vanished metric")
     }
+
+    func testDistrustedAndEgoSponsoredBeneficiaryIDs() throws {
+        let description = tmpStoreDescription(name: "container.db")
+        let (container, peerID) = try establish(reload: false, store: description)
+
+        // Just after establish, egoSponsoredBeneficiaryIDs and distrustedEgoSponsoredBeneficiaryIDs should be empty
+        container.moc.performAndWait {
+            XCTAssertTrue(container.testOnlyGetDBAdapter().egoSponsoredBeneficiaryIDs(peerID).isEmpty, "egoSponsoredBeneficiaryIDs should be empty after establish")
+            XCTAssertTrue(container.testOnlyGetDBAdapter().distrustedEgoSponsoredBeneficiaryIDs(peerID).isEmpty, "distrustedEgoSponsoredBeneficiaryIDs should be empty after establish")
+        }
+
+        // Insert a distrusted beneficiary ID
+        let distrustedBeneficiary = "distrusted-beneficiary-1"
+        container.moc.performAndWait {
+            container.onqueueInsertDistrustedBeneficiaryID(beneficiaryID: distrustedBeneficiary)
+            try! container.moc.saveIfChanged()
+        }
+
+        // Verify via dbAdapter
+        container.moc.performAndWait {
+            let distrusted = container.testOnlyGetDBAdapter().distrustedEgoSponsoredBeneficiaryIDs(peerID)
+            XCTAssertEqual(distrusted.count, 1, "should have 1 distrusted beneficiary")
+            XCTAssertTrue(distrusted.contains(distrustedBeneficiary), "should contain the distrusted beneficiary")
+            XCTAssertTrue(container.testOnlyGetDBAdapter().egoSponsoredBeneficiaryIDs(peerID).isEmpty, "egoSponsoredBeneficiaryIDs should still be empty")
+        }
+
+        // Insert a second distrusted beneficiary ID
+        let distrustedBeneficiary2 = "distrusted-beneficiary-2"
+        container.moc.performAndWait {
+            container.onqueueInsertDistrustedBeneficiaryID(beneficiaryID: distrustedBeneficiary2)
+            try! container.moc.saveIfChanged()
+        }
+
+        // Now insert an ego-sponsored beneficiary ID
+        let sponsoredBeneficiary = "sponsored-beneficiary-1"
+        container.moc.performAndWait {
+            container.onqueueInsertBeneficiaryID(beneficiaryID: sponsoredBeneficiary)
+            try! container.moc.saveIfChanged()
+        }
+
+        // Make sure we have them on fetching from dbAdapter
+        container.moc.performAndWait {
+            let sponsored = container.testOnlyGetDBAdapter().egoSponsoredBeneficiaryIDs(peerID)
+            XCTAssertEqual(sponsored.count, 1, "should have 1 sponsored beneficiary")
+            XCTAssertTrue(sponsored.contains(sponsoredBeneficiary), "should contain the sponsored beneficiary")
+            XCTAssertEqual(container.testOnlyGetDBAdapter().distrustedEgoSponsoredBeneficiaryIDs(peerID).count, 2, "should still have 2 distrusted beneficiaries")
+        }
+    }
+
+    func testDistrustedAndEgoSponsoredBeneficiaryIDsWithMultipleContainerInstantiations() throws {
+        let description = tmpStoreDescription(name: "container.db")
+        let (container, peerID) = try establish(reload: false, store: description)
+
+        // Insert a distrusted beneficiary ID & save
+        let distrustedBeneficiary = "distrusted-beneficiary-1"
+        try container.moc.performAndWait {
+            container.onqueueInsertDistrustedBeneficiaryID(beneficiaryID: distrustedBeneficiary)
+            try container.moc.saveIfChanged()
+        }
+
+        // Verify by reading the DB again into a new Container object
+        let c2 = try Container(name: container.name, persistentStoreDescription: description, darwinNotifier: FakeCKKSNotifier.self, managedConfigurationAdapter: mcAdapterPlaceholder, cuttlefish: cuttlefish)
+        c2.moc.performAndWait {
+            let distrusted = c2.testOnlyGetDBAdapter().distrustedEgoSponsoredBeneficiaryIDs(peerID)
+            XCTAssertEqual(distrusted.count, 1, "should have 1 distrusted beneficiary")
+            XCTAssertTrue(distrusted.contains(distrustedBeneficiary), "should contain the distrusted beneficiary")
+            XCTAssertTrue(c2.testOnlyGetDBAdapter().egoSponsoredBeneficiaryIDs(peerID).isEmpty, "egoSponsoredBeneficiaryIDs should still be empty")
+        }
+
+        // Now insert an ego-sponsored beneficiary ID & save
+        let sponsoredBeneficiary = "sponsored-beneficiary-1"
+        try container.moc.performAndWait {
+            container.onqueueInsertBeneficiaryID(beneficiaryID: sponsoredBeneficiary)
+            try container.moc.saveIfChanged()
+        }
+
+        // Verify by reading the DB again into a third Container object
+        let c3 = try Container(name: container.name, persistentStoreDescription: description, darwinNotifier: FakeCKKSNotifier.self, managedConfigurationAdapter: mcAdapterPlaceholder, cuttlefish: cuttlefish)
+        c3.moc.performAndWait {
+            let sponsored = c3.testOnlyGetDBAdapter().egoSponsoredBeneficiaryIDs(peerID)
+            XCTAssertEqual(sponsored.count, 1, "should have 1 sponsored beneficiary")
+            XCTAssertTrue(sponsored.contains(sponsoredBeneficiary), "should contain the sponsored beneficiary")
+            let distrusted = c3.testOnlyGetDBAdapter().distrustedEgoSponsoredBeneficiaryIDs(peerID)
+            XCTAssertEqual(distrusted.count, 1, "should have 1 distrusted beneficiary")
+            XCTAssertTrue(distrusted.contains(distrustedBeneficiary), "should contain the distrusted beneficiary")
+        }
+    }
 }

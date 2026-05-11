@@ -27,6 +27,8 @@
 #import "keychain/ot/OTOperationDependencies.h"
 #import "keychain/ot/OTStates.h"
 #import "keychain/ot/ObjCImprovements.h"
+#import "keychain/ot/OTEscrowRecordManager.h"
+#import "keychain/ot/OctagonPlatform.h"
 #import "keychain/TrustedPeersHelper/TrustedPeersHelperProtocol.h"
 #import <Security/SecInternalReleasePriv.h>
 #import <CloudServices/SecureBackup.h>
@@ -270,24 +272,6 @@
     return self;
 }
 
-- (NSNumber* __nullable) getPasscodeGeneration {
-    NSNumber* retPasscodeGeneration;
-#if !TARGET_OS_SIMULATOR
-    NSDictionary* deviceConfigurations = (__bridge_transfer NSDictionary*)MKBGetDeviceConfigurations(NULL); // CF_RETURNS_RETAINED
-    if (deviceConfigurations) {
-        NSNumber* passcodeGeneration = deviceConfigurations[(__bridge NSString*)kAKSConfigPasscodeGeneration];
-        if ([passcodeGeneration isKindOfClass:[NSNumber class]]) {
-            retPasscodeGeneration = passcodeGeneration;
-        } else {
-            secnotice("octagon-escrowcheck", "Unable to get passcodeGeneration");
-        }
-    }
-#else
-    retPasscodeGeneration = @(0);
-#endif /* !TARGET_OS_SIMULATOR */
-    return retPasscodeGeneration;
-}
-
 - (void)performEscrowCheck:(void (^)(OTEscrowCheckCallResult *_Nullable results, NSError * _Nullable error))reply
 {
     secnotice("octagon-escrowcheck", "Beginning cuttlefish escrow check");
@@ -300,11 +284,11 @@
 #endif
 
     // get current passcode generation
-    NSNumber* passcodeGen = [self getPasscodeGeneration];
-    if (!passcodeGen){
-        secnotice("octagon-escrowcheck", "unable to obtain passcode generation for device, returning");
-        NSError* error = [NSError errorWithDomain:OctagonErrorDomain code:OctagonErrorUnableToGetPasscodeGeneration userInfo: @{ NSLocalizedDescriptionKey : @"unable to obtain passcode generation for device"}];
-        reply(nil, error);
+    NSError* genError = nil;
+    NSNumber* passcodeGen = [OTEscrowRecordManager passcodeGenerationWithError:&genError];
+    if (!passcodeGen) {
+        secnotice("octagon-escrowcheck", "unable to obtain passcode generation for device: %@", genError);
+        reply(nil, genError);
         return;
     }
 
@@ -318,39 +302,55 @@
     }
     self.altDSID = accountState.altDSID;
 
-    NSError* rateLimitError = nil;
-    NSInteger daysLeftOnRateLimit = [self.deps.stateHolder checkEscrowRepairRateLimitAndReturnTimeLeft:&rateLimitError];
-    if (rateLimitError) {
-        secerror("octagon-escrowcheck: failed to check rate limit: %@", rateLimitError);
-        reply(nil, rateLimitError);
-        return;
-    }
+    [self.deps.cuttlefishXPCWrapper fetchEgoBottleIDWithSpecificUser:self.deps.activeAccount
+                                                               reply:^(NSString * _Nullable intendedBottleID, NSError * _Nullable bottleIDFetchError) {
 
-    if (daysLeftOnRateLimit == 0) {
-        secnotice("octagon-escrowcheck", "not rate limited");
-    }
-
-    WEAKIFY(self);
-    [self.deps.cuttlefishXPCWrapper requestEscrowCheckWithSpecificUser:self.deps.activeAccount
-                                                   requiresEscrowCheck:[OTCheckHealthOperation checkIfPasscodeIsSetForDevice]
-                                                    passcodeGeneration:[passcodeGen unsignedLongLongValue]
-                                                      knownFederations:[SecureBackup knownICDPFederations:NULL]
-                                                     isBackgroundCheck:self.isBackgroundCheck
-                                                                flowID:self.deps.flowID
-                                                       deviceSessionID:self.deps.deviceSessionID
-                                                   daysLeftOnRateLimit:daysLeftOnRateLimit
-                                                                 reply:^(OTEscrowCheckCallResult* result, NSError *error) {
-        STRONGIFY(self);
-        self.results = result;
-
-        if (error) {
-            secerror("octagon-escrowcheck: error: %@", error);
-        } else {
-            secnotice("octagon-escrowcheck", "cuttlefish came back with these suggestions: %@", result);
-            [self handleRepairSuggestions];
+        if(intendedBottleID == nil || bottleIDFetchError) {
+            secerror("octagon-escrowcheck: failed to fetch bottle ID: %@", bottleIDFetchError);
+            reply(nil, bottleIDFetchError);
+            return;
         }
 
-        reply(self.results, error);
+        NSInteger daysLeftOnRateLimit = -1;
+        NSError* rateLimitError = nil;
+        OTEscrowCheckRateLimitState rateLimitState = [OTEscrowRecordManager effectiveRateLimitState:self.deps.stateHolder
+                                                                                 passcodeGeneration:passcodeGen
+                                                                                   intendedBottleID:intendedBottleID
+                                                                        computedDaysLeftOnRateLimit:&daysLeftOnRateLimit
+                                                                                              error:&rateLimitError];
+        if (rateLimitState == OTEscrowCheckRateLimitStateUnknown || rateLimitError) {
+            secerror("octagon-escrowcheck: failed to check rate limit: %@", rateLimitError);
+            reply(nil, rateLimitError);
+            return;
+        }
+
+        if (daysLeftOnRateLimit == 0) {
+            secnotice("octagon-escrowcheck", "not rate limited (state: %ld)", (long)rateLimitState);
+        }
+
+        WEAKIFY(self);
+        [self.deps.cuttlefishXPCWrapper requestEscrowCheckWithSpecificUser:self.deps.activeAccount
+                                                       requiresEscrowCheck:[OTCheckHealthOperation checkIfPasscodeIsSetForDevice]
+                                                        passcodeGeneration:[passcodeGen unsignedLongLongValue]
+                                                          knownFederations:[SecureBackup knownICDPFederations:NULL]
+                                                         isBackgroundCheck:self.isBackgroundCheck
+                                                                    flowID:self.deps.flowID
+                                                           deviceSessionID:self.deps.deviceSessionID
+                                                       daysLeftOnRateLimit:daysLeftOnRateLimit
+                                                            rateLimitState:rateLimitState
+                                                                     reply:^(OTEscrowCheckCallResult* result, NSError *error) {
+            STRONGIFY(self);
+            self.results = result;
+
+            if (error) {
+                secerror("octagon-escrowcheck: error: %@", error);
+            } else {
+                secnotice("octagon-escrowcheck", "cuttlefish came back with these suggestions: %@", result);
+                [self handleRepairSuggestions];
+            }
+
+            reply(self.results, error);
+        }];
     }];
 }
 
@@ -378,7 +378,12 @@
         return;
     }
 
-    AAFAnalyticsEventSecurity* event = [[AAFAnalyticsEventSecurity alloc] initWithKeychainCircleMetrics:nil
+    NSDictionary* metrics = @{
+        kSecurityRTCFieldSEPBasedEscrowRepairState: @(self.results.rateLimitState),
+        kSecurityRTCFieldSEPBasedEscrowRepairRateLimitDaysLeft: @(self.results.daysLeftOnRateLimit),
+    };
+
+    AAFAnalyticsEventSecurity* event = [[AAFAnalyticsEventSecurity alloc] initWithKeychainCircleMetrics:metrics
                                                                                                 altDSID:self.deps.activeAccount.altDSID
                                                                                                  flowID:self.deps.flowID
                                                                                         deviceSessionID:self.deps.deviceSessionID
@@ -394,6 +399,15 @@
 
 - (BOOL)enablePasscodeCacheFlow:(NSError**)error
 {
+#if !OCTAGON_PLATFORM_SUPPORTS_CACHE_FLOW
+    secnotice("octagon-escrow-repair", "not enabling cache flow, unsupported on this platform");
+
+    if (error) {
+        *error = [NSError errorWithDomain:OctagonErrorDomain code:OctagonErrorNotSupported userInfo:nil];
+    }
+
+    return NO;
+#else // !OCTAGON_PLATFORM_SUPPORTS_CACHE_FLOW
     // If this is a move request, post a CFU if terms need to be accepted.
     if (self.results.repairReason == OTEscrowCheckRepairReasonRecordNeedsMigration && self.results.moveRequest != nil) {
         NSError* moveError = nil;
@@ -421,15 +435,6 @@
         }
     }
 
-    if (self.results.daysLeftOnRateLimit > 0) {
-        secnotice("octagon-escrow-repair", "rate limited, will not perform silent repair");
-
-        if (error) {
-            *error = [NSError errorWithDomain:OctagonErrorDomain code:OctagonErrorRateLimited userInfo:nil];
-        }
-        return NO;
-    }
-
     if (self.results.repairDisabled) {
         secnotice("octagon-escrow-repair", "repair disabled, will not perform silent repair");
 
@@ -439,33 +444,69 @@
         return NO;
     }
 
-    secnotice("octagon-escrow-repair", "enabling passcode cache flow");
+    enum {
+        REPAIR_ERROR,
+        REPAIR_USE_EXISTING_CACHE,
+        REPAIR_ENABLE_CACHE_FLOW,
+    } repairAction = REPAIR_ERROR;
 
-    NSDate* now = [NSDate date];
+    NSError* rateLimitError = nil;
 
-    // Store current date _before_ enabling cache flow, in case the passcode is acquired very quickly.
+    switch (self.results.rateLimitState) {
+    case OTEscrowCheckRateLimitStateUnknown:
+        // This should never happen, it is checked earlier.
+        repairAction = REPAIR_ERROR;
+        break;
+    case OTEscrowCheckRateLimitStateNotRateLimited:
+        repairAction = REPAIR_ENABLE_CACHE_FLOW;
+        break;
+    case OTEscrowCheckRateLimitStateRateLimited:
+        repairAction = REPAIR_ERROR;
+        rateLimitError = [NSError errorWithDomain:OctagonErrorDomain code:OctagonErrorRateLimited userInfo:nil];
+        break;
+    case OTEscrowCheckRateLimitStateValidCacheNotRateLimited:
+    case OTEscrowCheckRateLimitStateValidCacheRateLimited:
+        repairAction = REPAIR_USE_EXISTING_CACHE;
+        break;
+    }
+
+    if (repairAction == REPAIR_ERROR) {
+        if (error) {
+            *error = rateLimitError;
+        }
+        return NO;
+    }
+
+    // Store current date _before_ kicking off repair.
     NSError* persistError = nil;
-    BOOL persisted = [self.deps.stateHolder persistLastEscrowRepairTriggered:now error:&persistError];
+    BOOL persisted = [self.deps.stateHolder persistLastEscrowRepairTriggered:[NSDate date] error:&persistError];
     if (!persisted || persistError) {
         secnotice("octagon-escrow-repair", "failed to persist escrow repair trigger date: %@", persistError);
         // If this failed, keep going anyway.
     }
 
-#if !TARGET_OS_SIMULATOR
-    // Trigger cache flow. When the passcode is next encountered, the kAppleKeyStoreCacheFlowEnabledNotificationID
-    // notification will be posted, which will cause the OctagonFlagPasscodeStashAvailable flag to be set.
-    kern_return_t kr = aks_enable_cache_flow(session_keybag_handle);
-    if (kr != kAKSReturnSuccess) {
-        secnotice("octagon-escrow-repair", "aks_enable_cache_flow failed: %x", kr);
+    if (repairAction == REPAIR_USE_EXISTING_CACHE) {
+        secnotice("octagon-escrow-repair", "triggering upload of cached escrow record");
 
-        if (error) {
-            *error = [NSError errorWithDomain:NSOSStatusErrorDomain code:kr userInfo:nil];
+        [self.deps.flagHandler handleFlag:OctagonFlagCachedEscrowRecordAvailable];
+    } else {
+        secnotice("octagon-escrow-repair", "enabling passcode cache flow");
+
+        // Trigger cache flow. When the passcode is next encountered, the kAKSCacheFlowEnabled event will be
+        // delivered, which will cause the OctagonFlagCachedEscrowRecordAvailable flag to be set.
+        kern_return_t kr = aks_enable_cache_flow(session_keybag_handle);
+        if (kr != kAKSReturnSuccess) {
+            secnotice("octagon-escrow-repair", "aks_enable_cache_flow failed: %x", kr);
+
+            if (error) {
+                *error = [NSError errorWithDomain:NSOSStatusErrorDomain code:kr userInfo:nil];
+            }
+            return NO;
         }
-        return NO;
     }
-#endif // !TARGET_OS_SIMULATOR
 
     return YES;
+#endif // !OCTAGON_PLATFORM_SUPPORTS_CACHE_FLOW
 }
 
 @end

@@ -51,7 +51,6 @@ namespace WebCore {
 class CSSFontSelector;
 class CSSValuePool;
 class CacheStorageConnection;
-class ContentSecurityPolicyResponseHeaders;
 class Crypto;
 class CryptoKey;
 class FileSystemStorageConnection;
@@ -97,6 +96,8 @@ public:
     const String& inspectorIdentifier() const { return m_inspectorIdentifier; }
 
     IDBClient::IDBConnectionProxy* idbConnectionProxy() final;
+    void replaceIDBConnectionProxy(RefPtr<IDBClient::IDBConnectionProxy>&&);
+    WEBCORE_EXPORT static void replaceIDBConnectionProxyOnAllWorkers(RefPtr<IDBClient::IDBConnectionProxy>&&);
     void suspend() final;
     void resume() final;
     GraphicsClient* graphicsClient() final;
@@ -182,7 +183,6 @@ public:
 protected:
     WorkerGlobalScope(WorkerThreadType, const WorkerParameters&, Ref<SecurityOrigin>&&, WorkerThread&, Ref<SecurityOrigin>&& topOrigin, IDBClient::IDBConnectionProxy*, SocketProvider*, std::unique_ptr<WorkerClient>&&);
 
-    void applyContentSecurityPolicyResponseHeaders(const ContentSecurityPolicyResponseHeaders&);
     void updateSourceProviderBuffers(const ScriptBuffer& mainScript, const HashMap<URL, ScriptBuffer>& importedScripts);
 
     void addConsoleMessage(MessageSource, MessageLevel, const String& message, unsigned long requestIdentifier) override;
@@ -232,7 +232,7 @@ private:
 
     const Ref<SecurityOrigin> m_topOrigin;
 
-    const RefPtr<IDBClient::IDBConnectionProxy> m_connectionProxy;
+    RefPtr<IDBClient::IDBConnectionProxy> m_connectionProxy;
 
     const RefPtr<SocketProvider> m_socketProvider;
 

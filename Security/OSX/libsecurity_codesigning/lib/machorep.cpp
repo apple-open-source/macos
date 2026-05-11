@@ -25,6 +25,7 @@
 // machorep - DiskRep mix-in for handling Mach-O main executables
 //
 #include "machorep.h"
+#include "csutilities.h"
 #include "notarization.h"
 #include "StaticCode.h"
 #include "reqmaker.h"
@@ -575,15 +576,33 @@ size_t MachORep::pageSize(const SigningContext &, const Architecture* arch)
 {
 	if (arch->cpuType() == CPU_TYPE_ARM64 || arch->cpuType() == CPU_TYPE_ARM64_32) {
 		unique_ptr<MachO> slice(mExecutable->architecture(*arch));
-		if (slice->platform() == PLATFORM_TVOS) {
-			// We can't use 16K page hashes on tvOS yet because B238 (HomePod 2018) uses H7, which
-			// uses 4K physical pages.
-			// rdar://107689929 (B238 unable to Copy to Device for development)
-			return segmentedPageSize;
-		} else {
-			// For all other platforms, use 16K page hashes. This saves significant memory compared
-			// to 4K page hashes.
-			return newSegmentedPageSize;
+		switch (slice->platform()) {
+			case PLATFORM_TVOS:
+				// We can't use 16K page hashes on tvOS yet because B238 (HomePod 2018) uses H7, which
+				// uses 4K physical pages.
+				// rdar://107689929 (B238 unable to Copy to Device for development)
+				return segmentedPageSize;
+			case PLATFORM_IOS:
+				// H7 chips were the last to support 4K pages.
+				// H7 iPads were deprecated in iOS 16.
+				// H7 iPhones were deprecated in iOS 12.
+				// Source: rdar://84817441 ([EDM] 10/15 Sydney Hardware Deprecation)
+				if (slice->minVersion() < MACHO_VERSION(16, 0, 0)) {
+					return segmentedPageSize;
+				}
+				return newSegmentedPageSize;
+			case PLATFORM_WATCHOS:
+				// Series 3 watches were the last to support 4K pages.
+				// Series 3 watches were deprecated in watchOS 9.
+				// Source: https://confluence.sd.apple.com/spaces/SWERELEASE/pages/3424362363/2021-09-16+Kincaid+Hardware+Deprecation
+				if (slice->minVersion() < MACHO_VERSION(9, 0, 0)) {
+					return segmentedPageSize;
+				}
+				return newSegmentedPageSize;
+			default:
+				// For all other platforms, use 16K page hashes. This saves significant memory compared
+				// to 4K page hashes.
+				return newSegmentedPageSize;
 		}
 	} else {
 		return segmentedPageSize;

@@ -23,6 +23,9 @@ int
 tre_regncomp_l(regex_t *preg, const char *regex, size_t n, int cflags, locale_t loc)
 {
   int ret;
+
+  if (n > TRE_MAX_RE)
+    return REG_ESPACE;
 #if TRE_WCHAR
   tre_char_t *wregex;
   size_t wlen;
@@ -43,7 +46,7 @@ tre_regncomp_l(regex_t *preg, const char *regex, size_t n, int cflags, locale_t 
   if (TRE_MB_CUR_MAX_L(loc) == 1)
 #endif /* TRE_MULTIBYTE */
     {
-      unsigned int i;
+      size_t i;
       const unsigned char *str = (const unsigned char *)regex;
       tre_char_t *wstr = wregex;
 
@@ -109,6 +112,8 @@ int
 tre_regncompb(regex_t *preg, const char *regex, size_t n, int cflags)
 {
   int ret;
+  if (n > TRE_MAX_RE)
+    return REG_ESPACE;
 #if TRE_WCHAR /* wide chars = we need to convert it all to the wide format */
   tre_char_t *wregex;
   size_t i;
@@ -138,8 +143,8 @@ tre_regncomp(regex_t *preg, const char *regex, size_t n, int cflags)
 #ifdef __LIBC__
   loc = __current_locale();
 #else /* !__LIBC__ */
-  loc = duplocale(NULL);
-  if (!loc) return REG_ESPACE;
+  if ((loc = duplocale(NULL)) == NULL)
+    return REG_ESPACE;
 #endif /* !__LIBC__ */
 
   return tre_regncomp_l(preg, regex, n, cflags, loc);
@@ -161,6 +166,8 @@ tre_regcomp_l(regex_t *preg, const char *regex, int cflags, locale_t loc)
   else
 #endif /* REG_PEND */
     len = regex ? strlen(regex) : 0;
+  if (len > TRE_MAX_RE)
+    return REG_ESPACE;
   return tre_regncomp(preg, regex, len, cflags);
 }
 #endif /* !BUILDING_VARIANT */
@@ -173,8 +180,8 @@ tre_regcomp(regex_t *preg, const char *regex, int cflags)
 #ifdef __LIBC__
   loc = __current_locale();
 #else /* !__LIBC__ */
-  loc = duplocale(NULL);
-  if (!loc) return REG_ESPACE;
+  if ((loc = duplocale(NULL)) == NULL)
+    return REG_ESPACE;
 #endif /* !__LIBC__ */
 
   return tre_regcomp_l(preg, regex, cflags, loc);
@@ -186,19 +193,20 @@ tre_regcompb(regex_t *preg, const char *regex, int cflags)
 {
   int ret;
   tre_char_t *wregex;
-  size_t wlen, n = strlen(regex);
-  unsigned int i;
+  size_t i, n = regex ? strlen(regex) : 0;
   const unsigned char *str = (const unsigned char *)regex;
   tre_char_t *wstr;
 
+  if (n > TRE_MAX_RE)
+    return REG_ESPACE;
   wregex = xmalloc(sizeof(tre_char_t) * (n + 1));
   if (wregex == NULL) return REG_ESPACE;
   wstr = wregex;
 
-  for (i = 0; i < n; i++) *(wstr++) = *(str++);
-  wlen = n;
-  wregex[wlen] = L'\0';
-  ret = tre_compile(preg, wregex, wlen, cflags | REG_USEBYTES);
+  for (i = 0; i < n; i++)
+    *(wstr++) = *(str++);
+  wregex[n] = L'\0';
+  ret = tre_compile(preg, wregex, n, cflags | REG_USEBYTES);
   xfree(wregex);
   return ret;
 }
@@ -210,6 +218,8 @@ tre_regcompb(regex_t *preg, const char *regex, int cflags)
 int
 tre_regwncomp_l(regex_t *preg, const wchar_t *regex, size_t n, int cflags, locale_t loc)
 {
+  if (n > TRE_MAX_RE)
+    return REG_ESPACE;
 #ifdef __LIBC__
   NORMALIZE_LOCALE(loc);
 #endif /* __LIBC__ */
@@ -224,8 +234,8 @@ tre_regwncomp(regex_t *preg, const wchar_t *regex, size_t n, int cflags)
 #ifdef __LIBC__
   loc = __current_locale();
 #else /* !__LIBC__ */
-  loc = duplocale(NULL);
-  if (!loc) return REG_ESPACE;
+  if ((loc = duplocale(NULL)) == NULL)
+    return REG_ESPACE;
 #endif /* !__LIBC__ */
 
   return tre_compile(preg, regex, n, cflags, loc);
@@ -234,16 +244,29 @@ tre_regwncomp(regex_t *preg, const wchar_t *regex, size_t n, int cflags)
 int
 tre_regwcomp_l(regex_t *preg, const wchar_t *regex, int cflags, locale_t loc)
 {
+  size_t n = regex ? wcslen(regex) : 0;
+
+  if (n > TRE_MAX_RE)
+    return REG_ESPACE;
 #ifdef __LIBC__
   NORMALIZE_LOCALE(loc);
 #endif /* __LIBC__ */
-  return tre_compile(preg, regex, wcslen(regex), cflags, loc);
+  return tre_compile(preg, regex, n, cflags, loc);
 }
 
 int
 tre_regwcomp(regex_t *preg, const wchar_t *regex, int cflags)
 {
-  return tre_regwncomp(preg, regex, wcslen(regex), cflags);
+  locale_t loc;
+
+#ifdef __LIBC__
+  loc = __current_locale();
+#else /* !__LIBC__ */
+  if ((loc = duplocale(NULL)) == NULL)
+    return REG_ESPACE;
+#endif /* !__LIBC__ */
+
+  return tre_regwcomp_l(preg, regex, cflags, loc);
 }
 #endif /* TRE_WCHAR */
 

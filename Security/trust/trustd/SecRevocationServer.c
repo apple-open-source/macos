@@ -611,24 +611,12 @@ void SecRVCSetValidDeterminedErrorResult(SecRVCRef rvc) {
         return;
     }
     
-    /* first, check if we have a definitive CRLite revocation result */
-    if (rvc->crlite_info && rvc->crlite_info->isRevoked) {
-        secdebug("validupdate", "CRLite: setting determined error result 'revoked' for cert %" PRIdCFIndex, rvc->certIX);
-        SInt32 reason = 0; /* unspecified, since CRLite doesn't tell us */
-        CFNumberRef cfreason = CFNumberCreate(kCFAllocatorDefault, kCFNumberSInt32Type, &reason);
-        SecPathBuilderSetResultInPVCs(rvc->builder, kSecPolicyCheckRevocation, rvc->certIX, cfreason, true);
-        SecCertificatePathVCRef path = SecPathBuilderGetPath(rvc->builder);
-        if (path) {
-            SecCertificatePathVCSetRevocationReasonForCertificateAtIndex(path, rvc->certIX, cfreason);
-        }
-        CFReleaseNull(cfreason);
-        return;
-    }
-
     /* at this point, we must have valid info to continue */
     if (!rvc->valid_info) {
         return;
     }
+
+    secinfo("validupdate", "valid: setting determined error result 'revoked' for cert %" PRIdCFIndex, rvc->certIX);
 
     if (rvc->valid_info->overridable) {
         /* error is recoverable, treat certificate as untrusted */
@@ -660,9 +648,13 @@ void SecRVCSetCRLiteDeterminedErrorResult(SecRVCRef rvc) {
         return;
     }
 
+    if (!_SecTrustUseCRLiteEnforcement()) {
+        return;
+    }
+
     /* if the CRLite info is revoked, set the determined error result */
     if (rvc->crlite_info->isRevoked) {
-        secdebug("validupdate", "CRLite: setting determined error result 'revoked' for cert %" PRIdCFIndex, rvc->certIX);
+        secinfo("validupdate", "CRLite: setting determined error result 'revoked' for cert %" PRIdCFIndex, rvc->certIX);
         SInt32 reason = 0; /* unspecified, since CRLite doesn't tell us */
         CFNumberRef cfreason = CFNumberCreate(kCFAllocatorDefault, kCFNumberSInt32Type, &reason);
         SecPathBuilderSetResultInPVCs(rvc->builder, kSecPolicyCheckRevocation, rvc->certIX, cfreason, true);
@@ -830,31 +822,17 @@ static bool SecRVCCheckCRLite(SecRVCRef rvc) {
         SecRVCExtractCertAndIssuer(rvc, &cert, &issuer, &isSelfSigned);
         
         /* Skip revocation db check for self-signed certificates [33137065] */
-        if (!isSelfSigned) {
-            // Grab the builder SCTs here, since we don't want to pass the whole rvc to SecRevocationDbCopyMatchingCRLite
-            CFArrayRef builderScts = SecPathBuilderCopySignedCertificateTimestamps(rvc->builder);
-            CFArrayRef embeddedScts = SecCertificateCopySignedCertificateTimestamps(cert);
-            CFIndex totalScts = 0;
-            if (builderScts != NULL) {
-                totalScts += CFArrayGetCount(builderScts);
+        if (!isSelfSigned && issuer != NULL) {
+            // Grab the builder SCTs here, but only for leaf certificate
+            CFArrayRef builderScts = NULL;
+            if (rvc->certIX == 0) {
+                builderScts = SecPathBuilderCopySignedCertificateTimestamps(rvc->builder);
             }
-            if (embeddedScts != NULL) {
-                totalScts += CFArrayGetCount(embeddedScts);
-            }
-            CFReleaseNull(embeddedScts);
-            
-            if (totalScts == 0) {
-                secdebug("validupdate", "CRLite: no SCTs found for cert %" PRIdCFIndex, rvc->certIX);
-                CFReleaseNull(builderScts);
-                return false;
-            }
-
-            secdebug("validupdate", "CRLite: found %" PRIdCFIndex " SCTs for cert %" PRIdCFIndex, totalScts, rvc->certIX);
 
             // Actually check the CRLite database
             crlite_info = SecRevocationDbCopyMatchingCRLite(cert, issuer, builderScts);
-            secdebug("validupdate", "CRLite: crlite_info: %@", crlite_info);
-            
+            secinfo("validupdate", "CRLite: crlite_info: %@", crlite_info);
+
             CFReleaseNull(builderScts);
         }
     }
@@ -946,7 +924,10 @@ static bool SecRVCCheckValidInfoDatabase(SecRVCRef rvc) {
 
         if (!isSelfSigned) {
             /* skip revocation db check for self-signed certificates [33137065] */
-            info = SecRevocationDbCopyMatching(cert, issuer);
+            SecValidInfoRef cached_info = SecRevocationDbCopyMatching(cert, issuer);
+            /* Make a private copy so we don't mutate the shared cached object */
+            info = SecValidInfoCreateCopy(cached_info);
+            CFReleaseNull(cached_info);
         }
         SecValidInfoSetAnchor(info, SecPathBuilderGetCertificateAtIndex(rvc->builder, count-1));
     }

@@ -1148,7 +1148,12 @@ static void addBrowsingContextControllerMethodStubsIfNeeded()
 
 - (NSURL *)URL
 {
-    return [NSURL _web_URLWithWTFString:_page->protectedPageLoadState()->activeURL()];
+    auto& activeURL = _page->protectedPageLoadState()->activeURL();
+    if (_cachedActiveNSURL.first != activeURL.string()) {
+        _cachedActiveNSURL.first = activeURL.string();
+        _cachedActiveNSURL.second = activeURL.createNSURL();
+    }
+    return _cachedActiveNSURL.second.getAutoreleased();
 }
 
 - (NSURL *)_resourceDirectoryURL
@@ -1932,16 +1937,33 @@ inline OptionSet<WebKit::FindOptions> toFindOptions(WKFindConfiguration *configu
 
 - (void)_showWarningView:(const WebKit::BrowsingWarning&)warning completionHandler:(CompletionHandler<void(Variant<WebKit::ContinueUnsafeLoad, URL>&&)>&&)completionHandler
 {
-    _warningView = adoptNS([[_WKWarningView alloc] initWithFrame:self.bounds browsingWarning:warning completionHandler:[weakSelf = WeakObjCPtr<WKWebView>(self), completionHandler = WTF::move(completionHandler)] (auto&& result) mutable {
-        completionHandler(std::forward<decltype(result)>(result));
-        auto strongSelf = weakSelf.get();
+#if HAVE(SAFE_BROWSING)
+    if (_warningView)
+        [std::exchange(_warningView, nullptr) removeFromSuperview];
+
+    auto navigationID = _page->safeBrowsingWarningShownForNavigation();
+#endif
+    _warningView = adoptNS([[_WKWarningView alloc] initWithFrame:self.bounds browsingWarning:warning completionHandler:[weakSelf = WeakObjCPtr { self },
+#if HAVE(SAFE_BROWSING)
+        navigationID,
+#endif
+        completionHandler = WTF::move(completionHandler)]<typename Result> (Result&& result) mutable {
+        RetainPtr strongSelf = weakSelf.get();
+#if HAVE(SAFE_BROWSING)
+        if (!strongSelf || !strongSelf->_page
+            || strongSelf->_page->safeBrowsingWarningShownForNavigation() != navigationID) {
+            completionHandler(std::forward<Result>(result));
+            return;
+        }
+#endif
+        bool forMainFrameNavigation = [strongSelf->_warningView forMainFrameNavigation];
+        completionHandler(std::forward<Result>(result));
         if (!strongSelf)
             return;
         bool navigatesFrame = WTF::switchOn(result,
             [] (WebKit::ContinueUnsafeLoad continueUnsafeLoad) { return continueUnsafeLoad == WebKit::ContinueUnsafeLoad::Yes; },
             [] (const URL&) { return true; }
         );
-        bool forMainFrameNavigation = [strongSelf->_warningView forMainFrameNavigation];
         if (navigatesFrame && forMainFrameNavigation) {
             // The safe browsing warning will be hidden once the next page is shown.
             return;
@@ -4675,7 +4697,7 @@ static void convertAndAddHighlight(Vector<Ref<WebCore::SharedMemory>>& buffers, 
 
 - (NSURL *)_unreachableURL
 {
-    return [NSURL _web_URLWithWTFString:_page->pageLoadState().unreachableURL()];
+    return _page->pageLoadState().unreachableURL().createNSURL().autorelease();
 }
 
 - (NSURL *)_mainFrameURL
@@ -4908,7 +4930,7 @@ static void convertAndAddHighlight(Vector<Ref<WebCore::SharedMemory>>& buffers, 
 
 - (NSURL *)_committedURL
 {
-    return [NSURL _web_URLWithWTFString:_page->pageLoadState().url()];
+    return _page->pageLoadState().url().createNSURL().autorelease();
 }
 
 - (NSString *)_MIMEType

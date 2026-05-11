@@ -2038,8 +2038,8 @@ _SecureDownloadCopyTicketLocation
 //
 // anchor-test SPIs
 //
-_SecIsAppleTrustAnchorData
 _SecIsAppleTrustAnchor
+_SecIsAppleTrustAnchorForPolicy
 #endif
 
 #if TARGET_OS_OSX

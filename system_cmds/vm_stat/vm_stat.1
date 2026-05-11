@@ -83,6 +83,35 @@ the total number of compressed pages that have been swapped back in from disk.
 the total number of compressed pages that have been swapped out to disk.
 .El
 .Pp
+If the system supports the ARM Memory Tagging Extension (MTE), then the
+following values will additionally be displayed:
+.Bl -tag -width indent
+.It Pages tagged
+the total number of virtual pages which have been assigned memory tags.
+.It Pages tagged resident
+the number of tagged pages which are resident in memory.
+.It Pages tagged compressed
+the number of tagged pages which have been evicted to the compressor.
+.It Pages tag storage
+the total number of physical pages which may be used to store memory tags.
+.It Pages tag storage holding tags
+the number of physical pages which are currently being used to store memory tags.
+.It Pages tag storage free
+the number of tag-storage pages which are unused.
+.It Pages tag storage non-tag pageable
+the number of tag-storage pages which are being used to store pageable non-tag
+data.
+.It Pages tag storage non-tag wired
+the number of tag-storage pages which are being used to store wired non-tag
+data.
+.It Bytes of compressed tags
+the (post-compression) size of memory tags currently held in the compressor in bytes.
+.It Tagged compressions
+the number of tagged pages which have been compressed.
+.It Tagged decompressions
+the number of tagged pages which have been decompressed.
+.El
+.Pp
 If
 .Ar interval
 is not specified, then

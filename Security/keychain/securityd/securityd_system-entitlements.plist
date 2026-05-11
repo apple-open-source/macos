@@ -20,6 +20,8 @@
 	</array>
 	<key>com.apple.private.sqlite.sqlite-encryption</key>
 	<true/>
+	<key>com.apple.security.script-restrictions</key>
+	<true/>
 	<key>com.apple.symptom_diagnostics.report</key>
 	<true/>
 	<key>com.apple.private.security.storage.Keychains</key>

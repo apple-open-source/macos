@@ -75,6 +75,10 @@ typedef enum
 #define PRINTCAP_SOLARIS	1	/* Solaris lpsched format */
 #define PRINTCAP_PLIST		2	/* macOS plist format */
 
+/*
+ * Max Lengths..
+ */
+#define MAX_PATH_LENGTH         1024
 
 /*
  * ServerAlias data...

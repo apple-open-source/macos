@@ -281,6 +281,16 @@
             return CKKSDatabaseTransactionRollback;
         }
 
+        // `server_wascurrent` is set to 1 if this item was (or is!) the current item at any point. We shouldn't be creating a CIP for items whose wasCurrent value is not 0.
+        if (ckme.wasCurrent != 0) {
+            ckkserror("ckkscurrent", self.viewState.zoneID, "Cannot set a current item pointer to an item that was already current: %@ %@", cip, ckme);
+            error = [NSError errorWithDomain:CKKSErrorDomain
+                                        code:CKKSErrorItemAlreadyWasCurrent
+                                 description:[NSString stringWithFormat:@"Item(%@) has `server_wascurrent` as non-zero; can't set current pointer to this item.", ckme.item.uuid]];
+            self.error = error;
+            return CKKSDatabaseTransactionRollback;
+        }
+
         ckksnotice("ckkscurrent", self.viewState.zoneID, "Saving new current item pointer %@", cip);
 
         NSMutableDictionary<CKRecordID*, CKRecord*>* recordsToSave = [[NSMutableDictionary alloc] init];

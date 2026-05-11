@@ -16,3 +16,11 @@ if [ -z "$RSYNC_DEBUG" ]; then
 fi
 
 rsync -- bigfile bigfile.out
+
+# 32-bit platforms have historically written a truncated bigfile.out due to
+# size_t overflow, so we compare them after to be safe.
+if ! cmp -s bigfile bigfile.out; then
+	1>&2 echo "Transfer succeeded, but output differs"
+	1>&2 ls -l bigfile bigfile.out
+	exit 1
+fi

@@ -347,7 +347,9 @@ int l2tp_ctloutput(struct socket *so, struct sockopt *sopt)
                     break;
                 case L2TP_OPT_OURADDRESS:
                 case L2TP_OPT_PEERADDRESS:
-                    if ((addr = kalloc_data(sopt->sopt_valsize, Z_WAITOK)) == 0)
+                    if (sopt->sopt_valsize > UINT8_MAX || sopt->sopt_valsize < 1) {
+                        error = EMSGSIZE;
+                    } else if ((addr = kalloc_data(sopt->sopt_valsize, Z_WAITOK)) == 0)
                         error = ENOMEM;
                     else {
                         *addr = sopt->sopt_valsize; /* max size */

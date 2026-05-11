@@ -886,6 +886,19 @@ class Client: TrustedPeersHelperProtocol {
         }
     }
 
+    func fetchEgoBottleID(with user: TPSpecificUser?, reply: @escaping (String?, Error?) -> Void) {
+        do {
+            logger.info("fetchEgoBottleID in \(String(describing: user), privacy: .public)")
+            let container = try self.containerMap.findOrCreate(user: user)
+            container.fetchEgoBottleID { bottleID, error in
+                reply(bottleID, error?.sanitizeForClientXPC())
+            }
+        } catch {
+            logger.error("fetchEgoBottleID failed for \(String(describing: user), privacy: .public): \(String(describing: error), privacy: .public)")
+            reply(nil, error.sanitizeForClientXPC())
+        }
+    }
+
     func fetchCurrentPolicy(with user: TPSpecificUser?,
                             modelIDOverride: String?,
                             isInheritedAccount: Bool,
@@ -1015,6 +1028,7 @@ class Client: TrustedPeersHelperProtocol {
                             flowID: String?,
                             deviceSessionID: String?,
                             daysLeftOnRateLimit: Int,
+                            rateLimitState: Int,
                             reply: @escaping (OTEscrowCheckCallResult?, (any Error)?) -> Void) {
         do {
             logger.info("Escrow Check for \(String(describing: user), privacy: .public)")
@@ -1025,7 +1039,8 @@ class Client: TrustedPeersHelperProtocol {
                                   isBackgroundCheck: isBackgroundCheck,
                                   flowID: flowID,
                                   deviceSessionID: deviceSessionID,
-                                  daysLeftOnRateLimit: daysLeftOnRateLimit) { result, error  in
+                                  daysLeftOnRateLimit: daysLeftOnRateLimit,
+                                  rateLimitState: rateLimitState) { result, error  in
                 reply(result, error?.sanitizeForClientXPC())
             }
         } catch {

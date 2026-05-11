@@ -25,6 +25,8 @@
 #include "libANGLE/CLProgram.h"
 #include "spirv/unified1/NonSemanticClspvReflection.h"
 
+#include <algorithm>
+
 namespace rx
 {
 
@@ -211,19 +213,31 @@ angle::Result CLKernelVk::init()
         }
     }
 
-    // push constant setup
-    // push constant size must be multiple of 4
-    pcRange.size = roundUpPow2(pcRange.size, 4u);
+    // push constant range size and offset both need to be a multiple of 4
+    pcRange.size   = roundUpPow2(pcRange.size, 4u);
+    pcRange.offset = roundDownPow2(pcRange.offset, 4u);
+    mPipelineLayoutDesc.updatePushConstantRange(pcRange.stageFlags, pcRange.offset, pcRange.size);
+
     mPodArgumentPushConstants.resize(pcRange.size);
 
-    // push constant offset must be multiple of 4, round down to ensure this
-    pcRange.offset = roundDownPow2(pcRange.offset, 4u);
-
-    mPipelineLayoutDesc.updatePushConstantRange(pcRange.stageFlags, pcRange.offset, pcRange.size);
+    angle::EnumIterator<DescriptorSetIndex> layoutIndex(DescriptorSetIndex::LiteralSampler);
+    for (DescriptorSetIndex index : angle::AllEnums<DescriptorSetIndex>())
+    {
+        if (!getDescriptorSetLayoutDesc(index).empty())
+        {
+            ANGLE_CL_IMPL_TRY_ERROR(mContext->getDescriptorSetLayoutCache()->getDescriptorSetLayout(
+                                        mContext, getDescriptorSetLayoutDesc(index),
+                                        &getDescriptorSetLayouts()[*layoutIndex]),
+                                    CL_INVALID_OPERATION);
+            ASSERT(getDescriptorSetLayouts()[*layoutIndex]->valid());
+            ++layoutIndex;
+        }
+    }
+    ANGLE_CL_IMPL_TRY_ERROR(initPipelineLayout(), CL_INVALID_OPERATION);
 
     // initialize the descriptor pools
     // descriptor pools are setup as per their indices
-    return initializeDescriptorPools();
+    return mContext->initializeDescriptorPools(this);
 }
 
 angle::Result CLKernelVk::setArg(cl_uint argIndex, size_t argSize, const void *argValue)
@@ -237,7 +251,7 @@ angle::Result CLKernelVk::setArg(cl_uint argIndex, size_t argSize, const void *a
                 ASSERT(mPodArgumentPushConstants.size() >=
                        arg.pushConstantSize + arg.pushConstOffset);
                 arg.handle     = &mPodArgumentPushConstants[arg.pushConstOffset];
-                arg.handleSize = argSize;
+                arg.handleSize = std::min(argSize, static_cast<size_t>(arg.pushConstantSize));
                 if (argSize > 0 && argValue != nullptr)
                 {
                     // Copy the contents since app is free to delete/reassign the contents after

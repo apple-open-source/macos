@@ -17,6 +17,9 @@ chmod +x run_cli_examples.sh
 
 # Quick OID validation test
 python3 oid_validation.py
+
+# Pinning parity test (see DEFAULT_COMPARISONS in test_pinning_parity.py)
+python3 test_pinning_parity.py
 ```
 
 ## Test Architecture
@@ -38,6 +41,11 @@ python3 oid_validation.py
    - Live CLI usage examples
    - Error handling demonstrations
    - Real-time test environment setup
+
+4. **test_pinning_parity.py** - Pinning rule parity validation
+   - Compares `labelRegex` alternatives between paired domain suffixes in `CertificatePinning.plist`
+   - Default comparison pairs are defined in `DEFAULT_COMPARISONS` near the top of the file
+   - General-purpose CLI for comparing any two suffixes
 
 ### Test Data Files (JSON)
 Generated test files based on real certificate examples:
@@ -232,6 +240,37 @@ The test suite includes comprehensive OID validation that can be integrated into
 - Missing required field validation
 - OID format validation
 - Certificate parsing error handling
+
+## Pinning Parity Testing
+
+### Overview
+`test_pinning_parity.py` validates that paired domain suffixes in `CertificatePinning.plist`
+have consistent `labelRegex` rules. It catches regressions where a regex cleanup on one suffix
+silently drops coverage for the paired suffix (see rdar://173515996).
+
+### How It Works
+For each policy that contains domain entries for both suffixes, the test splits each
+`labelRegex` on `|` into individual alternatives and checks that both sides have the same
+set of terms (minus an explicit allowlist for intentional differences).
+
+### Usage
+```bash
+# Run default comparisons (see DEFAULT_COMPARISONS in test_pinning_parity.py)
+python3 test_pinning_parity.py
+
+# Compare two arbitrary suffixes (full parity required, no allowlists)
+python3 test_pinning_parity.py --suffix-a example.com --suffix-b example.co.uk
+
+# Test against a different plist
+python3 test_pinning_parity.py --plist /path/to/CertificatePinning.plist
+```
+
+Per-policy allowlists for known intentional differences are only available
+through `DEFAULT_COMPARISONS`; the CLI mode always requires full parity.
+
+### Adding New Default Comparison Pairs
+Edit the `DEFAULT_COMPARISONS` list near the top of `test_pinning_parity.py`.
+The list format and instructions for adding new entries are documented inline.
 
 ## Notes for Developers
 

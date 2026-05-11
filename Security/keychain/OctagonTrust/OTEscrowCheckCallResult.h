@@ -43,6 +43,8 @@ typedef NS_ENUM(NSInteger, OTEscrowCheckRateLimitState) {
     OTEscrowCheckRateLimitStateUnknown = 0,
     OTEscrowCheckRateLimitStateNotRateLimited = 1,
     OTEscrowCheckRateLimitStateRateLimited = 2,
+    OTEscrowCheckRateLimitStateValidCacheNotRateLimited = 3,
+    OTEscrowCheckRateLimitStateValidCacheRateLimited = 4,
 };
 
 typedef NS_ENUM(NSInteger, OctagonTrustStatus) {

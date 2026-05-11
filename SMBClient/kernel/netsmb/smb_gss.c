@@ -133,6 +133,7 @@ smb_gss_reset(__unused struct smb_gss *gp)
 {
 	if (gp->gss_token != NULL) {
         SMB_FREE_DATA(gp->gss_token, gp->gss_token_allocsize);
+        gp->gss_token = NULL;
     }
 	gp->gss_tokenlen = 0;
     gp->gss_token_allocsize = 0;
@@ -302,6 +303,27 @@ smb_gss_init(struct smbiod *iod, uid_t uid, uint32_t tryGuestWithIntegFlag)
 		goto out;
 	}
 
+    /*
+     * If kerberos only flag is set, then do not allow NTLM to be tried
+     * Some servers can only handle mech SPNEGO, so we can not just force KRB5 mech
+     * Instead just check for CPN of NTLM type and return them with an error
+     */
+    if (sessionp->session_flags & SMBV_KERBEROS_ACCESS) {
+        SMB_LOG_AUTH("Kerberos access is set");
+
+        if (sessionp->session_flags & SMBV_RAW_NTLMSSP) {
+            SMB_LOG_AUTH("Kerberos access is set so SMBV_RAW_NTLMSSP not allowed");
+            goto out;
+        }
+        
+        /* If there is a CPN, check if its name type NTLM */
+        if ((cp->gss_cpn_len > 0) &&
+            (cp->gss_client_nt == GSSD_NTLM_PRINCIPAL)) {
+            SMB_LOG_AUTH("Kerberos access is set so NTLM not allowed");
+            goto out;
+        }
+    }
+    
 	if (cp->gss_tokenlen > 0)
 		gss_mach_alloc_buffer(cp->gss_token, cp->gss_tokenlen, &itoken);
 	if (cp->gss_cpn_len > 0)
@@ -484,6 +506,7 @@ retry:
 	/* Free context token used as input */
     if (cp->gss_token != NULL) {
         SMB_FREE_DATA(cp->gss_token, cp->gss_token_allocsize);
+        cp->gss_token = NULL;
     }
 	cp->gss_tokenlen = 0;
 	
@@ -518,7 +541,10 @@ retry:
 	return (0);
 	
 out:
-    SMB_FREE_DATA(cp->gss_token, cp->gss_token_allocsize);
+    if (cp->gss_token != NULL) {
+        SMB_FREE_DATA(cp->gss_token, cp->gss_token_allocsize);
+        cp->gss_token = NULL;
+    }
 	cp->gss_tokenlen = 0;
 	
 	return (EAUTH);

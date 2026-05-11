@@ -76,6 +76,8 @@ static NSMutableArray<NSError *>* _decryptRefKeyErrors = nil;
 static int _operationsUntilUnlock = -1;      // -1: don't care, 0: be unlocked, posnum: decrement and be locked
 static bool _cacheFlowEnabled = false;
 
+static uint64_t _passcodeGeneration = 1;
+
 /*
  * Method that limit where this rather in-secure version of AKS can run
  */
@@ -271,6 +273,17 @@ static bool _cacheFlowEnabled = false;
 
 + (bool)cacheFlowEnabled {
     return _cacheFlowEnabled;
+}
+
++ (uint64_t)passcodeGeneration {
+    return _passcodeGeneration;
+}
++ (void)setPasscodeGeneration:(uint64_t)generation {
+    _passcodeGeneration = generation;
+}
+
++ (void)incrementPasscodeGeneration {
+    _passcodeGeneration += 1;
 }
 
 @end
@@ -1085,7 +1098,7 @@ static CFStringRef staticKeybagHandle = CFSTR("keybagHandle");
 CF_RETURNS_RETAINED CFDictionaryRef
 MKBGetDeviceConfigurations(CFDictionaryRef options){
     return CFBridgingRetain(@{
-        (__bridge NSString *)kAKSConfigPasscodeGeneration : @(1),
+        (__bridge NSString *)kAKSConfigPasscodeGeneration : @([SecMockAKS passcodeGeneration]),
     });
 }
 

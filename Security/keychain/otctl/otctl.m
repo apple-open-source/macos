@@ -94,6 +94,7 @@ int main(int argc, char** argv)
     int machineIDOverride = false;
     int reroll = false;
     int icscRepairReset = false;
+    int icscRepairInvalidateCacheVersion = false;
     int fetchTotalTrustedPeers = false;
     int fetchTrustedFullPeers = false;
     int simulateReceiveTDLChangePush = false;
@@ -258,6 +259,7 @@ int main(int argc, char** argv)
         {.command = "print-account-metadata", .flag = &printAccountMetadata, .flagval = true, .description = "Print Account Metadata", .internal_only = true},
         {.command = "reroll", .flag = &reroll, .flagval = true, .description = "Reroll PeerID", .internal_only = true},
         {.command = "icsc-repair-reset", .flag = &icscRepairReset, .flagval = true, .description = "Reset icsc repair rate-limiting", .internal_only = true},
+        {.command = "icsc-repair-invalidate-cache-version", .flag = &icscRepairInvalidateCacheVersion, .flagval = true, .description = "Invalidate icsc repair cache version", .internal_only = true},
         {.command = "total-trusted-peers", .flag = &fetchTotalTrustedPeers, .flagval = true, .description = "Fetch total trusted peers"},
         {.command = "trusted-full-peers", .flag = &fetchTrustedFullPeers, .flagval = true, .description = "Fetch trusted full peers"},
         {}};
@@ -702,6 +704,9 @@ int main(int argc, char** argv)
         }
         if (icscRepairReset) {
             return [ctl icscRepairResetWithArguments:arguments json:json];
+        }
+        if (icscRepairInvalidateCacheVersion) {
+            return [ctl icscRepairInvalidateCacheVersionWithArguments:arguments json:json];
         }
         if (fetchTotalTrustedPeers) {
             return [ctl fetchTotalTrustedPeersWithArguments:arguments json:json];

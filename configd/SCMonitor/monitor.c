@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2007-2022 Apple Inc. All rights reserved.
+ * Copyright (c) 2007-2026 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -1021,250 +1021,11 @@ add_node_watcher(MyType *myInstance, io_registry_entry_t node, io_registry_entry
 		CFArrayAppendValue(myInstance->notifyNodes, myData);
 	} else {
 		SC_log(LOG_ERR,
-		       "add_init_watcher IOServiceAddInterestNotification() failed, kr = %d",
+		       "add_node_watcher IOServiceAddInterestNotification() failed, kr = %d",
 		       kr);
 	}
 	CFRelease(myData);
 }
-
-
-static Boolean
-isHidden(CFTypeRef hidden)
-{
-	int	val	= 0;
-
-	// looks at the [passed] value of the hidden property
-	if (hidden == NULL) {
-		return FALSE;
-	}
-
-	if (isA_CFBoolean(hidden)) {
-		return CFBooleanGetValue(hidden);
-	} else if (isA_CFNumber(hidden)) {
-		if (CFNumberGetValue(hidden, kCFNumberIntType, (void *)&val) &&
-		    (val == 0)) {
-			return FALSE;
-		}
-	}
-
-	return TRUE;	// if not explicitly FALSE or 0
-}
-
-
-static void
-add_init_watcher(MyType *myInstance, io_registry_entry_t interface)
-{
-	kern_return_t		kr;
-	io_registry_entry_t	node		= interface;
-	CFTypeRef		val;
-
-	val = IORegistryEntrySearchCFProperty(interface,
-					      kIOServicePlane,
-					      kSCNetworkInterfaceHiddenPortKey,
-					      NULL,
-					      kIORegistryIterateRecursively | kIORegistryIterateParents);
-	if (val != NULL) {
-		Boolean	hidden	= isHidden(val);
-
-		CFRelease(val);
-		val = NULL;
-		if (hidden) {
-			// if hidden, no need to watch
-			return;
-		}
-	}
-
-	while (node != MACH_PORT_NULL) {
-		io_registry_entry_t	parent;
-
-		val = IORegistryEntryCreateCFProperty(node, kSCNetworkInterfaceInitializingKey, NULL, 0);
-		if (val != NULL) {
-			break;
-		}
-
-		parent = MACH_PORT_NULL;
-		kr = IORegistryEntryGetParentEntry(node, kIOServicePlane, &parent);
-		switch (kr) {
-			case kIOReturnSuccess  :	// if we have a parent node
-			case kIOReturnNoDevice :	// if we have hit the root node
-				break;
-			default :
-				SC_log(LOG_ERR, "add_init_watcher IORegistryEntryGetParentEntry() failed, kr = %d", kr);
-				break;
-		}
-		if (node != interface) {
-			IOObjectRelease(node);
-		}
-		node = parent;
-	}
-
-	if (val != NULL) {
-		if (isA_CFBoolean(val) && CFBooleanGetValue(val)) {
-			// watch the "Initializing" node
-			add_node_watcher(myInstance, node, interface);
-		}
-
-		CFRelease(val);
-	}
-
-	if ((node != MACH_PORT_NULL) && (node != interface)) {
-		IOObjectRelease(node);
-	}
-
-	return;
-}
-
-
-static void
-update_serial(void *refcon, io_iterator_t iter)
-{
-	MyType			*myInstance	= (MyType *)refcon;
-	io_registry_entry_t	obj;
-
-	while ((obj = IOIteratorNext(iter)) != MACH_PORT_NULL) {
-		SCNetworkInterfaceRef	interface;
-
-		interface = _SCNetworkInterfaceCreateWithIONetworkInterfaceObject(obj);
-		if (interface != NULL) {
-			CFRelease(interface);
-
-			// watch interface (to see when/if it's removed)
-			add_node_watcher(myInstance, obj, MACH_PORT_NULL);
-		} else {
-			// check interface, watch if initializing
-			add_init_watcher(myInstance, obj);
-		}
-
-		IOObjectRelease(obj);
-	}
-
-	return;
-}
-
-
-static void
-update_serial_nodes(void *refcon, io_iterator_t iter)
-{
-	MyType	*myInstance	= (MyType *)refcon;
-
-	update_serial(refcon, iter);
-	updateInterfaceList(myInstance);
-}
-
-
-static void
-watcher_add_serial(MyType *myInstance)
-{
-	kern_return_t	kr;
-
-	myInstance->notifyPort = IONotificationPortCreate(kIOMainPortDefault);
-	if (myInstance->notifyPort == NULL) {
-		SC_log(LOG_ERR, "IONotificationPortCreate failed");
-		return;
-	}
-
-	// watch for the introduction of new network serial devices
-	kr = IOServiceAddMatchingNotification(myInstance->notifyPort,
-					      kIOFirstMatchNotification,
-					      IOServiceMatching("IOSerialBSDClient"),
-					      &update_serial_nodes,
-					      (void *)myInstance,		// refCon
-					      &myInstance->notifyIterator);	// notification
-	if (kr != KERN_SUCCESS) {
-		SC_log(LOG_ERR, "SCMonitor : IOServiceAddMatchingNotification returned %d", kr);
-		return;
-	}
-
-	myInstance->notifyNodes = NULL;
-
-	// Get the current list of matches and arm the notification for
-	// future interface arrivals.
-	update_serial((void *)myInstance, myInstance->notifyIterator);
-
-	if (myInstance->notifyNodes != NULL) {
-		// if we have any serial nodes, check if we already have the
-		// "admin" (kSCPreferencesAuthorizationRight_write) right.  If
-		// so, we can automatically configure (without user intervention)
-		// any "new" network interfaces that are present at login (e.g. a
-		// USB modem that was plugged in before login).
-
-		if (!hasAuthorization(myInstance)) {
-			CFIndex	i;
-			CFIndex	n	= CFArrayGetCount(myInstance->notifyNodes);
-
-			// ... and if we don't have the right then we populate the list of
-			// known interfaces with those already named so that we avoid any
-			// login prompts (that the user might have no choice but to dismiss)
-
-			for (i = 0; i < n; i++) {
-				SCNetworkInterfaceRef	interface;
-				CFDataRef		myData;
-				MyNode			*myNode;
-
-				myData = CFArrayGetValueAtIndex(myInstance->notifyNodes, i);
-
-				/* ALIGN: CF aligns to at least >8 bytes */
-				myNode = (MyNode *)(void *)CFDataGetBytePtr(myData);
-
-				interface = _SCNetworkInterfaceCreateWithIONetworkInterfaceObject(myNode->interface_node);
-				if (interface != NULL) {
-					CFSetAddValue(myInstance->interfaces_known, interface);
-					CFRelease(interface);
-				}
-			}
-		}
-	}
-
-	// and keep watching
-	CFRunLoopAddSource(CFRunLoopGetCurrent(),
-			   IONotificationPortGetRunLoopSource(myInstance->notifyPort),
-			   kCFRunLoopDefaultMode);
-	return;
-}
-
-
-static void
-watcher_remove_serial(MyType *myInstance)
-{
-	if (myInstance->notifyNodes != NULL) {
-		CFIndex	i;
-		CFIndex	n	= CFArrayGetCount(myInstance->notifyNodes);
-
-		for (i = 0; i < n; i++) {
-			CFDataRef	myData;
-			MyNode		*myNode;
-
-			myData = CFArrayGetValueAtIndex(myInstance->notifyNodes, i);
-
-			/* ALIGN: CF aligns to at least >8 bytes */
-			myNode = (MyNode *)(void *)CFDataGetBytePtr(myData);
-
-			if (myNode->interface != myNode->interface_node) {
-				IOObjectRelease(myNode->interface_node);
-			}
-			if (myNode->interface != MACH_PORT_NULL) {
-				IOObjectRelease(myNode->interface);
-			}
-			IOObjectRelease(myNode->notification);
-		}
-
-		CFRelease(myInstance->notifyNodes);
-		myInstance->notifyNodes = NULL;
-	}
-
-	if (myInstance->notifyIterator != MACH_PORT_NULL) {
-		IOObjectRelease(myInstance->notifyIterator);
-		myInstance->notifyIterator = MACH_PORT_NULL;
-	}
-
-	if (myInstance->notifyPort != MACH_PORT_NULL) {
-		IONotificationPortDestroy(myInstance->notifyPort);
-		myInstance->notifyPort = NULL;
-	}
-
-	return;
-}
-
 
 #pragma mark -
 
@@ -1308,9 +1069,6 @@ watcher_add(MyType *myInstance)
 	// add LAN interfaces
 	watcher_add_lan(myInstance);
 
-	// add SERIAL interfaces
-	watcher_add_serial(myInstance);
-
 	// auto-configure (as needed)
 	updateInterfaceList(myInstance);
 
@@ -1322,7 +1080,6 @@ static void
 watcher_remove(MyType *myInstance)
 {
 	watcher_remove_lan(myInstance);
-	watcher_remove_serial(myInstance);
 
 	if (myInstance->interfaces_known != NULL) {
 		CFRelease(myInstance->interfaces_known);

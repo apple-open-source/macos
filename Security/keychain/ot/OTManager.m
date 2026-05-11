@@ -34,6 +34,7 @@
 #if OCTAGON
 #import <TargetConditionals.h>
 #import "keychain/ot/ObjCImprovements.h"
+#import "keychain/ot/OctagonPlatform.h"
 #import "keychain/ot/OTControlProtocol.h"
 #import "keychain/ot/OTControl.h"
 #import "keychain/ot/OTClique.h"
@@ -88,10 +89,6 @@
 #import <Accounts/ACAccountStore.h>
 #import <AppleAccount/ACAccountStore+AppleAccount.h>
 #import <AppleAccount/ACAccount+AppleAccount.h>
-
-#if !TARGET_OS_SIMULATOR
-#import <AppleKeyStore/AppleKeyStore.h>
-#endif
 
 #import <CoreCDP/CDPFollowUpController.h>
 
@@ -149,10 +146,8 @@ static NSString* const kOTRampZoneName = @"metadata_zone";
 
 @property id<NSXPCProxyCreating> cuttlefishXPCConnection;
 
-#if !TARGET_OS_SIMULATOR
 // AKS event registration opaque handle
 @property (assign) AKSEvent* aksEvent;
-#endif // !TARGET_OS_SIMULATOR
 
 // Dependencies for injection
 @property (readonly) id<OTSOSAdapter> sosAdapter;
@@ -163,6 +158,7 @@ static NSString* const kOTRampZoneName = @"metadata_zone";
 @property (readonly) id<OTDeviceInformationAdapter> deviceInformationAdapter;
 @property (readonly) id<OTSecureBackupAdapter> secureBackupAdapter;
 @property (readonly) id<OTLAContextAdapter> laContextAdapter;
+@property (readonly) id<OTAppleKeyStoreAdapter> appleKeyStoreAdapter;
 @property (readonly) id<OTPersonaAdapter> personaAdapter;
 @property (readonly) Class<OctagonAPSConnection> apsConnectionClass;
 @property (readonly) Class<SecEscrowRequestable> escrowRequestClass;
@@ -197,6 +193,7 @@ static NSString* const kOTRampZoneName = @"metadata_zone";
            deviceInformationAdapter:[[OTDeviceInformationActualAdapter alloc] init]
                 secureBackupAdapter:[[OTSecureBackupActualAdapter alloc] init]
                    laContextAdapter:[[OTLAContextActualAdapter alloc] init]
+               appleKeyStoreAdapter:[[OTAppleKeyStoreActualAdapter alloc] init]
                      personaAdapter:[[OTPersonaActualAdapter alloc] init]
                  apsConnectionClass:[APSConnection class]
                  escrowRequestClass:[EscrowRequestServer class] // Use the server class here to skip the XPC layer
@@ -217,6 +214,7 @@ static NSString* const kOTRampZoneName = @"metadata_zone";
           deviceInformationAdapter:(id<OTDeviceInformationAdapter>)deviceInformationAdapter
                secureBackupAdapter:(id<OTSecureBackupAdapter>)secureBackupAdapter
                   laContextAdapter:(id<OTLAContextAdapter>)laContextAdapter
+              appleKeyStoreAdapter:(id<OTAppleKeyStoreAdapter>)appleKeyStoreAdapter
                     personaAdapter:(id<OTPersonaAdapter>)personaAdapter
                 apsConnectionClass:(Class<OctagonAPSConnection>)apsConnectionClass
                 escrowRequestClass:(Class<SecEscrowRequestable>)escrowRequestClass
@@ -237,6 +235,7 @@ static NSString* const kOTRampZoneName = @"metadata_zone";
         _deviceInformationAdapter = deviceInformationAdapter;
         _secureBackupAdapter = secureBackupAdapter;
         _laContextAdapter = laContextAdapter;
+        _appleKeyStoreAdapter = appleKeyStoreAdapter;
         _personaAdapter = personaAdapter;
         _loggerClass = loggerClass;
         _lockStateTracker = lockStateTracker;
@@ -332,15 +331,13 @@ static NSString* const kOTRampZoneName = @"metadata_zone";
     return self;
 }
 
-#if !TARGET_OS_SIMULATOR
 - (void)dealloc
 {
     if (self.aksEvent) {
-        AKSEventsUnregister(self.aksEvent);
-        self.aksEvent = NULL;
+        [self.appleKeyStoreAdapter eventsUnregister:self.aksEvent];
+        self.aksEvent = nullptr;
     }
 }
-#endif // !TARGET_OS_SIMULATOR
 
 - (void)initializeOctagon
 {
@@ -441,12 +438,11 @@ static NSString* const kOTRampZoneName = @"metadata_zone";
 
 - (void)registerForPasscodeCacheFlowNotifications
 {
+#if OCTAGON_PLATFORM_SUPPORTS_CACHE_FLOW
     __weak __typeof(self) weakSelf = self;
 
-    // If we're not in the tests, go ahead and register for a notification
-    if(!SecCKKSTestsEnabled()) {
-#if !TARGET_OS_SIMULATOR
-        self.aksEvent = AKSEventsRegister(dispatch_get_global_queue(QOS_CLASS_UTILITY, 0), ^(AKSEventType event, CFDictionaryRef dict) {
+    if (self.aksEvent == nullptr) {
+        self.aksEvent = [self.appleKeyStoreAdapter eventsRegister:dispatch_get_global_queue(QOS_CLASS_UTILITY, 0) callback:^(AKSEventType event, CFDictionaryRef dict) {
             if (event == kAKSCacheFlowEnabled) {
                 secnotice("octagon-escrow-repair", "passcode stash available via cache flow");
                 NSDictionary* nsDict = (__bridge NSDictionary*)dict;
@@ -454,9 +450,9 @@ static NSString* const kOTRampZoneName = @"metadata_zone";
 
                 [weakSelf setPasscodeStashAvailableForArguments:[[OTControlArguments alloc] init] aksEventContext:value];
             }
-        });
-#endif /* !TARGET_OS_SIMULATOR */
+        }];
     }
+#endif // OCTAGON_PLATFORM_SUPPORTS_CACHE_FLOW
 }
 
 - (void)setPasscodeStashAvailableForArguments:(OTControlArguments*)arguments aksEventContext:(NSNumber*)aksEventContext
@@ -3245,6 +3241,20 @@ skipRateLimitingCheck:(BOOL)skipRateLimitingCheck
     [cfshContext icscRepairResetWithReply:reply];
 }
 
+- (void)icscRepairInvalidateCacheVersion:(OTControlArguments*)arguments
+                                   reply:(void (^)(NSError *_Nullable error))reply
+{
+    NSError* clientError = nil;
+    OTCuttlefishContext* cfshContext = [self contextForClientRPC:arguments
+                                                           error:&clientError];
+    if(cfshContext == nil || clientError != nil) {
+        secnotice("octagon", "Rejecting icscRepairInvalidateCacheVersion RPC for arguments (%@): %@", arguments, clientError);
+        reply(clientError);
+        return;
+    }
+
+    [cfshContext icscRepairInvalidateCacheVersionWithReply:reply];
+}
 - (void)enableWalrus:(OTControlArguments *)arguments
           preRecords:(NSArray<OTSerializedPlistEscrowRecord *> *)preRecords
                reply:(void (^)(NSError * _Nullable))reply {

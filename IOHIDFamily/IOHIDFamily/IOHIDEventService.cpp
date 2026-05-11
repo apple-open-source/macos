@@ -296,9 +296,9 @@ bool IOHIDEventService::start ( IOService * provider )
         stateString = OSString::withCString("Allowed");
         HIDServiceLogInfo("HIDRM: Built-in device detected, state = Allowed");
     } else {
-        // External devices default to approving until HIDRM authorizes them
-        stateString = OSString::withCString("Approving");
-        HIDServiceLogInfo("HIDRM: External device detected, state = Approving");
+        // External devices default to unknown until HIDRM state updates
+        stateString = OSString::withCString("Unknown");
+        HIDServiceLogInfo("HIDRM: External device detected, state = Unknown");
     }
 
     // Publish HIDRM state as property on both this service and parent device
@@ -2285,6 +2285,7 @@ void IOHIDEventService::dispatchEvent(IOHIDEvent * event, IOOptionBits options)
         HIDRMDeviceState state = kHIDRMDeviceStateUnknown;
 
         if (stateString) {
+            HIDServiceLogDebug("HIDRMDeviceState: %s", stateString->getCStringNoCopy());
             if (stateString->isEqualTo("Allowed")) {
                 state = kHIDRMDeviceStateAllowed;
             } else if (stateString->isEqualTo("Denied")) {
@@ -2295,7 +2296,7 @@ void IOHIDEventService::dispatchEvent(IOHIDEvent * event, IOOptionBits options)
         }
         OSSafeReleaseNULL(obj);
 
-        if (state == kHIDRMDeviceStateUnknown || state == kHIDRMDeviceStateAllowed) {
+        if (state != kHIDRMDeviceStateDenied) {
             _sleepDisplayTickle(this);
         }
     }

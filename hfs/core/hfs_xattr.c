@@ -96,7 +96,7 @@ static void  free_attr_blks(struct hfsmount *hfsmp, int blkcnt, HFSPlusExtentDes
 
 static int  has_overflow_extents(HFSPlusForkData *forkdata);
 
-static int  count_extent_blocks(int maxblks, HFSPlusExtentRecord extents);
+static u_int32_t  count_extent_blocks(HFSPlusExtentRecord extents);
 
 #if NEW_XATTR
 
@@ -544,7 +544,6 @@ int hfs_getxattr_internal (struct cnode *cp, struct vnop_getxattr_args *ap,
 		target_id = fileid;
 	}
 
-
 	/* Bail if we don't have an EA B-Tree. */
 	if ((hfsmp->hfs_attribute_vp == NULL) ||
 	   ((cp) &&  (cp->c_attr.ca_recflags & kHFSHasAttributesMask) == 0)) {
@@ -584,7 +583,7 @@ int hfs_getxattr_internal (struct cnode *cp, struct vnop_getxattr_args *ap,
 		goto exit;
 	}
 	
-	/* 
+	/*
 	 * Operate differently if we have inline EAs that can fit in the attribute B-Tree or if
 	 * we have extent based EAs.
 	 */
@@ -671,8 +670,9 @@ int hfs_getxattr_internal (struct cnode *cp, struct vnop_getxattr_args *ap,
 				size_t extentbufsize;
 				u_int32_t totalblocks;
 				u_int32_t blkcnt;
+				u_int32_t extblkcnt;
 				u_int32_t attrlen;
-				
+
 				totalblocks = recp->forkData.theFork.totalBlocks;
 				/* Ignore bogus block counts. */
 				if (totalblocks > howmany(HFS_XATTR_MAXSIZE, hfsmp->blockSize)) {
@@ -690,7 +690,13 @@ int hfs_getxattr_internal (struct cnode *cp, struct vnop_getxattr_args *ap,
 				/* Grab the first 8 extents. */
 				bcopy(&recp->forkData.theFork.extents[0], extentptr, sizeof(HFSPlusExtentRecord));
 				extentptr += kHFSPlusExtentDensity;
-				blkcnt = count_extent_blocks(totalblocks, recp->forkData.theFork.extents);
+				blkcnt = count_extent_blocks(recp->forkData.theFork.extents);
+				if (!blkcnt || blkcnt > totalblocks) {
+					/* This extent is corrupt in some way. Bail. */
+					printf("hfs_getxattr: %s has a malformed attr extent\n", ap->a_name);
+					result = ENOATTR;
+					break;
+				}
 				
 				/* Now lookup the overflow extents. */
 				lockflags = hfs_systemfile_lock(hfsmp, SFL_ATTRIBUTE, HFS_SHARED_LOCK);
@@ -708,12 +714,22 @@ int hfs_getxattr_internal (struct cnode *cp, struct vnop_getxattr_args *ap,
 					/* Grab the next 8 extents. */
 					bcopy(&recp->overflowExtents.extents[0], extentptr, sizeof(HFSPlusExtentRecord));
 					extentptr += kHFSPlusExtentDensity;
-					blkcnt += count_extent_blocks(totalblocks, recp->overflowExtents.extents);
+					extblkcnt = count_extent_blocks(recp->overflowExtents.extents);
+					if (!extblkcnt || blkcnt + extblkcnt > totalblocks) {
+						/*
+						 * Extent itself is badly formed, or it doesn't
+						 * match the overall file data because it has too
+						 * many blocks.
+						 */
+						printf("hfs_getxattr: %s has a malformed overflow extent\n", ap->a_name);
+						result = ENOATTR;
+						break;
+					}
+					blkcnt += extblkcnt;
 				}
 				
 				/* Release Attr B-Tree lock */
 				hfs_systemfile_unlock(hfsmp, lockflags);
-				
 				if (blkcnt < totalblocks) {
 					result = ENOATTR;
 				} else {
@@ -1149,8 +1165,8 @@ int hfs_setxattr_internal (struct cnode *cp, const void *data_ptr, size_t attrsi
 	
 	/* If it won't fit inline then use extent-based attributes. */
 	if (attrsize > hfsmp->hfs_max_inline_attrsize) {
-		int blkcnt;
-		int extentblks;
+		u_int32_t blkcnt;
+		u_int32_t extentblks;
 		u_int32_t *keystartblk;
 		int i;
 		
@@ -1224,7 +1240,12 @@ int hfs_setxattr_internal (struct cnode *cp, const void *data_ptr, size_t attrsi
 					hfsmp->vcbVN, target_id, ap->a_name, result);
 			goto exit; 
 		}
-		extentblks = count_extent_blocks(blkcnt, recp->forkData.theFork.extents);
+		extentblks = count_extent_blocks(recp->forkData.theFork.extents);
+		if (!extentblks || extentblks > blkcnt) {
+			printf("hfs_setxattr: %s has a malformed attr extent\n", ap->a_name);
+			result = ENOATTR;
+			goto exit;
+		}
 		blkcnt -= extentblks;
 		keystartblk = &((HFSPlusAttrKey *)&iterator->key)->startBlock;
 		i = 0;
@@ -1247,7 +1268,12 @@ int hfs_setxattr_internal (struct cnode *cp, const void *data_ptr, size_t attrsi
 						hfsmp->vcbVN, target_id, ap->a_name, result);
 				goto exit;
 			}
-			extentblks = count_extent_blocks(blkcnt, recp->overflowExtents.extents);
+			extentblks = count_extent_blocks(recp->overflowExtents.extents);
+			if (!extentblks || extentblks > blkcnt) {
+				printf("hfs_setxattr: %s has a malformed overflow extent\n", ap->a_name);
+				result = ENOATTR;
+				goto exit;
+			}
 			blkcnt -= extentblks;
 		}
 	} else { /* Inline data */ 
@@ -1715,8 +1741,8 @@ remove_attribute_records(struct hfsmount *hfsmp, BTreeIterator * iterator)
 	 * before releasing the blocks in the allocation bitmap.
 	 */
 	if (attrdata.recordType == kHFSPlusAttrForkData) {
-		int totalblks;
-		int extentblks;
+		u_int32_t totalblks;
+		u_int32_t extentblks;
 		u_int32_t *keystartblk;
 
 		if (datasize < sizeof(HFSPlusAttrForkData)) {
@@ -1725,8 +1751,8 @@ remove_attribute_records(struct hfsmount *hfsmp, BTreeIterator * iterator)
 		totalblks = attrdata.forkData.theFork.totalBlocks;
 
 		/* Process the first 8 extents. */
-		extentblks = count_extent_blocks(totalblks, attrdata.forkData.theFork.extents);
-		if (extentblks > totalblks)
+		extentblks = count_extent_blocks(attrdata.forkData.theFork.extents);
+		if (!extentblks || extentblks > totalblks)
 			panic("hfs: remove_attribute_records: corruption...");
 		if (BTDeleteRecord(btfile, iterator) == 0) {
 			free_attr_blks(hfsmp, extentblks, attrdata.forkData.theFork.extents);
@@ -1748,8 +1774,8 @@ remove_attribute_records(struct hfsmount *hfsmp, BTreeIterator * iterator)
 				break;   /* break from while */
 			}
 			/* Process the next 8 extents. */
-			extentblks = count_extent_blocks(totalblks, attrdata.overflowExtents.extents);
-			if (extentblks > totalblks)
+			extentblks = count_extent_blocks(attrdata.overflowExtents.extents);
+			if (!extentblks || extentblks > totalblks)
 				panic("hfs: remove_attribute_records: corruption...");
 			if (BTDeleteRecord(btfile, iterator) == 0) {
 				free_attr_blks(hfsmp, extentblks, attrdata.overflowExtents.extents);
@@ -3388,20 +3414,25 @@ has_overflow_extents(HFSPlusForkData *forkdata)
 	return (forkdata->totalBlocks > blocks);
 }
 
-static int
-count_extent_blocks(int maxblks, HFSPlusExtentRecord extents)
+static u_int32_t
+count_extent_blocks(HFSPlusExtentRecord extents)
 {
-	int blocks;
+	u_int32_t blocks = 0;
 	int i;
 
-	for (i = 0, blocks = 0; i < kHFSPlusExtentDensity; ++i) {
-		/* Ignore obvious bogus extents. */
-		if (extents[i].blockCount > (u_int32_t)maxblks)
-			continue;
-		if (extents[i].startBlock == 0 || extents[i].blockCount == 0)
+	for (i = 0; i < kHFSPlusExtentDensity; ++i) {
+		/* Check for overflow */
+		if (blocks + extents[i].blockCount < blocks) {
+			/*
+			 * Uh-oh, this is a corrupt extent record.
+			 * Bail out and just return 0.
+			 */
+			return 0;
+		}
+		if (extents[i].blockCount == 0)
 			break;
 		blocks += extents[i].blockCount;
 	}
-	return (blocks);
+	return blocks;
 }
 

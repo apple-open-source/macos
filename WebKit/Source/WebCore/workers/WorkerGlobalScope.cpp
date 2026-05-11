@@ -175,8 +175,8 @@ void WorkerGlobalScope::prepareForDestruction()
     if (settingsValues().serviceWorkersEnabled)
         swClientConnection().unregisterServiceWorkerClient(identifier());
 
-    if (m_connectionProxy)
-        m_connectionProxy->abortActivitiesForCurrentThread();
+    if (RefPtr connectionProxy = m_connectionProxy)
+        connectionProxy->abortActivitiesForCurrentThread();
 
     if (m_storageConnection)
         m_storageConnection->scopeClosed();
@@ -200,11 +200,6 @@ bool WorkerGlobalScope::isSecureContext() const
         return true;
 
     return m_topOrigin->isPotentiallyTrustworthy();
-}
-
-void WorkerGlobalScope::applyContentSecurityPolicyResponseHeaders(const ContentSecurityPolicyResponseHeaders& contentSecurityPolicyResponseHeaders)
-{
-    checkedContentSecurityPolicy()->didReceiveHeaders(contentSecurityPolicyResponseHeaders, String { });
 }
 
 URL WorkerGlobalScope::completeURL(const String& url, ForceUTF8) const
@@ -249,6 +244,21 @@ IDBClient::IDBConnectionProxy* WorkerGlobalScope::idbConnectionProxy()
     return m_connectionProxy.get();
 }
 
+void WorkerGlobalScope::replaceIDBConnectionProxy(RefPtr<IDBClient::IDBConnectionProxy>&& proxy)
+{
+    m_connectionProxy = WTF::move(proxy);
+}
+
+void WorkerGlobalScope::replaceIDBConnectionProxyOnAllWorkers(RefPtr<IDBClient::IDBConnectionProxy>&& proxy)
+{
+    Locker locker { allWorkerGlobalScopeIdentifiersLock };
+    for (auto& globalScopeIdentifier : allWorkerGlobalScopeIdentifiers()) {
+        postTaskTo(globalScopeIdentifier, [proxy](auto& context) {
+            downcast<WorkerGlobalScope>(context).replaceIDBConnectionProxy(RefPtr { proxy });
+        });
+    }
+}
+
 GraphicsClient* WorkerGlobalScope::graphicsClient()
 {
     return workerClient();
@@ -256,8 +266,8 @@ GraphicsClient* WorkerGlobalScope::graphicsClient()
 
 void WorkerGlobalScope::suspend()
 {
-    if (m_connectionProxy)
-        m_connectionProxy->setContextSuspended(*this, true);
+    if (RefPtr connectionProxy = m_connectionProxy)
+        connectionProxy->setContextSuspended(*this, true);
 
     if (settingsValues().serviceWorkersEnabled)
         swClientConnection().unregisterServiceWorkerClient(identifier());
@@ -268,8 +278,8 @@ void WorkerGlobalScope::resume()
     if (settingsValues().serviceWorkersEnabled)
         updateServiceWorkerClientData();
 
-    if (m_connectionProxy)
-        m_connectionProxy->setContextSuspended(*this, false);
+    if (RefPtr connectionProxy = m_connectionProxy)
+        connectionProxy->setContextSuspended(*this, false);
 }
 
 WorkerStorageConnection& WorkerGlobalScope::storageConnection()

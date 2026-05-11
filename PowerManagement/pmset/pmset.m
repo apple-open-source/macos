@@ -76,6 +76,8 @@
 #define SLSDISPLAYMANAGER   0
 #endif
 
+#include <MobileGestalt.h>
+
 /*
  * This is the command line interface to Energy Saver Preferences in
  * /Library/Preferences/SystemConfiguration/com.apple.PowerManagement.plist
@@ -111,6 +113,7 @@
 
 #define ARG_RING            "ring"
 #define ARG_AUTORESTART     "autorestart"
+#define ARG_AUTORESTARTCONNECT "autorestartatconnect"
 #define ARG_WAKEONACCHANGE  "acwake"
 #define ARG_REDUCEBRIGHT    "lessbright"
 #define ARG_SLEEPUSESDIM    "halfdim"
@@ -314,6 +317,7 @@ PMFeature all_features[] =
     { kIOPMWakeOnRingKey,           ARG_RING },
     { kIOPMWakeOnACChangeKey,       ARG_WAKEONACCHANGE },
     { kIOPMRestartOnPowerLossKey,   ARG_AUTORESTART },
+    { kIOPMRestartOnPowerConnectKey, ARG_AUTORESTARTCONNECT },
     { kIOPMWakeOnClamshellKey,      ARG_LIDWAKE },
     { kIOPMReduceBrightnessKey,     ARG_REDUCEBRIGHT },
     { kIOPMDisplaySleepUsesDimKey,  ARG_SLEEPUSESDIM },
@@ -5723,6 +5727,30 @@ static int parseArgs(int argc,
                 {
                     ret = kParseBadArgs;
                     goto exit;
+                }
+                // Mutual exclusivity: enabling AAPF must disable AAPC in prefs
+                if (0 == strncmp(argv[i+1], "1", 2)) {
+                    checkAndSetIntValue("0", CFSTR(kIOPMRestartOnPowerConnectKey),
+                                            apply, true, kNoMultiplier,
+                                            ac, battery, ups);
+                }
+                modified |= kModSettings;
+                i+=2;
+            } else if(0 == strncmp(argv[i], ARG_AUTORESTARTCONNECT, kMaxArgStringLength) &&
+                      MGGetBoolAnswer(kMGQDeviceSupportsActionAfterPowerConnect))
+            {
+                if(-1 == checkAndSetIntValue(argv[i+1], CFSTR(kIOPMRestartOnPowerConnectKey),
+                                                apply, true, kNoMultiplier,
+                                                ac, battery, ups))
+                {
+                    ret = kParseBadArgs;
+                    goto exit;
+                }
+                // Mutual exclusivity: enabling AAPC must disable AAPF in prefs
+                if (0 == strncmp(argv[i+1], "1", 2)) {
+                    checkAndSetIntValue("0", CFSTR(kIOPMRestartOnPowerLossKey),
+                                            apply, true, kNoMultiplier,
+                                            ac, battery, ups);
                 }
                 modified |= kModSettings;
                 i+=2;

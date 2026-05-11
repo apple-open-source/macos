@@ -210,6 +210,7 @@
 #include "Widget.h"
 #include "WindowEventLoop.h"
 #include "WindowFeatures.h"
+#include "WorkerGlobalScope.h"
 #include "WorkerOrWorkletScriptController.h"
 #include <JavaScriptCore/VM.h>
 #include <ranges>
@@ -603,6 +604,16 @@ void Page::clearPreviousItemFromAllPages(BackForwardItemIdentifier itemID)
             return;
         }
     }
+}
+
+void Page::willEnterBackForwardCache()
+{
+    destroyRenderTrees();
+
+#if ENABLE(THREADED_ANIMATIONS)
+    if (m_acceleratedTimelinesUpdater)
+        m_acceleratedTimelinesUpdater->clear();
+#endif
 }
 
 uint64_t Page::renderTreeSize() const
@@ -4232,6 +4243,19 @@ IDBClient::IDBConnectionToServer* Page::optionalIDBConnection()
 void Page::clearIDBConnection()
 {
     m_idbConnectionToServer = nullptr;
+}
+
+void Page::clearIDBConnectionOnAllDocuments()
+{
+    clearIDBConnection();
+    forEachDocument([](Document& document) {
+        document.clearIDBConnectionProxy();
+    });
+}
+
+void Page::refreshIDBConnectionForWorkers()
+{
+    WorkerGlobalScope::replaceIDBConnectionProxyOnAllWorkers(idbConnection().proxy());
 }
 
 #if ENABLE(RESOURCE_USAGE)

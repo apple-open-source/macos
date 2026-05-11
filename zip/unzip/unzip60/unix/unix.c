@@ -777,11 +777,22 @@ mkdir_qtn(int zipfd, const char *path, int mode)
      * parent.
      */
     char *sep;
-    int pd = G.rootdir, r = -1, serrno;
+    int dd = -1, pd = -1, r = -1, serrno = 0;
     if (G.rootpath == NULL) {
         /* extraction directory */
         Trace((stderr, "mkdir(\"%s\")\n", path));
         r = mkdir(path, mode);
+        if (r != 0)
+            serrno = errno;
+        if ((r == 0 || serrno == EEXIST) && G.qf != NULL) {
+            if (qtn_file_apply_to_path(G.qf, path) != 0) {
+                if (serrno != EEXIST) {
+                    serrno = errno;
+                    (void)rmdir(path);
+                }
+                r = -1;
+            }
+        }
     } else {
         // assert(strncmp(path, G.rootpath, G.rootlen) == 0);
         // assert(path[G.rootlen] == '/');
@@ -790,6 +801,22 @@ mkdir_qtn(int zipfd, const char *path, int mode)
             Trace((stderr, "mkdirat(\"%s\", \"%s\")\n",
               G.rootpath, path + G.rootlen + 1));
             r = mkdirat(G.rootdir, path + G.rootlen + 1, mode);
+            if (r != 0)
+                serrno = errno;
+            if ((r == 0 || serrno == EEXIST) && G.qf != NULL) {
+                dd = openat(G.rootdir, path + G.rootlen + 1,
+                  O_DIRECTORY | O_SEARCH | O_RESOLVE_BENEATH);
+                if (dd < 0 || qtn_file_apply_to_fd(G.qf, dd) != 0) {
+                    if (serrno != EEXIST) {
+                        serrno = errno;
+                        (void)unlinkat(G.rootdir, path + G.rootlen + 1,
+                            AT_REMOVEDIR | AT_RESOLVE_BENEATH);
+                    }
+                    r = -1;
+                }
+                if (dd >= 0)
+                    close(dd);
+            }
         } else {
             /* indirect descendant of extraction directory */
             *sep = '\0';
@@ -803,25 +830,34 @@ mkdir_qtn(int zipfd, const char *path, int mode)
             Trace((stderr, "mkdirat(\"%.*s\", \"%s\")\n",
               (int)(sep - path), path, sep + 1));
             r = mkdirat(pd, sep + 1, mode);
-            serrno = errno;
+            if (r != 0)
+                serrno = errno;
+            if ((r == 0 || serrno == EEXIST) && G.qf != NULL) {
+                dd = openat(pd, sep + 1,
+                  O_DIRECTORY | O_SEARCH | O_RESOLVE_BENEATH);
+                if (dd < 0 || qtn_file_apply_to_fd(G.qf, dd) != 0) {
+                    if (serrno != EEXIST) {
+                        serrno = errno;
+                        (void)unlinkat(pd, sep + 1,
+                          AT_REMOVEDIR | AT_RESOLVE_BENEATH);
+                    }
+                    r = -1;
+                }
+                if (dd >= 0)
+                    close(dd);
+            }
             close(pd);
-            errno = serrno;
         }
     }
+    if (r != 0 && serrno != EEXIST)
+        errno = serrno;
 #else
     int r = mkdir(path, mode);
 #endif /* __APPLE__ */
 
     if (r != 0 && errno != EEXIST)
         return r;
-
-    qtn_file_t qf = qtn_file_alloc();
-    if (qf != NULL) {
-        if (qtn_file_init_with_fd(qf, zipfd) == 0) {
-            (void)qtn_file_apply_to_path(qf, path);
-        }
-        qtn_file_free(qf);
-    }
+    return 0;
 }
 
 #ifdef __APPLE__
@@ -962,6 +998,11 @@ int checkdir(__G__ pathcomp, flag)
                 return MPN_ERR_SKIP;
             }
             G.created_dir = TRUE;
+#ifdef __APPLE__
+        } else if (S_ISLNK(G.statbuf.st_mode)) {
+            /* This is link is either dead or points outside the extraction
+             * root.  We will deal with it later. */
+#endif /* __APPLE__ */
         } else if (!S_ISDIR(G.statbuf.st_mode)) {
             Info(slide, 1, ((char *)slide,
               "checkdir error:  %s exists but is not directory\n\
@@ -1263,7 +1304,7 @@ static int get_extattribs(__G__ pzt, z_uidgid)
 /* Function close_outfile() */
 /****************************/
 
-void close_outfile(__G)    /* GRR: change to return PK-style warning level */
+int close_outfile(__G)
     __GDEF
 {
     union {
@@ -1306,7 +1347,7 @@ void close_outfile(__G)    /* GRR: change to return PK-style warning level */
               "warning:  symbolic link (%s) failed: mem alloc overflow\n",
               FnFilter1(G.filename)));
             fclose(G.outfile);
-            return;
+            return PK_WARN;
         }
 
         if ((slnk_entry = (slinkentry *)malloc(slnk_entrysize)) == NULL) {
@@ -1314,7 +1355,7 @@ void close_outfile(__G)    /* GRR: change to return PK-style warning level */
               "warning:  symbolic link (%s) failed: no mem\n",
               FnFilter1(G.filename)));
             fclose(G.outfile);
-            return;
+            return PK_WARN;
         }
         slnk_entry->next = NULL;
         slnk_entry->targetlen = ucsize;
@@ -1339,7 +1380,7 @@ void close_outfile(__G)    /* GRR: change to return PK-style warning level */
               FnFilter1(G.filename)));
             free(slnk_entry);
             fclose(G.outfile);
-            return;
+            return PK_WARN;
         }
         fclose(G.outfile);                  /* close "link" file for good... */
         slnk_entry->target[ucsize] = '\0';
@@ -1352,7 +1393,7 @@ void close_outfile(__G)    /* GRR: change to return PK-style warning level */
         else
             G.slink_head = slnk_entry;
         G.slink_last = slnk_entry;
-        return;
+        return PK_COOL;
     }
 #endif /* SYMLINKS */
 
@@ -1402,14 +1443,6 @@ void close_outfile(__G)    /* GRR: change to return PK-style warning level */
 
     if (fchmod(fileno(G.outfile), filtattr(__G__ G.pInfo->file_attr)))
         perror("fchmod (file attributes) error");
-
-    qtn_file_t qf = qtn_file_alloc();
-    if (qf != NULL) {
-        if (qtn_file_init_with_fd(qf, G.zipfd) == 0) {
-            (void)qtn_file_apply_to_fd(qf, fileno(G.outfile));
-        }
-        qtn_file_free(qf);
-    }
 
     fclose(G.outfile);
 #endif /* !NO_FCHOWN && !NO_FCHMOD */

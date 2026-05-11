@@ -1370,6 +1370,7 @@ IOReturn IOHIDDevice::message( UInt32 type, IOService * provider, void * argumen
         HIDRMDeviceState state = kHIDRMDeviceStateUnknown;
 
         if (stateString) {
+            HIDDeviceLogDebug("HIDRMDeviceState: %s", stateString->getCStringNoCopy());
             if (stateString->isEqualTo("Allowed")) {
                 state = kHIDRMDeviceStateAllowed;
             } else if (stateString->isEqualTo("Denied")) {
@@ -1380,7 +1381,7 @@ IOReturn IOHIDDevice::message( UInt32 type, IOService * provider, void * argumen
         }
         OSSafeReleaseNULL(obj);
 
-        if (state == kHIDRMDeviceStateUnknown || state == kHIDRMDeviceStateAllowed) {
+        if (state != kHIDRMDeviceStateDenied) {
             IOHIDSystemActivityTickle(NX_HARDWARE_TICKLE, this);
         }
         return kIOReturnSuccess;
@@ -2442,6 +2443,7 @@ IOReturn IOHIDDevice::handleReportWithTime(
         HIDRMDeviceState state = kHIDRMDeviceStateUnknown;
 
         if (stateString) {
+            HIDDeviceLogDebug("HIDRMDeviceState: %s", stateString->getCStringNoCopy());
             if (stateString->isEqualTo("Allowed")) {
                 state = kHIDRMDeviceStateAllowed;
             } else if (stateString->isEqualTo("Denied")) {
@@ -2452,7 +2454,7 @@ IOReturn IOHIDDevice::handleReportWithTime(
         }
         OSSafeReleaseNULL(obj);
 
-        if (state == kHIDRMDeviceStateUnknown || state == kHIDRMDeviceStateAllowed) {
+        if (state != kHIDRMDeviceStateDenied) {
             AbsoluteTime ts;
 
             nanoseconds_to_absolutetime(kIOHIDEventThreshold, &ts);

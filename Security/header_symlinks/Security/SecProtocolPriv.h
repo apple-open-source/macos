@@ -860,9 +860,23 @@ sec_protocol_options_set_legacy_ats_applicable(sec_protocol_options_t options, b
 #define SEC_PROTOCOL_HAS_COMPLIANCE_POLICY 1
 typedef CF_ENUM(uint8_t, sec_protocol_options_compliance_policy_t) {
     sec_protocol_options_compliance_policy_none = 0, // None
-    sec_protocol_options_compliance_policy_fcs_v2 = 1, // see rdar://167870709 (☂️TLS Certification Changes (FCS TLS v2))
+    sec_protocol_options_compliance_policy_fcs_v2 = 1, // see rdar://167870709 (☂️TLS Certification Changes (FCS TLS v2)) -- this is actually version v2.1
     // Additional values may be added in the future.
 };
+
+#define SEC_PROTOCOL_HAS_ATS_TRUST_POLICY 1
+typedef CF_ENUM(uint8_t, sec_protocol_options_ats_trust_policy_t) {
+    sec_protocol_options_ats_trust_policy_default = 0, // No change to ATS trust evaluation
+    sec_protocol_options_ats_trust_policy_skip = 1,    // Skip ATS trust evaluation
+};
+
+SPI_AVAILABLE(macos(26.5), ios(26.5), watchos(26.5), tvos(26.5), visionos(26.5))
+void
+sec_protocol_options_set_ats_trust_policy(sec_protocol_options_t options, sec_protocol_options_ats_trust_policy_t policy);
+
+SPI_AVAILABLE(macos(26.5), ios(26.5), watchos(26.5), tvos(26.5), visionos(26.5))
+sec_protocol_options_ats_trust_policy_t
+sec_protocol_options_get_ats_trust_policy(sec_protocol_options_t options);
 
 #if __OBJC__
 #define SEC_PROTOCOL_HAS_NIAP_PACKAGE_HELPER 1
@@ -2170,6 +2184,9 @@ struct sec_protocol_options_content {
 
     // EAP method settings. 0 means the TLS is not being used by EAP protocol.
     sec_protocol_options_eap_method_t eap_method;
+
+    // ATS trust policy
+    sec_protocol_options_ats_trust_policy_t ats_trust_policy;
 
     // Boolean flags
     unsigned ats_required : 1;

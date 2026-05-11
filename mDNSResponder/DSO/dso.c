@@ -889,14 +889,14 @@ void dso_message_received(dso_state_t *dso, const uint8_t *message, size_t messa
     for (int k = 0; k < 2; k++) {
         unsigned num_additls = 0;
         offset = 12;
-        while (offset < message_length) {
+        while (offset + 4 <= message_length) {
             // Get the TLV opcode
             const uint16_t opcode = (uint16_t)(((uint16_t)message[offset]) << 8) + message[offset + 1];
             // And the length
             const uint16_t length = (uint16_t)(((uint16_t)message[offset + 2]) << 8) + message[offset + 3];
 
             // Is there room for the contents of this TLV?
-            if (length + offset > message_length) {
+            if (length + offset + 4 > message_length) {
                 LogMsg("dso_message_received: fatal: %s: TLV (%d %ld) extends past end (%ld)",
                        dso->remote_name, opcode, (long)length, (long)message_length);
 
@@ -930,6 +930,16 @@ void dso_message_received(dso_state_t *dso, const uint8_t *message, size_t messa
             }
             offset += 4 + length;
         }
+
+        // Is there remaining data at the end of the packet?
+        if (offset != message_length) {
+            LogMsg("dso_message_received: fatal: %s: remaining message too short for TLV + length: %ld %ld",
+                   dso->remote_name, (long)offset, (long)message_length);
+            // Short messages are a fatal error.
+            dso_state_cancel(dso);
+            goto out;
+        }
+
         if (k == 0) {
             if (num_additls > dso->max_additls) {
                 if (dso->additl != dso->additl_buf) {

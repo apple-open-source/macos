@@ -79,11 +79,6 @@ static bool NeverSupported(const Version &, const Extensions &)
     return false;
 }
 
-static bool RequireES1(const Version &clientVersion, const Extensions &extensions)
-{
-    return clientVersion < ES_2_0;
-}
-
 template <uint8_t minCoreGLMajorVersion, uint8_t minCoreGLMinorVersion>
 static bool RequireES(const Version &clientVersion, const Extensions &)
 {
@@ -1305,17 +1300,17 @@ static InternalFormatInfoMap BuildInternalFormatInfoMap()
     AddCompressedFormat(&map, GL_COMPRESSED_RGB_BPTC_UNSIGNED_FLOAT_EXT, 4,  4, 1, 128, 4, false, RequireExt<&Extensions::textureCompressionBptcEXT>, AlwaysSupported, NeverSupported,      NeverSupported, NeverSupported);
 
     // Paletted formats
-    //                      | Internal format       |    | PS | Format | CC | Texture supported | Filterable     | Texture attachment | Renderbuffer  | Blend
-    AddPalettedFormat(&map, GL_PALETTE4_RGB8_OES,      4,   3, GL_RGB,    3, RequireES1,         AlwaysSupported, NeverSupported,     NeverSupported, NeverSupported);
-    AddPalettedFormat(&map, GL_PALETTE4_RGBA8_OES,     4,   4, GL_RGBA,   4, RequireES1,         AlwaysSupported, NeverSupported,     NeverSupported, NeverSupported);
-    AddPalettedFormat(&map, GL_PALETTE4_R5_G6_B5_OES,  4,   2, GL_RGB,    3, RequireES1,         AlwaysSupported, NeverSupported,     NeverSupported, NeverSupported);
-    AddPalettedFormat(&map, GL_PALETTE4_RGBA4_OES,     4,   2, GL_RGBA,   4, RequireES1,         AlwaysSupported, NeverSupported,     NeverSupported, NeverSupported);
-    AddPalettedFormat(&map, GL_PALETTE4_RGB5_A1_OES,   4,   2, GL_RGBA,   4, RequireES1,         AlwaysSupported, NeverSupported,     NeverSupported, NeverSupported);
-    AddPalettedFormat(&map, GL_PALETTE8_RGB8_OES,      8,   3, GL_RGB,    3, RequireES1,         AlwaysSupported, NeverSupported,     NeverSupported, NeverSupported);
-    AddPalettedFormat(&map, GL_PALETTE8_RGBA8_OES,     8,   4, GL_RGBA,   4, RequireES1,         AlwaysSupported, NeverSupported,     NeverSupported, NeverSupported);
-    AddPalettedFormat(&map, GL_PALETTE8_R5_G6_B5_OES,  8,   2, GL_RGB,    3, RequireES1,         AlwaysSupported, NeverSupported,     NeverSupported, NeverSupported);
-    AddPalettedFormat(&map, GL_PALETTE8_RGBA4_OES,     8,   2, GL_RGBA,   4, RequireES1,         AlwaysSupported, NeverSupported,     NeverSupported, NeverSupported);
-    AddPalettedFormat(&map, GL_PALETTE8_RGB5_A1_OES,   8,   2, GL_RGBA,   4, RequireES1,         AlwaysSupported, NeverSupported,     NeverSupported, NeverSupported);
+    //                      | Internal format       |    | PS | Format | CC | Texture supported                                    | Filterable     | Texture attachment | Renderbuffer  | Blend
+    AddPalettedFormat(&map, GL_PALETTE4_RGB8_OES,      4,   3, GL_RGB,    3, RequireExt<&Extensions::compressedPalettedTextureOES>, AlwaysSupported, NeverSupported,     NeverSupported, NeverSupported);
+    AddPalettedFormat(&map, GL_PALETTE4_RGBA8_OES,     4,   4, GL_RGBA,   4, RequireExt<&Extensions::compressedPalettedTextureOES>, AlwaysSupported, NeverSupported,     NeverSupported, NeverSupported);
+    AddPalettedFormat(&map, GL_PALETTE4_R5_G6_B5_OES,  4,   2, GL_RGB,    3, RequireExt<&Extensions::compressedPalettedTextureOES>, AlwaysSupported, NeverSupported,     NeverSupported, NeverSupported);
+    AddPalettedFormat(&map, GL_PALETTE4_RGBA4_OES,     4,   2, GL_RGBA,   4, RequireExt<&Extensions::compressedPalettedTextureOES>, AlwaysSupported, NeverSupported,     NeverSupported, NeverSupported);
+    AddPalettedFormat(&map, GL_PALETTE4_RGB5_A1_OES,   4,   2, GL_RGBA,   4, RequireExt<&Extensions::compressedPalettedTextureOES>, AlwaysSupported, NeverSupported,     NeverSupported, NeverSupported);
+    AddPalettedFormat(&map, GL_PALETTE8_RGB8_OES,      8,   3, GL_RGB,    3, RequireExt<&Extensions::compressedPalettedTextureOES>, AlwaysSupported, NeverSupported,     NeverSupported, NeverSupported);
+    AddPalettedFormat(&map, GL_PALETTE8_RGBA8_OES,     8,   4, GL_RGBA,   4, RequireExt<&Extensions::compressedPalettedTextureOES>, AlwaysSupported, NeverSupported,     NeverSupported, NeverSupported);
+    AddPalettedFormat(&map, GL_PALETTE8_R5_G6_B5_OES,  8,   2, GL_RGB,    3, RequireExt<&Extensions::compressedPalettedTextureOES>, AlwaysSupported, NeverSupported,     NeverSupported, NeverSupported);
+    AddPalettedFormat(&map, GL_PALETTE8_RGBA4_OES,     8,   2, GL_RGBA,   4, RequireExt<&Extensions::compressedPalettedTextureOES>, AlwaysSupported, NeverSupported,     NeverSupported, NeverSupported);
+    AddPalettedFormat(&map, GL_PALETTE8_RGB5_A1_OES,   8,   2, GL_RGBA,   4, RequireExt<&Extensions::compressedPalettedTextureOES>, AlwaysSupported, NeverSupported,     NeverSupported, NeverSupported);
 
     // From GL_IMG_texture_compression_pvrtc
     //                       | Internal format                       | W | H | D | BS |CC| SRGB | Texture supported                                 | Filterable     | Texture attachment | Renderbuffer  | Blend
@@ -1776,7 +1771,8 @@ bool InternalFormat::computeRowDepthSkipBytes(GLenum formatType,
     const GLuint skipRows   = static_cast<GLuint>(unpack.skipRows);
     const GLuint skipPixels = static_cast<GLuint>(unpack.skipPixels);
     const GLuint skipImages = is3D ? static_cast<GLuint>(unpack.skipImages) : 0u;
-    if (!computeSkipBytes(formatType, rowPitch, depthPitch, skipRows, skipPixels, skipImages, &skipBytes))
+    if (!computeSkipBytes(formatType, rowPitch, depthPitch, skipRows, skipPixels, skipImages,
+                          &skipBytes))
     {
         return false;
     }
@@ -1802,7 +1798,8 @@ bool InternalFormat::computeRowSkipBytes(GLenum formatType,
     const GLuint skipRows   = static_cast<GLuint>(pack.skipRows);
     const GLuint skipPixels = static_cast<GLuint>(pack.skipPixels);
     const GLuint skipImages = 0u;
-    if (!computeSkipBytes(formatType, rowPitch, depthPitch, skipRows, skipPixels, skipImages, &skipBytes))
+    if (!computeSkipBytes(formatType, rowPitch, depthPitch, skipRows, skipPixels, skipImages,
+                          &skipBytes))
     {
         return false;
     }

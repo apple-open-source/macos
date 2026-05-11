@@ -38,8 +38,9 @@ class Shader;
 
 #define ANGLE_VALIDATION_ERROR(errorCode, message) \
     context->getMutableErrorSetForValidation()->validationError(entryPoint, errorCode, message)
-#define ANGLE_VALIDATION_ERRORF(errorCode, ...) \
-    context->getMutableErrorSetForValidation()->validationErrorF(entryPoint, errorCode, __VA_ARGS__)
+#define ANGLE_VALIDATION_ERRORF(errorCode, ...)                                     \
+    ANGLE_UNSAFE_TODO(context->getMutableErrorSetForValidation()->validationErrorF( \
+        entryPoint, errorCode, __VA_ARGS__))
 
 void SetRobustLengthParam(const GLsizei *length, GLsizei value);
 bool ValidTextureTarget(const Context *context, TextureType type);
@@ -677,7 +678,7 @@ bool ValidateGetInternalFormativBase(const Context *context,
                                      GLenum target,
                                      GLenum internalformat,
                                      GLenum pname,
-                                     GLsizei bufSize,
+                                     GLsizei count,
                                      GLsizei *numParams);
 
 bool ValidateFramebufferNotMultisampled(const Context *context,
@@ -1120,13 +1121,13 @@ ANGLE_INLINE bool ValidateDrawElementsCommon(const Context *context,
             // If we use an index greater than our maximum supported index range, return an error.
             // The ES3 spec does not specify behaviour here, it is undefined, but ANGLE should
             // always return an error if possible here.
-            if (static_cast<GLint64>(indexRange.end()) >= context->getCaps().maxElementIndex)
+            if (indexRange.end() >= context->getCaps().maxElementIndex)
             {
                 ANGLE_VALIDATION_ERROR(GL_INVALID_OPERATION, err::kExceedsMaxElement);
                 return false;
             }
 
-            if (!ValidateDrawAttribs(context, entryPoint, static_cast<GLint>(indexRange.end())))
+            if (!ValidateDrawAttribs(context, entryPoint, indexRange.end()))
             {
                 return false;
             }

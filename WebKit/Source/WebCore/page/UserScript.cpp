@@ -27,8 +27,15 @@
 #include "config.h"
 #include "UserScript.h"
 
+#include <wtf/HashCountedSet.h>
+#include <wtf/MainThread.h>
+#include <wtf/NeverDestroyed.h>
 #include <wtf/TZoneMallocInlines.h>
 #include <wtf/text/MakeString.h>
+
+#if PLATFORM(COCOA)
+#include <wtf/cocoa/RuntimeApplicationChecksCocoa.h>
+#endif
 
 namespace WebCore {
 
@@ -40,8 +47,49 @@ static WTF::URL generateUserScriptUniqueURL()
     return { { }, makeString("user-script:"_s, ++identifier) };
 }
 
+#if PLATFORM(COCOA)
+NO_RETURN_DUE_TO_CRASH NEVER_INLINE static void crashDueToApplicationCreatingUserScriptFromBackgroundThread()
+{
+    RELEASE_ASSERT_NOT_REACHED("Terminating process due to improper usage of WebKit APIs off the main thread.");
+}
+#endif
+
+static HashCountedSet<String>& sourceStrings()
+{
+    static NeverDestroyed<HashCountedSet<String>> set;
+    return set;
+}
+
+static String internedSourceString(const String& string)
+{
+#if PLATFORM(COCOA)
+    if (!linkedOnOrAfterSDKWithBehavior(SDKAlignedBehavior::EnableUserScriptAndUserStyleInterning))
+        return string;
+
+    // FIXME: replace this main thread check with a locked HashCountedSet once String becomes fully thread-safe.
+    if (!isMainRunLoop())
+        crashDueToApplicationCreatingUserScriptFromBackgroundThread();
+#endif
+
+    if (string.isEmpty())
+        return emptyString();
+
+    auto result = sourceStrings().add(string);
+    return result.iterator->key;
+}
+
+static void removeSourceString(const String& string)
+{
+#if PLATFORM(COCOA)
+    if (!linkedOnOrAfterSDKWithBehavior(SDKAlignedBehavior::EnableUserScriptAndUserStyleInterning))
+        return;
+#endif
+
+    sourceStrings().remove(string);
+}
+
 UserScript::UserScript(String&& source, URL&& url, Vector<String>&& allowlist, Vector<String>&& blocklist, UserScriptInjectionTime injectionTime, UserContentInjectedFrames injectedFrames, UserContentMatchParentFrame matchParentFrame)
-    : m_source(WTF::move(source))
+    : m_source(internedSourceString(source))
     , m_url(url.isEmpty() ? generateUserScriptUniqueURL() : WTF::move(url))
     , m_allowlist(WTF::move(allowlist))
     , m_blocklist(WTF::move(blocklist))
@@ -49,6 +97,11 @@ UserScript::UserScript(String&& source, URL&& url, Vector<String>&& allowlist, V
     , m_injectedFrames(injectedFrames)
     , m_matchParentFrame(matchParentFrame)
 {
+}
+
+UserScript::~UserScript()
+{
+    removeSourceString(m_source);
 }
 
 String UserScript::debugDescription() const

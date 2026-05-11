@@ -25,6 +25,9 @@ DefineTLSCiphersuiteGroupList(tls_ciphersuite_group_ats,
                               CiphersuitesPFSFCSOrdering);
 DefineTLSCiphersuiteGroupList(tls_ciphersuite_group_ats_compatibility,
                               CiphersuitesNonPFS);
+DefineTLSCiphersuiteGroupList(tls_ciphersuite_group_ats_fcp_v2_1,
+                              CiphersuitesTLS13,
+                              CiphersuitesTLS12_FCP_v2_1);
 
 typedef struct tls_ciphersuite_definition {
     tls_ciphersuite_t ciphersuite;
@@ -123,6 +126,7 @@ sec_protocol_helper_ciphersuite_group_to_ciphersuite_list(tls_ciphersuite_group_
         CASE_CONFIG(tls_ciphersuite_group_legacy);
         CASE_CONFIG(tls_ciphersuite_group_ats);
         CASE_CONFIG(tls_ciphersuite_group_ats_compatibility);
+        CASE_CONFIG(tls_ciphersuite_group_ats_fcp_v2_1);
     }
     
 #undef CASE_CONFIG

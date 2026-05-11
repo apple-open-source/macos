@@ -366,6 +366,8 @@
 		504E1C121137329D00AAAA84 /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 40882BA7019747120ACA2928 /* IOKit.framework */; };
 		504E1D211137331300AAAA84 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 40882BA6019747120ACA2928 /* CoreFoundation.framework */; };
 		504E1DC21137440B00AAAA84 /* caffeinate.c in Sources */ = {isa = PBXBuildFile; fileRef = 504E1DC11137440B00AAAA84 /* caffeinate.c */; };
+		50E7DA342F52ED69005DAC88 /* libMobileGestalt.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = 50E7DA332F52ED48005DAC88 /* libMobileGestalt.tbd */; settings = {ATTRIBUTES = (Required, ); }; };
+		50E7DA352F52ED7F005DAC88 /* libMobileGestalt.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = 50E7DA332F52ED48005DAC88 /* libMobileGestalt.tbd */; settings = {ATTRIBUTES = (Required, ); }; };
 		7164D4502DB026D50015465C /* _PMWeakProxy.m in Sources */ = {isa = PBXBuildFile; fileRef = 7164D44E2DB026D50015465C /* _PMWeakProxy.m */; };
 		7164D4512DB065230015465C /* _PMWeakProxy.h in Headers */ = {isa = PBXBuildFile; fileRef = 7164D44D2DB026D50015465C /* _PMWeakProxy.h */; };
 		71744A662D73BB17008E5429 /* PMExtendedBatteryService.h in Headers */ = {isa = PBXBuildFile; fileRef = 71744A622D73BB17008E5429 /* PMExtendedBatteryService.h */; };
@@ -1530,6 +1532,7 @@
 		504E1BC211372A6A00AAAA84 /* caffeinate */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = caffeinate; sourceTree = BUILT_PRODUCTS_DIR; };
 		504E1BCC11372B0500AAAA84 /* caffeinate.8 */ = {isa = PBXFileReference; explicitFileType = text.man; fileEncoding = 4; name = caffeinate.8; path = caffeinate/caffeinate.8; sourceTree = "<group>"; };
 		504E1DC11137440B00AAAA84 /* caffeinate.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = caffeinate.c; path = caffeinate/caffeinate.c; sourceTree = "<group>"; };
+		50E7DA332F52ED48005DAC88 /* libMobileGestalt.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libMobileGestalt.tbd; path = usr/lib/libMobileGestalt.tbd; sourceTree = SDKROOT; };
 		7164D44D2DB026D50015465C /* _PMWeakProxy.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = _PMWeakProxy.h; sourceTree = "<group>"; };
 		7164D44E2DB026D50015465C /* _PMWeakProxy.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = _PMWeakProxy.m; sourceTree = "<group>"; };
 		71744A622D73BB17008E5429 /* PMExtendedBatteryService.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = PMExtendedBatteryService.h; sourceTree = "<group>"; };
@@ -2038,6 +2041,7 @@
 				729A75720A01EC19000AB587 /* CoreFoundation.framework in Frameworks */,
 				729A75730A01EC19000AB587 /* IOKit.framework in Frameworks */,
 				729A75740A01EC19000AB587 /* SystemConfiguration.framework in Frameworks */,
+				50E7DA342F52ED69005DAC88 /* libMobileGestalt.tbd in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -2058,6 +2062,7 @@
 				484EA0F216BEEB8400E70CF3 /* libIOReport.a in Frameworks */,
 				72A1C13E128E0AD700754139 /* CoreFoundation.framework in Frameworks */,
 				72A1C13F128E0AD700754139 /* IOKit.framework in Frameworks */,
+				50E7DA352F52ED7F005DAC88 /* libMobileGestalt.tbd in Frameworks */,
 				72A1C140128E0AD700754139 /* SystemConfiguration.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -2409,6 +2414,7 @@
 		40882B99019742A20ACA2928 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				50E7DA332F52ED48005DAC88 /* libMobileGestalt.tbd */,
 				719B70582D7994870080C766 /* PairedDeviceRegistry.framework */,
 				B302C5D32C9A1DD1000FA89B /* LockdownMode.framework */,
 				B3C477D42CA361760083A0EF /* LockdownMode.framework */,

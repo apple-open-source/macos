@@ -36,6 +36,15 @@ typedef CF_OPTIONS(uint32_t, SecAppleTrustAnchorFlags) {
     kSecAppleTrustAnchorFlagsAllowNonProduction    = 1 << 1,
 };
 
+/* Returns a dictionary of SecCertificateRef -> CFBooleanRef representing
+ * whether the certificate is a prod root or a test root */
+CF_RETURNS_RETAINED
+CFDictionaryRef SecCopyBuiltInAppleTrustAnchors(bool allowNonProduction);
+
+
+bool SecIsBuiltInAppleAnchor(SecCertificateRef cert,
+                             SecAppleTrustAnchorFlags flags);
+
 /*
  * Return true if the certificate is an Apple Trust anchor.
  */
@@ -43,23 +52,19 @@ bool
 SecIsAppleTrustAnchor(SecCertificateRef cert,
                       SecAppleTrustAnchorFlags flags);
 
+/* Return true if the certificate is an Apple Trust anchor for the policyId
+ * Passing null for the policyId implies that the Apple anchor is trusted for _any_ policy. */
 bool
-SecIsAppleTrustAnchorData(CFDataRef cert,
-			  SecAppleTrustAnchorFlags flags);
+SecIsAppleTrustAnchorForPolicy(SecCertificateRef cert,
+                               CFStringRef policyId,
+                               SecAppleTrustAnchorFlags flags);
 
 CFArrayRef SecGetAppleTrustAnchors(bool allowNonProduction);
 
-/*
- * Return true if the certificate is an Apple Code Signing anchor.
- */
-bool
-SecIsAppleCodeSigningAnchor(SecCertificateRef cert);
-
-/*
- * Return true if the issuer hash is an Apple Code Signing issuer.
- */
-bool
-SecIsAppleCodeSigningIssuer(CFDataRef issuerHash);
+/* Returns the array of Apple Anchors.
+ * Passing null for the policyId implies that the Apple anchor is trusted for _any_ policy. */
+CF_RETURNS_RETAINED CFArrayRef
+SecTrustCopyAppleTrustAnchors(bool allowNonProduction, CFStringRef policyId);
 
 __END_DECLS
 

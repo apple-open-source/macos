@@ -263,6 +263,17 @@ extension EscrowRecordFormatQuery {
         record[SecCKRecordEscrowProxyClubhMetadataKey] = self.metadata
         return record
     }
+
+    init(ckrecord: CKRecord) {
+        self.init()
+        self.label = ckrecord[SecCKRecordEscrowProxyClubhLabelKey] as! String
+        self.blob = ckrecord[SecCKRecordEscrowProxyClubhRecordKey] as! Data
+        self.metadata = ckrecord[SecCKRecordEscrowProxyClubhMetadataKey] as! Data
+    }
+
+    func asEscrowInformation() throws -> EscrowInformation {
+        return try EscrowInformation(serializedBytes: self.metadata)
+    }
 }
 
 @objc
@@ -278,7 +289,6 @@ class FakeCuttlefishServer: NSObject, ConfiguredCuttlefishAPIAsync {
         var recoverySigningPubKey: Data?
         var recoveryEncryptionPubKey: Data?
         var bottles: [Bottle] = []
-        var icscEscrowRecords: [EscrowInformation] = []
         var custodianRecoveryKeys: [String: SignedCustodianRecoveryKey] = [:]
 
         var viewKeys: [CKRecordZone.ID: ViewKeys] = [:]
@@ -340,6 +350,9 @@ class FakeCuttlefishServer: NSObject, ConfiguredCuttlefishAPIAsync {
 
     // Checking validity can be expensive. Turn this off if you're trying to diagnose non-Cuttlefish operations.
     var checkValidityofGraphOnUpdateTrust: Bool = true
+
+    // If you care whether or not there's an escrow record for peers, set this
+    var automaticallyCreateEscrowRecordsOnJoin: Bool = true
 
     var nextFetchErrors: [Error] = []
     var fetchViableBottlesError: [Error] = []
@@ -406,6 +419,13 @@ class FakeCuttlefishServer: NSObject, ConfiguredCuttlefishAPIAsync {
 
     func deleteAllPeers() {
         self.state.peersByID.removeAll()
+        self.makeSnapshot()
+    }
+
+    func removeAllEscrowRecords() {
+        let zid = CKRecordZone.ID(zoneName: escrowProxyZoneName)
+
+        self.fakeCKZones[zid] = FakeCKZone(zone: zid)
         self.makeSnapshot()
     }
 
@@ -667,18 +687,47 @@ class FakeCuttlefishServer: NSObject, ConfiguredCuttlefishAPIAsync {
 
     func store(escrowRecords: [EscrowRecordFormatQuery]) -> [CKRecord] {
         var allRecords: [CKRecord] = []
+        let zid = CKRecordZone.ID(zoneName: escrowProxyZoneName)
+
+        let fakeZone: FakeCKZone
+        if let existingFakeZone = self.fakeCKZones[zid] as? FakeCKZone {
+            fakeZone = existingFakeZone
+        } else {
+            fakeZone = FakeCKZone(zone: zid)
+            self.fakeCKZones[zid] = fakeZone
+        }
 
         escrowRecords.forEach { er in
-            if let fakeZone = self.fakeCKZones[CKRecordZone.ID(zoneName: escrowProxyZoneName)] as? FakeCKZone {
-                let fakeEscrowRecord = er.fakeRecord()
-                allRecords.append(fakeEscrowRecord)
-                fakeZone.add(toZone: fakeEscrowRecord)
-            } else {
-                print("store:escrowRecords: Couldn't find EscrowProxy Zone \(escrowProxyZoneName)")
-            }
+            let fakeEscrowRecord = er.fakeRecord()
+            allRecords.append(fakeEscrowRecord)
+            fakeZone.add(toZone: fakeEscrowRecord)
         }
 
         return allRecords
+    }
+
+    func allCurrentEscrowRecords() -> [EscrowInformation] {
+        // No zone -> no escrow records
+        var escrowInformations: [EscrowInformation] = []
+
+        let zid = CKRecordZone.ID(zoneName: escrowProxyZoneName)
+
+        if let fakeZone = self.fakeCKZones[zid] as? FakeCKZone {
+            fakeZone.queue.sync {
+                escrowInformations = fakeZone.currentDatabase.compactMap { _, ckrecord in
+                    guard let record = ckrecord as? CKRecord else {
+                        return nil
+                    }
+                    guard record.recordType == SecCKRecordEscrowProxyClubhType else {
+                        return nil
+                    }
+
+                    return try! EscrowRecordFormatQuery(ckrecord: record).asEscrowInformation()
+                }
+            }
+        }
+
+        return escrowInformations
     }
 
     func establish(_ request: EstablishRequest, completion: @escaping (Result<EstablishResponse, Error>) -> Void) {
@@ -706,43 +755,53 @@ class FakeCuttlefishServer: NSObject, ConfiguredCuttlefishAPIAsync {
         self.state.bottles.append(request.bottle)
         let stableInfo = request.peer.stableInfoAndSig.toStableInfo()
         let serial = stableInfo?.serialNumber
-        let escrowInformation = EscrowInformation.with {
-            $0.label = "com.apple.icdp.record." + request.bottle.bottleID
-            $0.creationDate = Google_Protobuf_Timestamp(date: Date())
-            $0.remainingAttempts = 10
-            $0.silentAttemptAllowed = 1
-            $0.recordStatus = .valid
-            let e = EscrowInformation.Metadata.with {
-                $0.backupKeybagDigest = Data()
-                $0.secureBackupUsesMultipleIcscs = 1
-                $0.secureBackupTimestamp = Google_Protobuf_Timestamp(date: Date())
-                $0.peerInfo = Data()
-                $0.bottleID = request.bottle.bottleID
-                $0.escrowedSpki = request.bottle.escrowedSigningSpki
-                $0.serial = serial!
-                $0.build = "18A214"
-                $0.passcodeGeneration = PasscodeGeneration.with {
-                    $0.value = 1
+
+        if self.automaticallyCreateEscrowRecordsOnJoin {
+            let escrowInformation = EscrowInformation.with {
+                $0.label = "com.apple.icdp.record." + request.bottle.bottleID
+                $0.creationDate = Google_Protobuf_Timestamp(date: Date())
+                $0.remainingAttempts = 10
+                $0.silentAttemptAllowed = 1
+                $0.recordStatus = .valid
+                let e = EscrowInformation.Metadata.with {
+                    $0.backupKeybagDigest = Data()
+                    $0.secureBackupUsesMultipleIcscs = 1
+                    $0.secureBackupTimestamp = Google_Protobuf_Timestamp(date: Date())
+                    $0.peerInfo = Data()
+                    $0.bottleID = request.bottle.bottleID
+                    $0.escrowedSpki = request.bottle.escrowedSigningSpki
+                    $0.serial = serial!
+                    $0.build = "18A214"
+                    $0.passcodeGeneration = PasscodeGeneration.with {
+                        $0.value = 1
+                    }
+                    let cm = EscrowInformation.Metadata.ClientMetadata.with {
+                        $0.deviceColor = "#202020"
+                        $0.deviceEnclosureColor = "#020202"
+                        $0.deviceModel = "model"
+                        $0.deviceModelClass = "modelClass"
+                        $0.deviceModelVersion = "modelVersion"
+                        $0.deviceMid = "mid"
+                        $0.deviceName = "establish device"
+                        $0.devicePlatform = 1
+                        $0.secureBackupNumericPassphraseLength = 6
+                        $0.secureBackupMetadataTimestamp = Google_Protobuf_Timestamp(date: Date())
+                        $0.secureBackupUsesNumericPassphrase = 1
+                        $0.secureBackupUsesComplexPassphrase = 1
+                    }
+                    $0.clientMetadata = cm
                 }
-                let cm = EscrowInformation.Metadata.ClientMetadata.with {
-                    $0.deviceColor = "#202020"
-                    $0.deviceEnclosureColor = "#020202"
-                    $0.deviceModel = "model"
-                    $0.deviceModelClass = "modelClass"
-                    $0.deviceModelVersion = "modelVersion"
-                    $0.deviceMid = "mid"
-                    $0.deviceName = "establish device"
-                    $0.devicePlatform = 1
-                    $0.secureBackupNumericPassphraseLength = 6
-                    $0.secureBackupMetadataTimestamp = Google_Protobuf_Timestamp(date: Date())
-                    $0.secureBackupUsesNumericPassphrase = 1
-                    $0.secureBackupUsesComplexPassphrase = 1
-                }
-                $0.clientMetadata = cm
+                $0.escrowInformationMetadata = e
             }
-            $0.escrowInformationMetadata = e
+
+            let er = EscrowRecordFormatQuery.with {
+                $0.label = escrowInformation.label
+                $0.metadata = try! escrowInformation.serializedData()
+                $0.blob = Data()
+            }
+
+            _ = store(escrowRecords: [er])
         }
-        self.state.icscEscrowRecords.append(escrowInformation)
 
         var keyRecords: [CKRecord] = []
         keyRecords.append(contentsOf: store(viewKeys: request.viewKeys))
@@ -797,43 +856,54 @@ class FakeCuttlefishServer: NSObject, ConfiguredCuttlefishAPIAsync {
         self.state.bottles.append(request.bottle)
         let stableInfo = request.peer.stableInfoAndSig.toStableInfo()
         let serial = stableInfo?.serialNumber
-        let escrowInformation = EscrowInformation.with {
-            $0.label = "com.apple.icdp.record." + request.bottle.bottleID
-            $0.creationDate = Google_Protobuf_Timestamp(date: Date())
-            $0.remainingAttempts = 10
-            $0.silentAttemptAllowed = 1
-            $0.recordStatus = .valid
-            let e = EscrowInformation.Metadata.with {
-                $0.backupKeybagDigest = Data()
-                $0.secureBackupUsesMultipleIcscs = 1
-                $0.secureBackupTimestamp = Google_Protobuf_Timestamp(date: Date())
-                $0.peerInfo = Data()
-                $0.bottleID = request.bottle.bottleID
-                $0.escrowedSpki = request.bottle.escrowedSigningSpki
-                $0.serial = serial!
-                $0.build = "18A214"
-                $0.passcodeGeneration = PasscodeGeneration.with {
-                    $0.value = 2
+
+        if self.automaticallyCreateEscrowRecordsOnJoin {
+            let escrowInformation = EscrowInformation.with {
+                $0.label = "com.apple.icdp.record." + request.bottle.bottleID
+                $0.creationDate = Google_Protobuf_Timestamp(date: Date())
+                $0.remainingAttempts = 10
+                $0.silentAttemptAllowed = 1
+                $0.recordStatus = .valid
+                let e = EscrowInformation.Metadata.with {
+                    $0.backupKeybagDigest = Data()
+                    $0.secureBackupUsesMultipleIcscs = 1
+                    $0.secureBackupTimestamp = Google_Protobuf_Timestamp(date: Date())
+                    $0.peerInfo = Data()
+                    $0.bottleID = request.bottle.bottleID
+                    $0.escrowedSpki = request.bottle.escrowedSigningSpki
+                    $0.serial = serial!
+                    $0.build = "18A214"
+                    $0.passcodeGeneration = PasscodeGeneration.with {
+                        $0.value = 2
+                    }
+                    let cm = EscrowInformation.Metadata.ClientMetadata.with {
+                        $0.deviceColor = "#202020"
+                        $0.deviceEnclosureColor = "#020202"
+                        $0.deviceModel = "model"
+                        $0.deviceModelClass = "modelClass"
+                        $0.deviceModelVersion = "modelVersion"
+                        $0.deviceMid = "mid"
+                        $0.deviceName = "my device"
+                        $0.devicePlatform = 1
+                        $0.secureBackupNumericPassphraseLength = 6
+                        $0.secureBackupMetadataTimestamp = Google_Protobuf_Timestamp(date: Date())
+                        $0.secureBackupUsesNumericPassphrase = 1
+                        $0.secureBackupUsesComplexPassphrase = 1
+                    }
+                    $0.clientMetadata = cm
                 }
-                let cm = EscrowInformation.Metadata.ClientMetadata.with {
-                    $0.deviceColor = "#202020"
-                    $0.deviceEnclosureColor = "#020202"
-                    $0.deviceModel = "model"
-                    $0.deviceModelClass = "modelClass"
-                    $0.deviceModelVersion = "modelVersion"
-                    $0.deviceMid = "mid"
-                    $0.deviceName = "my device"
-                    $0.devicePlatform = 1
-                    $0.secureBackupNumericPassphraseLength = 6
-                    $0.secureBackupMetadataTimestamp = Google_Protobuf_Timestamp(date: Date())
-                    $0.secureBackupUsesNumericPassphrase = 1
-                    $0.secureBackupUsesComplexPassphrase = 1
-                }
-                $0.clientMetadata = cm
+                $0.escrowInformationMetadata = e
             }
-            $0.escrowInformationMetadata = e
+
+            let er = EscrowRecordFormatQuery.with {
+                $0.label = escrowInformation.label
+                $0.metadata = try! escrowInformation.serializedData()
+                $0.blob = Data()
+            }
+
+            _ = store(escrowRecords: [er])
         }
-        self.state.icscEscrowRecords.append(escrowInformation)
+
         var keyRecords: [CKRecord] = []
         keyRecords.append(contentsOf: store(viewKeys: request.viewKeys))
         keyRecords.append(contentsOf: store(tlkShares: request.tlkShares))
@@ -1122,14 +1192,17 @@ class FakeCuttlefishServer: NSObject, ConfiguredCuttlefishAPIAsync {
             }
             legacy.append(record)
         }
+
+        let escrowInformations: [EscrowInformation] = self.allCurrentEscrowRecords()
+
         let bottles = self.state.bottles.filter { $0.bottleID != fetchViableBottlesDontReturnBottleWithID }
         completion(.success(FetchViableBottlesResponse.with {
             $0.viableBottles = bottles.compactMap { bottle in
-                EscrowPair.with {
-                    $0.escrowRecordID = bottle.bottleID
-                    $0.bottle = bottle
+                EscrowPair.with { ep in
+                    ep.escrowRecordID = bottle.bottleID
+                    ep.bottle = bottle
                     if self.includeEscrowRecords {
-                        $0.record = self.state.icscEscrowRecords.first { $0.escrowInformationMetadata.bottleID == bottle.bottleID } ?? EscrowInformation()
+                        ep.record = escrowInformations.first { $0.escrowInformationMetadata.bottleID == bottle.bottleID } ?? EscrowInformation()
                     }
                 }
             }
@@ -1283,6 +1356,7 @@ class FakeCuttlefishServer: NSObject, ConfiguredCuttlefishAPIAsync {
         } else {
             completion(.success(GetEscrowCheckResponse.with {
                 $0.escrowCheckResult = .escrowCheckOk
+                $0.escrowRepairReason = .recordOk
                 if self.returnEscrowCheckRepairDisabled {
                     $0.repairDisabled = true
                 }

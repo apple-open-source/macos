@@ -464,18 +464,43 @@
 
     CFErrorRef cferror = NULL;
     if([self clientHasBooleanEntitlement: (__bridge NSString*) kSecEntitlementKeychainDeny]) {
-        SecError(errSecNotAvailable, &cferror, CFSTR("secItemFetchPCSIdentityByKeyOutOfBand: %@ has entitlement %@"), _client.task, kSecEntitlementKeychainDeny);
+        SecError(errSecMissingEntitlement, &cferror, CFSTR("secItemFetchPCSIdentityByKeyOutOfBand: %@ has entitlement %@"), _client.task, kSecEntitlementKeychainDeny);
         complete(NULL, (__bridge NSError*) cferror);
         CFReleaseNull(cferror);
         return;
     }
 
-    NSString* accessGroup = pcsIdentityQueries.count > 0 ? pcsIdentityQueries[0].accessGroup : nil;
-    if (accessGroup && !SecServerAccessGroupsAllows(self->_client.accessGroups, (__bridge CFStringRef)accessGroup, &_client)) {
-        SecError(errSecMissingEntitlement, &cferror, CFSTR("secItemFetchPCSIdentityByKeyOutOfBand: client is missing access-group %@: %@"), accessGroup, _client.task);
-        complete(NULL, (__bridge NSError*)cferror);
+    if(![self clientHasBooleanEntitlement: (__bridge NSString*) kSecEntitlementPrivateCKKSPlaintextFields]) {
+        SecError(errSecMissingEntitlement, &cferror, CFSTR("secItemFetchPCSIdentityByKeyOutOfBand: %@ does not have entitlement %@"), _client.task, kSecEntitlementPrivateCKKSPlaintextFields);
+        complete(NULL, (__bridge NSError*) cferror);
         CFReleaseNull(cferror);
         return;
+    }
+
+    if(![self clientHasBooleanEntitlement: (__bridge NSString*) kSecEntitlementPrivateCKKSReadCurrentItemPointers]) {
+        SecError(errSecMissingEntitlement, &cferror, CFSTR("secItemFetchPCSIdentityByKeyOutOfBand: %@ does not have entitlement %@"), _client.task, kSecEntitlementPrivateCKKSReadCurrentItemPointers);
+        complete(NULL, (__bridge NSError*) cferror);
+        CFReleaseNull(cferror);
+        return;
+    }
+
+    NSMutableSet<NSString*>* accessGroups = [[NSMutableSet alloc] init];
+    for (CKKSPCSIdentityQuery* query in pcsIdentityQueries) {
+        NSString* accessGroup = query.accessGroup;
+        if (accessGroup) {
+            [accessGroups addObject:accessGroup];
+            if (accessGroup && !SecServerAccessGroupsAllows(self->_client.accessGroups, (__bridge CFStringRef)accessGroup, &_client)) {
+                SecError(errSecMissingEntitlement, &cferror, CFSTR("secItemFetchPCSIdentityByKeyOutOfBand: client is missing access-group %@: %@"), accessGroup, _client.task);
+                complete(NULL, (__bridge NSError*)cferror);
+                CFReleaseNull(cferror);
+                return;
+            }
+        } else {
+            SecError(errSecParam, &cferror, CFSTR("secItemFetchPCSIdentityByKeyOutOfBand: client did not specify an access group: %@"), _client.task);
+            complete(NULL, (__bridge NSError*)cferror);
+            CFReleaseNull(cferror);
+            return;
+        }
     }
 
     // Wait a bit for CKKS initialization in case of daemon start, and bail it doesn't come up
@@ -495,12 +520,24 @@
 
     [[CKKSViewManager manager] fetchPCSIdentityOutOfBand:pcsIdentityQueries
                                               forceFetch:forceFetch
-                                                complete:^(NSArray<CKKSPCSIdentityQueryResult*>* data, NSError* error) {
-        if (error || !data) {
+                                                complete:^(NSArray<CKKSPCSIdentityQueryResult*>* identities, NSError* error) {
+        if (error || !identities) {
             secnotice("ckkscurrent", "CKKS didn't find a PCS Identity for (%@): %@", pcsIdentityQueries, error);
             complete(NULL, error);
         } else {
-            complete(data, error);
+            // Double-check that we're returning to the caller what they asked for.
+            for (CKKSPCSIdentityQueryResult* identity in identities) {
+                NSString* decryptedAccessGroup = identity.decryptedRecord[(__bridge NSString*)kSecAttrAccessGroup];
+                if (!decryptedAccessGroup || ![accessGroups containsObject: decryptedAccessGroup]) {
+                    secerror("ckkscurrent-oob: CKKS returned a PCS Identity that the client doesn't have an entitlement for: %@", decryptedAccessGroup);
+                    CFErrorRef badAccessGroupError = NULL;
+                    SecError(errSecMissingEntitlement, &badAccessGroupError, CFSTR("secItemFetchPCSIdentityByKeyOutOfBand: client is missing access group %@: %@"), decryptedAccessGroup, client->task);
+                    complete(NULL, (__bridge NSError*)badAccessGroupError);
+                    CFReleaseNull(badAccessGroupError);
+                    return;
+                }
+            }
+            complete(identities, error);
         }
         
         if (OctagonSupportsPersonaMultiuser()) {
@@ -814,7 +851,8 @@
         CFReleaseNull(data);
         return;
     }
-    if (CFGetTypeID(data) != CFDataGetTypeID() || !ok) {
+    if (!ok || data == NULL || CFGetTypeID(data) != CFDataGetTypeID()) {
+        secnotice("dp_login", "secLookupIndirectUnlockKey SecServerItemCopyMatching ok:%s data:%s dataType:%lu", ok ? "true" : "false", (data == NULL) ? "null" : "non-null", (data == NULL) ? -1 : CFGetTypeID(data));
         completion(errSecInternal, 0);
         CFReleaseNull(data);
         return;

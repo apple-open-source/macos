@@ -9282,7 +9282,7 @@ smb2fs_smb_parse_ntcreatex(struct smb_share *share, struct smbnode *np,
     }
 
     if ((fap->fa_attr & SMB_EFA_REPARSE_POINT) &&
-        (np->n_reparse_tag == IO_REPARSE_TAG_SYMLINK)) {
+        np && (np->n_reparse_tag == IO_REPARSE_TAG_SYMLINK)) {
         fap->fa_vtype = VLNK;
     } else {
         fap->fa_vtype = (fap->fa_attr & SMB_EFA_DIRECTORY) ? VDIR : VREG;

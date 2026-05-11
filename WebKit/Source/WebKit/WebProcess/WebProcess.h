@@ -293,6 +293,8 @@ public:
     Ref<NetworkProcessConnection> ensureProtectedNetworkProcessConnection();
 
     void networkProcessConnectionClosed(NetworkProcessConnection*);
+    void refreshIDBConnectionForWorkers();
+    void setNeedsIDBConnectionRefreshForWorkers() { m_needsIDBConnectionRefreshForWorkers = true; }
     NetworkProcessConnection* existingNetworkProcessConnection() { return m_networkProcessConnection.get(); }
     RefPtr<NetworkProcessConnection> protectedNetworkProcessConnection();
     WebLoaderStrategy& webLoaderStrategy();
@@ -562,10 +564,6 @@ public:
     void remoteAudioSessionConfigurationChanged(const RemoteAudioSessionConfiguration&);
 #endif
 
-#if PLATFORM(IOS_FAMILY)
-    const String& containerTemporaryDirectory() const { return m_containerTemporaryDirectory; }
-#endif
-
 private:
     WebProcess();
     ~WebProcess();
@@ -738,7 +736,7 @@ private:
 #endif
 
 #if PLATFORM(COCOA) || PLATFORM(GTK) || PLATFORM(WPE)
-    void setScreenProperties(const WebCore::ScreenProperties&);
+    void setScreenProperties(WebCore::ScreenProperties&&);
 #endif
 
 #if PLATFORM(COCOA)
@@ -832,6 +830,7 @@ private:
 
     String m_uiProcessBundleIdentifier;
     RefPtr<NetworkProcessConnection> m_networkProcessConnection;
+    bool m_needsIDBConnectionRefreshForWorkers { false };
     const UniqueRef<WebLoaderStrategy> m_webLoaderStrategy;
     RefPtr<WebFileSystemStorageConnection> m_fileSystemStorageConnection;
 
@@ -1002,9 +1001,6 @@ private:
 #endif
 #if ENABLE(INITIALIZE_ACCESSIBILITY_ON_DEMAND)
     bool m_shouldInitializeAccessibility { false };
-#endif
-#if PLATFORM(IOS_FAMILY)
-    String m_containerTemporaryDirectory;
 #endif
 };
 

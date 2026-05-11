@@ -314,6 +314,7 @@ void ViewTimeline::cacheCurrentTime()
 
         auto scrollDirection = resolvedScrollDirection();
         float scrollOffset = scrollDirection.isVertical ? sourceScrollableArea->scrollOffset().y() : sourceScrollableArea->scrollOffset().x();
+        float maxScrollOffset = scrollDirection.isVertical ? sourceScrollableArea->maximumScrollOffset().y() : sourceScrollableArea->maximumScrollOffset().x();
         float scrollContainerSize = scrollDirection.isVertical ? sourceScrollableArea->visibleHeight() : sourceScrollableArea->visibleWidth();
 
         // https://drafts.csswg.org/scroll-animations-1/#view-timelines-ranges
@@ -398,6 +399,7 @@ void ViewTimeline::cacheCurrentTime()
 
         return {
             scrollOffset,
+            maxScrollOffset,
             scrollContainerSize,
             subjectOffset,
             subjectSize,
@@ -416,6 +418,17 @@ void ViewTimeline::cacheCurrentTime()
 
     if (metricsChanged)
         sourceMetricsDidChange();
+}
+
+WebAnimationTime ViewTimeline::epsilon() const
+{
+    if (!m_cachedCurrentTimeData.subjectSize)
+        return WebAnimationTime::fromPercentage(0);
+    // The metrics reported for the subject and scroll container can be the subject of multiple conversions
+    // along the way, so we compute a percentage value that can be used in WebAnimation::currentTime() to round
+    // values around the 0% and 100% thresholds. To that end, we'll allow for a 0.1pt tolerance.
+    float pointTolerance = 0.1;
+    return WebAnimationTime::fromPercentage(pointTolerance / m_cachedCurrentTimeData.subjectSize * 100);
 }
 
 AnimationTimeline::ShouldUpdateAnimationsAndSendEvents ViewTimeline::documentWillUpdateAnimationsAndSendEvents()
@@ -503,6 +516,8 @@ std::pair<double, double> ViewTimeline::intervalForTimelineRangeName(const Scrol
         case Style::SingleAnimationRangeName::Cover:
         case Style::SingleAnimationRangeName::EntryCrossing:
             return data.rangeStart;
+        case Style::SingleAnimationRangeName::Scroll:
+            return 0.0;
         case Style::SingleAnimationRangeName::Entry:
             // https://drafts.csswg.org/scroll-animations-1/#valdef-animation-timeline-range-entry
             // 0% is equivalent to 0% of the cover range.
@@ -529,6 +544,8 @@ std::pair<double, double> ViewTimeline::intervalForTimelineRangeName(const Scrol
         case Style::SingleAnimationRangeName::Cover:
         case Style::SingleAnimationRangeName::ExitCrossing:
             return data.rangeEnd;
+        case Style::SingleAnimationRangeName::Scroll:
+            return m_cachedCurrentTimeData.maxScrollOffset;
         case Style::SingleAnimationRangeName::Exit:
             // https://drafts.csswg.org/scroll-animations-1/#valdef-animation-timeline-range-exit
             // 100% is equivalent to 100% of the cover range.
@@ -626,6 +643,11 @@ Ref<CSSNumericValue> ViewTimeline::startOffset() const
 Ref<CSSNumericValue> ViewTimeline::endOffset() const
 {
     return CSSNumericFactory::px(computeTimelineData().rangeEnd);
+}
+
+bool ViewTimeline::matchesAnonymousViewFunctionForSubject(const Style::ViewFunction& viewFunction, const Styleable& subject) const
+{
+    return isStyleOriginated() && name().isEmpty() && m_insets == viewFunction->insets && axis() == viewFunction->axis && m_subject.styleable() == subject;
 }
 
 WTF::TextStream& operator<<(WTF::TextStream& ts, const StickinessAdjustmentData& stickiness)

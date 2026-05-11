@@ -33,6 +33,7 @@ EXCLUDED_SOURCES := \
 	notify_control.c \
 	notify_test_helper.c \
 	notify_loopback_test_helper.c \
+	notify_shm_deny_test_helper.c \
 
 
 include $(DEVELOPER_DIR)/AppleInternal/Makefiles/darwintest/Makefile.targets

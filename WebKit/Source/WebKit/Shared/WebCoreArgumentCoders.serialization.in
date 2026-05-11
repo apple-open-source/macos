@@ -1426,7 +1426,7 @@ struct WebCore::NotificationData {
     WTF::UUID notificationID;
     std::optional<WebCore::ScriptExecutionContextIdentifier> contextIdentifier;
     PAL::SessionID sourceSession;
-    MonotonicTime creationTime;
+    WallTime creationTime;
     Vector<uint8_t> data;
     std::optional<bool> silent;
 };
@@ -2591,7 +2591,7 @@ headers: <wtf/unix/UnixFileDescriptor.h> "ArgumentCodersUnix.h"
 header: <wtf/MachSendRight.h>
 #endif
 
-[CustomHeader, RValue] class WebCore::SharedMemoryHandle {
+[CustomHeader, RValue, WebKitPlatform] class WebCore::SharedMemoryHandle {
 #if USE(UNIX_DOMAIN_SOCKETS)
     [Validator='!!m_handle && *m_handle'] UnixFileDescriptor m_handle;
 #endif
@@ -3880,7 +3880,7 @@ enum class WebCore::ApplePayButtonStyle : uint8_t {
 
 [RefCounted, AdditionalEncoder=StreamConnectionEncoder] class WebCore::FEColorMatrix {
     WebCore::ColorMatrixType type();
-    Vector<float> values();
+    [Validator='WebCore::FEColorMatrix::areValuesValidForType(*type, *values)'] Vector<float> values();
 
     WebCore::DestinationColorSpace operatingColorSpace();
 };

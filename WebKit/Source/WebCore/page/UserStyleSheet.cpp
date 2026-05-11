@@ -27,8 +27,15 @@
 #include "config.h"
 #include "UserStyleSheet.h"
 
+#include <wtf/HashCountedSet.h>
+#include <wtf/MainThread.h>
+#include <wtf/NeverDestroyed.h>
 #include <wtf/TZoneMallocInlines.h>
 #include <wtf/text/MakeString.h>
+
+#if PLATFORM(COCOA)
+#include <wtf/cocoa/RuntimeApplicationChecksCocoa.h>
+#endif
 
 namespace WebCore {
 
@@ -40,8 +47,49 @@ static WTF::URL generateUserStyleUniqueURL()
     return { { }, makeString("user-style:"_s, ++identifier) };
 }
 
+#if PLATFORM(COCOA)
+NO_RETURN_DUE_TO_CRASH NEVER_INLINE static void crashDueToApplicationCreatingUserStyleSheetFromBackgroundThread()
+{
+    RELEASE_ASSERT_NOT_REACHED("Terminating process due to improper usage of WebKit APIs off the main thread.");
+}
+#endif
+
+static HashCountedSet<String>& styleStrings()
+{
+    static NeverDestroyed<HashCountedSet<String>> set;
+    return set;
+}
+
+static String internedStyleString(const String& string)
+{
+#if PLATFORM(COCOA)
+    if (!linkedOnOrAfterSDKWithBehavior(SDKAlignedBehavior::EnableUserScriptAndUserStyleInterning))
+        return string;
+
+    // FIXME: replace this main thread check with a locked HashCountedSet once String becomes fully thread-safe.
+    if (!isMainRunLoop())
+        crashDueToApplicationCreatingUserStyleSheetFromBackgroundThread();
+#endif
+
+    if (string.isEmpty())
+        return emptyString();
+
+    auto result = styleStrings().add(string);
+    return result.iterator->key;
+}
+
+static void removeStyleString(const String& string)
+{
+#if PLATFORM(COCOA)
+    if (!linkedOnOrAfterSDKWithBehavior(SDKAlignedBehavior::EnableUserScriptAndUserStyleInterning))
+        return;
+#endif
+
+    styleStrings().remove(string);
+}
+
 UserStyleSheet::UserStyleSheet(const String& source, const URL& url, Vector<String>&& allowlist, Vector<String>&& blocklist, UserContentInjectedFrames injectedFrames, UserContentMatchParentFrame matchParentFrame, UserStyleLevel level, std::optional<PageIdentifier> pageID)
-    : m_source(source)
+    : m_source(internedStyleString(source))
     , m_url(url.isEmpty() ? generateUserStyleUniqueURL() : url)
     , m_allowlist(WTF::move(allowlist))
     , m_blocklist(WTF::move(blocklist))
@@ -50,6 +98,11 @@ UserStyleSheet::UserStyleSheet(const String& source, const URL& url, Vector<Stri
     , m_level(level)
     , m_pageID(pageID)
 {
+}
+
+UserStyleSheet::~UserStyleSheet()
+{
+    removeStyleString(m_source);
 }
 
 } // namespace WebCore

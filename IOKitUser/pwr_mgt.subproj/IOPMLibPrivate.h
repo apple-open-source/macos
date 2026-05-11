@@ -1572,6 +1572,8 @@ void IOPMUnregisterExceptionNotification(IOPMNotificationHandle handle);
 // units - CFNumber 0/1
 #define kIOPMRestartOnPowerLossKey                      "Automatic Restart On Power Loss"
 // units - CFNumber 0/1
+#define kIOPMRestartOnPowerConnectKey                   "Automatic Restart On Power Connect"
+// units - CFNumber 0/1
 #define kIOPMWakeOnACChangeKey                          "Wake On AC Change"
 // units - CFNumber 0/1
 #define kIOPMSleepOnPowerButtonKey                      "Sleep On Power Button"

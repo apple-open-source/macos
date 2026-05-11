@@ -4,4 +4,3 @@
  */
 #include <regressions/test/testmore.h>
 
-ONE_TEST(sd_10_policytree)

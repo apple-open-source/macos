@@ -33,7 +33,7 @@
     SecAnchorCacheInitialize();
 }
 
-+ (void)tearDown {
+- (void)tearDown {
     /* Reset the anchor lookup table */
     SecOTAPKISetConstrainedAnchorLookupTable(NULL);
 }
@@ -64,6 +64,48 @@
             NSDictionary *anchorTable = [NSDictionary dictionaryWithContentsOfURL:url];
             self.anchorTables[tableName] = anchorTable;
         }
+    }
+}
+
+- (void)testCopyAnchorRecordsForCertificate {
+#if TARGET_OS_BRIDGE
+    /* bridgeOS doesn't use trust store */
+    XCTSkip();
+#endif
+    for (NSDictionary *testCase in self.testCases) {
+        NSDictionary *anchorTable = self.anchorTables[testCase[@"plist"]];
+        SecOTAPKISetConstrainedAnchorLookupTable((__bridge CFDictionaryRef)anchorTable);
+        SecCertificateRef cert = (__bridge SecCertificateRef)self.certs[testCase[@"certHash"]];
+        CFArrayRef records = SecAnchorCacheCopyAnchorRecordsForCertificate(cert);
+        NSNumber *expectedRecordCount = testCase[@"certRecordCount"];
+        if (expectedRecordCount && expectedRecordCount.integerValue > 0) {
+            XCTAssertNotEqual(NULL, records);
+            XCTAssertEqual(CFArrayGetCount(records), expectedRecordCount.integerValue);
+        } else {
+            XCTAssertEqual(NULL, records);
+        }
+        CFReleaseNull(records);
+    }
+}
+
+- (void)testCopyAnchorRecordsForSPKI {
+#if TARGET_OS_BRIDGE
+    /* bridgeOS doesn't use trust store */
+    XCTSkip();
+#endif
+    for (NSDictionary *testCase in self.testCases) {
+        NSDictionary *anchorTable = self.anchorTables[testCase[@"plist"]];
+        SecOTAPKISetConstrainedAnchorLookupTable((__bridge CFDictionaryRef)anchorTable);
+        SecCertificateRef cert = (__bridge SecCertificateRef)self.certs[testCase[@"certHash"]];
+        CFArrayRef records = SecAnchorCacheCopyAnchorRecordsForSPKI(cert);
+        NSNumber *expectedRecordCount = testCase[@"keyRecordCount"];
+        if (expectedRecordCount && expectedRecordCount.integerValue > 0) {
+            XCTAssertNotEqual(NULL, records);
+            XCTAssertEqual(CFArrayGetCount(records), expectedRecordCount.integerValue);
+        } else {
+            XCTAssertEqual(NULL, records);
+        }
+        CFReleaseNull(records);
     }
 }
 
@@ -135,7 +177,7 @@
         SecOTAPKISetConstrainedAnchorLookupTable((__bridge CFDictionaryRef)anchorTable);
 
         SecCertificateRef cert = (__bridge SecCertificateRef)self.certs[testCase[@"certHash"]];
-        NSArray *records = CFBridgingRelease(CopyAnchorRecordsForCertificate(cert));
+        NSArray *records = CFBridgingRelease(SecAnchorCacheCopyAnchorRecordsForCertificate(cert));
         NSNumber *expectedRecordCount = testCase[@"certRecordCount"];
         if (expectedRecordCount && expectedRecordCount.integerValue > 0) {
             XCTAssertNotNil(records);
@@ -241,6 +283,10 @@
 }
 
 - (void)testIsAppleAnchor {
+#if TARGET_OS_BRIDGE
+    /* bridgeOS doesn't use trust store */
+    XCTSkip();
+#endif
     SecCertificateRef legacyAnchor = (__bridge SecCertificateRef)[self SecCertificateCreateFromResource:@"AppleRootG2"
                                                                                            subdirectory:@"si-20-sectrust-policies-data"];
     SecCertificateRef legacyTestAnchor = (__bridge SecCertificateRef)[self SecCertificateCreateFromResource:@"TestAppleRootCA"
@@ -289,6 +335,81 @@
     CFReleaseNull(g1Bootstrap);
     CFReleaseNull(fakeAppleAnchor);
     CFReleaseNull(nonAppleAnchor);
+}
+
+- (void)verifyTestProdValue:(NSDictionary *)anchors {
+    for (id anchorData in anchors) {
+        NSNumber *prod = [anchors objectForKey:anchorData];
+        SecCertificateRef cert = SecCertificateCreateWithData(NULL, (__bridge CFDataRef)anchorData);
+        NSString *name = CFBridgingRelease(SecCertificateCopySubjectSummary(cert));
+        CFReleaseNull(cert);
+        if ([name containsString:@"Test"]) {
+            if (!SecIsInternalRelease()) {
+                XCTFail("Got a Test Apple Anchor on a prod system");
+            }
+            XCTAssertFalse(prod.boolValue);
+        } else {
+            XCTAssert(prod.boolValue);
+        }
+    }
+}
+
+- (void)verifyContainsBuiltInAnchors:(NSDictionary *)anchors {
+    NSDictionary *builtInAnchors = CFBridgingRelease(SecCopyBuiltInAppleTrustAnchors(true));
+    for (id anchor in builtInAnchors) {
+        NSData *anchorData = CFBridgingRelease(SecCertificateCopyData((__bridge SecCertificateRef)anchor));
+        XCTAssertNotNil([anchors objectForKey:anchorData]);
+        XCTAssertEqualObjects([anchors objectForKey:anchorData], [builtInAnchors objectForKey:anchor]);
+    }
+}
+
+- (void)testCopyAppleAnchors {
+#if TARGET_OS_BRIDGE
+    /* bridgeOS doesn't use trust store */
+    XCTSkip();
+#endif
+    NSUInteger allAnchorsCount = SecIsInternalRelease() ? 34 : 16; // 14 built-in anchors + all 20 OTA anchors
+    NSDictionary *nullAnchors = CFBridgingRelease(SecAnchorCacheCopyAppleAnchors(NULL));
+    XCTAssertNotNil(nullAnchors);
+    XCTAssertGreaterThanOrEqual(nullAnchors.count, allAnchorsCount);
+    [self verifyTestProdValue:nullAnchors];
+    [self verifyContainsBuiltInAnchors:nullAnchors];
+
+    NSDictionary *basicAnchors = CFBridgingRelease(SecAnchorCacheCopyAppleAnchors(kSecPolicyAppleX509Basic));
+    XCTAssertNotNil(basicAnchors);
+    XCTAssertGreaterThanOrEqual(basicAnchors.count, allAnchorsCount);
+    [self verifyTestProdValue:basicAnchors];
+    [self verifyContainsBuiltInAnchors:basicAnchors];
+
+    NSUInteger builtInAndSinglePurposeCount = SecIsInternalRelease() ? 18 : 8; // 14 built-in anchors + 4 OTA single-purpose anchors
+    NSDictionary *sslAnchors = CFBridgingRelease(SecAnchorCacheCopyAppleAnchors(kSecPolicyAppleSSLServer));
+    XCTAssertNotNil(sslAnchors);
+    XCTAssertGreaterThanOrEqual(sslAnchors.count, builtInAndSinglePurposeCount);
+    [self verifyTestProdValue:sslAnchors];
+    [self verifyContainsBuiltInAnchors:sslAnchors];
+
+    NSDictionary *rcseAnchors = CFBridgingRelease(SecAnchorCacheCopyAppleAnchors(kSecPolicyAppleRCSEncryption));
+    XCTAssertNotNil(rcseAnchors);
+    XCTAssertGreaterThanOrEqual(rcseAnchors.count, 0); // custom policy so no apple anchors
+
+    NSDictionary *swAnchors = CFBridgingRelease(SecAnchorCacheCopyAppleAnchors(kSecPolicyAppleSoftwareSigning));
+    XCTAssertNotNil(swAnchors);
+    XCTAssertGreaterThanOrEqual(swAnchors.count, builtInAndSinglePurposeCount);
+    [self verifyTestProdValue:swAnchors];
+    [self verifyContainsBuiltInAnchors:swAnchors];
+
+    NSDictionary *pinnedSSLAnchors = CFBridgingRelease(SecAnchorCacheCopyAppleAnchors(kSecPolicyAppleGenericAppleSSLPinned));
+    XCTAssertNotNil(pinnedSSLAnchors);
+    XCTAssertGreaterThanOrEqual(pinnedSSLAnchors.count, builtInAndSinglePurposeCount);
+    [self verifyTestProdValue:pinnedSSLAnchors];
+    [self verifyContainsBuiltInAnchors:pinnedSSLAnchors];
+
+    NSUInteger builtInAndMultiPurposeCount = SecIsInternalRelease() ? 22 : 10; // 14 built-in anchors + 8 OTA multi-purpose anchors
+    NSDictionary *pinnedAnchors = CFBridgingRelease(SecAnchorCacheCopyAppleAnchors(kSecPolicyAppleGenericApplePinned));
+    XCTAssertNotNil(pinnedAnchors);
+    XCTAssertGreaterThanOrEqual(pinnedAnchors.count, builtInAndMultiPurposeCount);
+    [self verifyTestProdValue:pinnedAnchors];
+    [self verifyContainsBuiltInAnchors:pinnedAnchors];
 }
 
 @end

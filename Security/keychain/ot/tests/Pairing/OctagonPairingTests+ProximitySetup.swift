@@ -2383,7 +2383,7 @@ extension OctagonPairingTests {
 
         self.wait(for: [rpcJoinCallbackOccurs], timeout: 10)
 
-        XCTAssertEqual(0, self.cuttlefishContext.ckks!.stateMachine.stateConditions[CKKSStateFetchComplete]!.wait(20 * NSEC_PER_SEC), "State machine should enter CKKSStateFetchComplete")
+        XCTAssertEqual(0, self.cuttlefishContext.ckks!.stateMachine.stateConditions[CKKSStateReady]!.wait(20 * NSEC_PER_SEC), "State machine should enter CKKSStateReady")
 
         XCTAssertEqual(self.fakeCuttlefishServer.state.bottles.count, 2, "should be 2 bottles")
 

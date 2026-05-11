@@ -360,12 +360,26 @@ const DayPeriodRules *DayPeriodRules::getInstance(const Locale &locale, UErrorCo
     while (*name != '\0') {
         ruleSetNum = uhash_geti(data->localeToRuleSetNumMap, name);
         if (ruleSetNum == 0) {
+#if APPLE_ICU_CHANGES
+// rdar://170463660 (SIGSEGV in Intl.DateTimeFormat::formatRange (307978))
+            if (uprv_strcmp(name, "root") == 0) {
+                name[0] = '\0';
+            } else {
+                CharString parent = ulocimp_getParent(name, errorCode);
+                if (parent.isEmpty()) {
+                    uprv_strcpy(name, "root");
+                } else {
+                    parent.extract(name, UPRV_LENGTHOF(name), errorCode);
+                }
+            }
+#else
             CharString parent = ulocimp_getParent(name, errorCode);
             if (parent.isEmpty()) {
                 // Saves a lookup in the hash table.
                 break;
             }
             parent.extract(name, UPRV_LENGTHOF(name), errorCode);
+#endif // APPLE_ICU_CHANGES
         } else {
             break;
         }

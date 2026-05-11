@@ -1341,7 +1341,7 @@ restart_replay:
 			size = blhdr->binfo[i].u.bi.bsize;
 			number = blhdr->binfo[i].bnum;
 
-			if (size == 0) {
+			if (size <= 0) {
 				printf("jnl: replay_journal: invalid bsize\n");
 				bad_blocks = 1;
 				goto bad_txn_handling;

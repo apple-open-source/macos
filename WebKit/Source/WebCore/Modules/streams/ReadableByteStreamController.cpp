@@ -173,13 +173,8 @@ ReadableStreamBYOBRequest* ReadableByteStreamController::getByobRequest() const
 {
     if (!m_byobRequest && !m_pendingPullIntos.isEmpty()) {
         auto& firstDescriptor = m_pendingPullIntos.first();
-        auto view = JSC::Uint8Array::create(firstDescriptor.buffer.ptr(), firstDescriptor.byteOffset + firstDescriptor.bytesFilled, firstDescriptor.byteLength - firstDescriptor.bytesFilled);
-        Ref byobRequest = ReadableStreamBYOBRequest::create();
-
-        byobRequest->setController(const_cast<ReadableByteStreamController*>(this));
-        byobRequest->setView(view.ptr());
-
-        m_byobRequest = WTF::move(byobRequest);
+        Ref view = JSC::Uint8Array::create(firstDescriptor.buffer.ptr(), firstDescriptor.byteOffset + firstDescriptor.bytesFilled, firstDescriptor.byteLength - firstDescriptor.bytesFilled);
+        m_byobRequest = ReadableStreamBYOBRequest::create(*const_cast<ReadableByteStreamController*>(this), WTF::move(view));
     }
 
     return m_byobRequest.get();
@@ -217,7 +212,7 @@ ExceptionOr<void> ReadableByteStreamController::start(JSDOMGlobalObject& globalO
         startPromise = DOMPromise::create(globalObject, *promise);
     }
 
-    handleSourcePromise(*startPromise, [weakThis = WeakPtr { *this }](auto& globalObject, auto&& error) {
+    handleSourcePromise(globalObject, *startPromise, [weakThis = WeakPtr { *this }](auto& globalObject, auto&& error) {
         RefPtr protectedThis = weakThis.get();
         if (!protectedThis)
             return;
@@ -424,8 +419,8 @@ void ReadableByteStreamController::invalidateByobRequest()
     if (!byobRequest)
         return;
 
-    byobRequest->setController(nullptr);
-    byobRequest->setView(nullptr);
+    byobRequest->clearController();
+    byobRequest->clearView();
     m_byobRequest = nullptr;
 }
 
@@ -502,7 +497,7 @@ void ReadableByteStreamController::callPullIfNeeded(JSDOMGlobalObject& globalObj
     m_pulling = true;
 
     auto promise = m_pullAlgorithmWrapper(globalObject, *this);
-    handleSourcePromise(promise, [weakThis = WeakPtr { *this }](auto& globalObject, auto&& error) {
+    handleSourcePromise(globalObject, promise, [weakThis = WeakPtr { *this }](auto& globalObject, auto&& error) {
         RefPtr protectedThis = weakThis.get();
         if (!protectedThis)
             return;
@@ -748,7 +743,7 @@ void ReadableByteStreamController::runCancelSteps(JSDOMGlobalObject& globalObjec
     m_queueTotalSize = 0;
 
     auto promise = m_cancelAlgorithmWrapper(globalObject, *this, reason);
-    handleSourcePromise(promise, [callback = WTF::move(callback)](auto&, auto&& reason) mutable {
+    handleSourcePromise(globalObject, promise, [callback = WTF::move(callback)](auto&, auto&& reason) mutable {
         callback(WTF::move(reason));
     });
 }
@@ -982,9 +977,10 @@ void ReadableByteStreamController::handleQueueDrain(JSDOMGlobalObject& globalObj
         callPullIfNeeded(globalObject);
 }
 
-void ReadableByteStreamController::handleSourcePromise(DOMPromise& algorithmPromise, Callback&& callback)
+void ReadableByteStreamController::handleSourcePromise(JSDOMGlobalObject& globalObject, DOMPromise& algorithmPromise, Callback&& callback)
 {
-    algorithmPromise.whenSettled([promise = Ref { algorithmPromise }, callback = WTF::move(callback)]() mutable {
+    auto thisValue = toJS(&globalObject, &globalObject, *this);
+    DOMPromise::whenPromiseIsSettled(&globalObject, algorithmPromise.promise(), [promise = Ref { algorithmPromise }, callback = WTF::move(callback)]() mutable {
         auto* globalObject = promise->globalObject();
         if (!globalObject || promise->isSuspended())
             return;
@@ -1000,7 +996,7 @@ void ReadableByteStreamController::handleSourcePromise(DOMPromise& algorithmProm
             ASSERT_NOT_REACHED();
             break;
         }
-    });
+    }, thisValue.getObject());
 }
 
 template<typename Visitor>

@@ -288,7 +288,7 @@ blk_match(struct sess *sess, const struct blkset *blks,
 {
 	off_t		  last, end, sz;
 	int32_t		  tok;
-	size_t		  i;
+	size_t		  blklast, i;
 	const struct blk *blk;
 
 	/*
@@ -300,7 +300,12 @@ blk_match(struct sess *sess, const struct blkset *blks,
 
 	if (st->mapsz && blks->blksz) {
 		if (sess->role->append) {
-			assert((off_t)st->mapsz >= blks->size);
+			/*
+			 * mapsz and blks->size typically have no relation, but
+			 * the sender should have skipped the file if it shrank
+			 * before we mapped it.
+			 */
+			assert(st->mapsz >= blks->size);
 			st->offs = blks->size;
 			last = st->offs;
 			goto append;
@@ -308,13 +313,21 @@ blk_match(struct sess *sess, const struct blkset *blks,
 
 		/*
 		 * Stop searching at the length of the file minus the
-		 * size of the last block.
-		 * The reason for this being that we don't need to do an
-		 * incremental hash within the last block---if it
-		 * doesn't match, it doesn't match.
+		 * size of the last block.  The reason for this being that we
+		 * don't need to do an incremental hash within the last block:
+		 * if it doesn't match, it doesn't match.
+		 *
+		 * Note that there's no actual relation between `blks` and the
+		 * file we have mapped locally -- it could describe a file that
+		 * is larger than what we're sending, or we could even end up
+		 * with a chunk size larger than our local copy.
 		 */
+		blklast = blks->blks[blks->blksz - 1].len;
+		if (blklast < st->mapsz)
+			end = st->mapsz - (blklast - 1);
+		else
+			end = 0;
 
-		end = st->mapsz + 1 - blks->blks[blks->blksz - 1].len;
 		last = st->offs;
 
 		for (i = 0; st->offs < end; st->offs++, i++) {
@@ -373,7 +386,7 @@ blk_match(struct sess *sess, const struct blkset *blks,
 		st->dirty = st->total = st->mapsz;
 		sess->total_unmatched += st->mapsz;
 
-		LOG4("%s: flushing whole file %zu B",
+		LOG4("%s: flushing whole file %llu B",
 		    path, st->mapsz);
 	}
 

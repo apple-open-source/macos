@@ -393,6 +393,8 @@ typedef CF_ENUM(CFIndex, CKKSErrorCode) {
 
     CKKSErrorFetchNotCompleted = 66,
     CKKSErrorOutOfBandFetchingDisallowed = 67,
+
+    CKKSErrorItemAlreadyWasCurrent = 68,
 };
 
 typedef CF_ENUM(CFIndex, CKKSResultDescriptionErrorCode) {

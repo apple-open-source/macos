@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022 Apple Inc. All rights reserved.
+ * Copyright (c) 2022-2026 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -419,7 +419,7 @@ __SCNetworkCategoryManagerCopyActiveValueNoSession(CFStringRef category,
 	dispatch_block_t		b;
 	static xpc_connection_t		connection;
 	int				error = 0;
-	CFStringRef			ifname;
+	CFStringRef			ifname = NULL;
 	static dispatch_once_t		initialized;
 	CFStringRef			value = NULL;
 

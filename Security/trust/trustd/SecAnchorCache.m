@@ -72,24 +72,23 @@ CFStringRef kSecAnchorTypeCustomTEST = CFSTR("test-custom");
    SecAnchorCache
  ========================================================================
 */
-#define kSecAnchorCacheSize 15
+#define kSecAnchorCacheSize 20
 
 @interface SecAnchorCache()
 // General Anchor Cache
-@property (strong) NSDictionary* anchor_table;
+@property (strong) NSDictionary <NSString *,NSArray *>* anchor_table;
 @property (strong) NSMutableDictionary* cache;
 @property (strong) NSMutableArray* cache_list;
 @property (assign) os_unfair_lock cache_lock;
 
 // Apple Anchors
 @property (strong) NSMutableSet <NSString*>* apple_anchor_lookups;
-@property (strong) NSMutableDictionary <NSString*,NSArray*>* built_in_anchors;
 @end
 
 @implementation SecAnchorCache
 
 + (BOOL) allowTestAnchors {
-    return SecIsInternalRelease() || SecIsDeviceTestCertificateEntitled();
+    return false;
 }
 
 - (instancetype)init {
@@ -101,37 +100,62 @@ CFStringRef kSecAnchorTypeCustomTEST = CFSTR("test-custom");
         self.cache_lock = OS_UNFAIR_LOCK_INIT;
 
         self.apple_anchor_lookups = [NSMutableSet set];
-        self.built_in_anchors = [NSMutableDictionary dictionary];
         [self loadAppleAnchors];
         [self preheatCache];
     }
     return self;
 }
 
+- (NSDictionary <NSString *,NSArray *> *)loadBuiltInAppleAnchors {
+    NSMutableDictionary <NSString *,NSMutableArray *> *anchor_table = [NSMutableDictionary dictionary];
+    NSDictionary *anchors = CFBridgingRelease(SecCopyBuiltInAppleTrustAnchors([self.class allowTestAnchors]));
+    for (id anchor in anchors) {
+        SecCertificateRef cert = (__bridge SecCertificateRef)anchor;
+        BOOL prod = [[anchors objectForKey:anchor] boolValue];
+
+        NSString *anchorLookupKey = CFBridgingRelease(SecCertificateCopyAnchorLookupKey(cert));
+        NSMutableArray *anchorRecords = anchor_table[anchorLookupKey];
+        if (!anchorRecords) {
+            anchorRecords = [NSMutableArray array];
+            anchor_table[anchorLookupKey] = anchorRecords;
+        }
+
+        /* Create records for this cert */
+        NSMutableDictionary *record = [NSMutableDictionary dictionary];
+        record[@"oids"] = @[]; // built-in anchors don't have constraints
+        CFDataRef hash = SecCertificateCopySHA256Digest(cert);
+        record[@"sha2"] = CFBridgingRelease(CFDataCopyHexString(hash));
+        CFReleaseNull(hash);
+        CFDataRef spki_hash = SecCertificateCopySubjectPublicKeyInfoSHA256Digest(cert);
+        record[@"spki-sha2"] = CFBridgingRelease(CFDataCopyHexString(spki_hash));
+        CFReleaseNull(spki_hash);
+
+        /* Add a platform and a system record */
+        record[@"type"] = prod ? (__bridge NSString*)kSecAnchorTypePlatform :
+                            (__bridge NSString*)kSecAnchorTypePlatformTEST;
+        [anchorRecords addObject:[NSDictionary dictionaryWithDictionary:record]];
+
+        record[@"type"] = prod ? (__bridge NSString*)kSecAnchorTypeSystem :
+                            (__bridge NSString*)kSecAnchorTypeSystemTEST;
+        [anchorRecords addObject:[NSDictionary dictionaryWithDictionary:record]];
+    }
+    return anchor_table;
+}
+
+
 - (void)loadAppleAnchors {
     /* Add the hardcoded ones in case something's wrong with the anchor table */
-    NSArray *appleAnchors = (__bridge NSArray*)SecGetAppleTrustAnchors([self.class allowTestAnchors]);
-    for (id appleAnchor in appleAnchors) {
-        SecCertificateRef cert = (__bridge SecCertificateRef) appleAnchor;
-        NSString *anchorLookupKey = CFBridgingRelease(SecCertificateCopyAnchorLookupKey(cert));
-        [self.apple_anchor_lookups addObject:anchorLookupKey];
-        if (self.built_in_anchors[anchorLookupKey]) {
-            /* Handle the two "Test Apple Root CA" certs*/
-            NSMutableArray *certs = [NSMutableArray arrayWithArray:self.built_in_anchors[anchorLookupKey]];
-            [certs addObject:(__bridge id)cert];
-            self.built_in_anchors[anchorLookupKey] = certs;
-        } else {
-            self.built_in_anchors[anchorLookupKey] = @[(__bridge id)cert];
-        }
+    NSDictionary <NSString *,NSArray *> *built_in_apple_anchors = [self loadBuiltInAppleAnchors];
+    NSMutableDictionary <NSString *,NSArray *>*anchor_table = [self.anchor_table mutableCopy];
+    if (!anchor_table) {
+        // To support trustd variants that don't have the anchor table, they still need to load the built-in apple anchors
+        anchor_table = [NSMutableDictionary dictionary];
     }
+    [anchor_table addEntriesFromDictionary:built_in_apple_anchors]; // built-in anchors overrides OTA anchor table
+    self.anchor_table = [NSDictionary dictionaryWithDictionary:anchor_table];
 
-    for (NSString* anchorLookupKey in _anchor_table) {
-        NSArray *anchorRecords = _anchor_table[anchorLookupKey];
-        if (!isNSArray(anchorRecords)) {
-            secerror("Malformed anchor records for %{public}@, not an array", anchorLookupKey);
-            continue;
-        }
-
+    for (NSString* anchorLookupKey in self.anchor_table) {
+        NSArray *anchorRecords = [self anchorRecordsForLookupKey:anchorLookupKey];
         for (NSDictionary* anchorRecord in anchorRecords) {
             if (!isNSDictionary(anchorRecord)) {
                 secerror("Malformed anchor record for %{public}@, not a dictionary: %{public}@", anchorLookupKey, anchorRecord);
@@ -152,9 +176,6 @@ CFStringRef kSecAnchorTypeCustomTEST = CFSTR("test-custom");
 
 - (void)preheatCache {
     SecOTAPKIRef otapkiRef = SecOTAPKICopyCurrentOTAPKIRef();
-
-    // TODO: rdar://144133514 (provide new copy apple anchor function that takes policy)
-    // Don't "xpc" to trustd since that'll probably be recursive (maybe we should pre-heat with the anchor table ones too)
     /* Pre-heat cache with built-in apple anchors (temporary until rdar://139730485) */
     NSArray *appleAnchors = (__bridge NSArray*)SecGetAppleTrustAnchors([self.class allowTestAnchors]);
     for (id appleAnchor in appleAnchors) {
@@ -185,36 +206,76 @@ CFStringRef kSecAnchorTypeCustomTEST = CFSTR("test-custom");
     return cert;
 }
 
+- (NSArray*)anchorRecordsForLookupKey:(NSString*)anchorLookupKey {
+    NSArray *records = [_anchor_table objectForKey:anchorLookupKey];
+    if (records && isNSArray(records)) {
+        return records;
+    }
+    return nil;
+}
+
+- (NSArray*)anchorRecordsForLookupKey:(NSString*)anchorLookupKey
+                                 hash:(NSData*)hash
+                              hashKey:(NSString*)hashKey
+{
+    NSArray *records = [self anchorRecordsForLookupKey:anchorLookupKey];
+    NSString *hashValue = CFBridgingRelease(CFDataCopyHexString((__bridge CFDataRef)hash));
+
+    NSMutableArray *matchingRecords = [NSMutableArray array];
+    for (NSDictionary *record in records) {
+        if (!isNSDictionary(record)) {
+            secerror("Malformed anchor record, not a dictionary: %{public}@", record);
+            continue;
+        }
+        NSString *recordHash = record[hashKey];
+        if (!isNSString(recordHash)) {
+            secerror("Malformed anchor record, cert hash not a string: %{public}@", recordHash);
+            continue;
+        }
+        if ([recordHash isEqual:hashValue]) {
+            [matchingRecords addObject:record];
+        }
+    }
+
+    if (matchingRecords.count > 0) {
+        return matchingRecords;
+    }
+    return nil;
+}
+
+- (SecCertificateRef)copyCertForAppleCertHash:(NSString*)certHash CF_RETURNS_RETAINED {
+    NSArray *built_in_anchors = (__bridge NSArray*)SecGetAppleTrustAnchors([self.class allowTestAnchors]);
+    for (id anchor in built_in_anchors) {
+        SecCertificateRef cert = (__bridge SecCertificateRef)anchor;
+        CFDataRef hash = SecCertificateCopySHA256Digest(cert);
+        NSString *built_in_hash = CFBridgingRelease(CFDataCopyHexString(hash));
+        CFReleaseNull(hash);
+        if ([certHash isEqualToString:built_in_hash]) {
+            return CFRetainSafe(cert);
+        }
+    }
+    return NULL;
+}
+
 // return array of SecCertificateRef, from cache if possible
 - (NSArray*)anchorsForKey:(NSString*)anchorLookupKey {
-    NSMutableArray* result = [NSMutableArray array];
-    NSArray *records = [_anchor_table objectForKey:anchorLookupKey];
+    NSMutableSet* result = [NSMutableSet set];
+    NSArray *records = [self anchorRecordsForLookupKey:anchorLookupKey];
     if (!records) { // Not in anchor table
-        /* Fallback: check whether the anchor is in the built-in table
-         * Supports "legacy" test Apple anchors and BridgeOS */
-        if (self.built_in_anchors[anchorLookupKey]) {
-            return self.built_in_anchors[anchorLookupKey];
-        }
-        return result;
+        return @[];
     }
-    if (!isArray((__bridge CFArrayRef)records)) {
-        secerror("Malformed anchor records, not an array");
-        return result;
-    }
-    NSUInteger idx, count = [records count];
 
     os_unfair_lock_lock(&_cache_lock); // grab the cache lock before using the cache
 
     // iterate over records for normalized issuer hash lookup
     // (normally there is only 1 cert per record, but can be more)
-    for (idx = 0; idx < count; idx++) {
-        NSDictionary* record = [records objectAtIndex:idx];
-        if (!isDictionary((__bridge CFDictionaryRef)record)) {
+    for (NSDictionary *record in records) {
+        if (!isNSDictionary(record)) {
             secerror("Malformed anchor record, not a dictionary: %{public}@", record);
             continue;
         }
         NSString* certHash = [record objectForKey:@"sha2"];
-        if (!isString((__bridge CFStringRef)certHash)) {
+        if (!isNSString(certHash)) {
             secerror("Malformed anchor record, cert hash not a string: %{public}@", certHash);
             continue;
         }
@@ -236,11 +297,15 @@ CFStringRef kSecAnchorTypeCustomTEST = CFSTR("test-custom");
             // Cache miss. Add the entry to the end and check cache size.
             secdebug("Anchors", "anchor cache miss: %@", certHash);
             SecCertificateRef cert = [self copyAnchorAssetForKey:certHash];
+            if (!cert && [self.apple_anchor_lookups containsObject:anchorLookupKey]) {
+                // Look among the built-in Apple anchors
+                cert = [self copyCertForAppleCertHash:certHash];
+            }
             if (!cert) {
                 secerror("Malformed anchor record, no cert for hash: %{public}@", certHash);
                 continue;
             }
-            [_cache setObject:CFBridgingRelease(cert) forKey:certHash];
+            [_cache setObject:(__bridge id)cert forKey:certHash];
             if (kSecAnchorCacheSize <= [_cache_list count]) {
                 // Remove least recently used cache entry.
                 secdebug("Anchors", "cache remove stale: %@", [_cache_list objectAtIndex:0]);
@@ -249,11 +314,12 @@ CFStringRef kSecAnchorTypeCustomTEST = CFSTR("test-custom");
             }
             [_cache_list addObject:certHash];
             [result addObject:(__bridge id)cert];
+            CFReleaseNull(cert);
             secdebug("Anchors", "cache add: %@", certHash);
         }
     }
     os_unfair_lock_unlock(&_cache_lock);
-    return result;
+    return result.allObjects;
 }
 
 - (NSArray*)anchorsForPolicyId:(NSString *)policyId
@@ -263,7 +329,7 @@ CFStringRef kSecAnchorTypeCustomTEST = CFSTR("test-custom");
 
     if (appleAnchors) {
         // Add the hardcoded (unconstrained) Apple Anchors (in case we don't have them in the anchor table)
-        [anchors addObjectsFromArray:(__bridge NSArray*)SecGetAppleTrustAnchors(false)];
+        [anchors addObjectsFromArray:(__bridge NSArray*)SecGetAppleTrustAnchors([self.class allowTestAnchors])];
     }
 
     for (NSString* anchorLookupKey in _anchor_table) {
@@ -283,6 +349,10 @@ CFStringRef kSecAnchorTypeCustomTEST = CFSTR("test-custom");
                     }
                 } else {
                     SecCertificateRef cert = [self copyAnchorAssetForKey:certHash];
+                    if (!cert && [self.apple_anchor_lookups containsObject:anchorLookupKey]) {
+                        // Look among the built-in Apple anchors
+                        cert = [self copyCertForAppleCertHash:certHash];
+                    }
                     if (cert) {
                         [anchors addObject:(__bridge id)cert];
                     }
@@ -372,36 +442,69 @@ CFStringRef kSecAnchorTypeCustomTEST = CFSTR("test-custom");
 
 /* C interfaces */
 static SecAnchorCache *sAnchorCache = nil;
+static os_unfair_lock sAnchorCacheLock = OS_UNFAIR_LOCK_INIT;
 void SecAnchorCacheInitialize(void) {
-    /* Create the anchor cache object once per launch */
-    static dispatch_once_t onceToken;
-    dispatch_once(&onceToken, ^{
-        @autoreleasepool {
-            sAnchorCache = [[SecAnchorCache alloc] init];
-            /* check that we loaded the anchor table for variants that use the certificates bundle */
-            if (TrustdVariantHasCertificatesBundle() && [sAnchorCache.anchor_table count] < 1) {
-                CFErrorRef error = NULL;
-                SecError(errSecInternal, &error, CFSTR("SecAnchorCache failed to copy anchor table"));
-                [[TrustAnalytics logger] logHardError:(__bridge NSError *)error
-                                               withEventName:TrustdHealthAnalyticsEventDatabaseEvent
-                                              withAttributes:@{TrustdHealthAnalyticsAttributeAffectedDatabase : @(TATrustStore),
-                                                               TrustdHealthAnalyticsAttributeDatabaseOperation : @(TAOperationRead)}];
-                CFReleaseSafe(error);
-            }
+    @autoreleasepool {
+        os_unfair_lock_lock(&sAnchorCacheLock);
+        sAnchorCache = [[SecAnchorCache alloc] init];
+        /* check that we loaded the anchor table for variants that use the certificates bundle */
+        if (TrustdVariantHasCertificatesBundle() && [sAnchorCache.anchor_table count] < 1) {
+            CFErrorRef error = NULL;
+            SecError(errSecInternal, &error, CFSTR("SecAnchorCache failed to copy anchor table"));
+            [[TrustAnalytics logger] logHardError:(__bridge NSError *)error
+                                    withEventName:TrustdHealthAnalyticsEventDatabaseEvent
+                                   withAttributes:@{TrustdHealthAnalyticsAttributeAffectedDatabase : @(TATrustStore),
+                                                    TrustdHealthAnalyticsAttributeDatabaseOperation : @(TAOperationRead)}];
+            CFReleaseSafe(error);
         }
-    });
+        os_unfair_lock_unlock(&sAnchorCacheLock);
+    }
+}
+
+static SecAnchorCache *getAnchorCache(void) {
+    os_unfair_lock_lock(&sAnchorCacheLock);
+    SecAnchorCache *currentAnchorCache = sAnchorCache;
+    os_unfair_lock_unlock(&sAnchorCacheLock);
+    return currentAnchorCache;
+}
+
+CFArrayRef SecAnchorCacheCopyAnchorRecordsForCertificate(SecCertificateRef cert) {
+    @autoreleasepool {
+        NSData *certificateHash = CFBridgingRelease(SecCertificateCopySHA256Digest(cert));
+        NSString *anchorLookupKey = CFBridgingRelease(SecCertificateCopyAnchorLookupKey(cert));
+        if (!certificateHash || !anchorLookupKey) {
+            return NULL;
+        }
+        return CFBridgingRetain([getAnchorCache() anchorRecordsForLookupKey:anchorLookupKey
+                                                                       hash:certificateHash
+                                                                    hashKey:@"sha2"]);
+    }
+
+}
+
+CFArrayRef SecAnchorCacheCopyAnchorRecordsForSPKI(SecCertificateRef cert) {
+    @autoreleasepool {
+        NSData *spkiHash = CFBridgingRelease(SecCertificateCopySubjectPublicKeyInfoSHA256Digest(cert));
+        NSString *anchorLookupKey = CFBridgingRelease(SecCertificateCopyAnchorLookupKey(cert));
+        if (!spkiHash || !anchorLookupKey) {
+            return NULL;
+        }
+        return CFBridgingRetain([getAnchorCache() anchorRecordsForLookupKey:anchorLookupKey
+                                                                   hash:spkiHash
+                                                                hashKey:@"spki-sha2"]);
+    }
 }
 
 CFArrayRef SecAnchorCacheCopyParentCertificates(CFStringRef anchorLookupKey) {
     @autoreleasepool {
-        NSArray* parents = [sAnchorCache anchorsForKey:(__bridge NSString*)anchorLookupKey];
+        NSArray* parents = [getAnchorCache() anchorsForKey:(__bridge NSString*)anchorLookupKey];
         return CFBridgingRetain(parents);
     }
 }
 
 CFArrayRef SecAnchorCacheCopyAnchors(CFStringRef policyId) {
     @autoreleasepool {
-        NSArray *anchors = [sAnchorCache anchorsForPolicyId:(__bridge NSString*)policyId];
+        NSArray *anchors = [getAnchorCache() anchorsForPolicyId:(__bridge NSString*)policyId];
         return CFBridgingRetain(anchors);
     }
 }
@@ -413,19 +516,72 @@ CFArrayRef SecAnchorPolicyPermittedAnchorRecords(CFArrayRef cfAnchorRecords, CFS
     }
 }
 
+bool SecAnchorCacheIsBuiltInAppleAnchor(SecCertificateRef certificate) {
+    SecAppleTrustAnchorFlags flags = 0;
+    return SecIsBuiltInAppleAnchor(certificate, flags);
+}
+
 bool SecAnchorCacheIsAppleAnchor(SecCertificateRef certificate) {
     @autoreleasepool {
         NSString *anchorLookupKey = CFBridgingRelease(SecCertificateCopyAnchorLookupKey(certificate));
-        if ([sAnchorCache.apple_anchor_lookups containsObject:anchorLookupKey]) {
+        SecAnchorCache *anchorCache = getAnchorCache();
+        if ([anchorCache.apple_anchor_lookups containsObject:anchorLookupKey]) {
             /* Since the anchor lookup isn't cryptographically secure,
-             * we need to also check that the cert matches the anchor for that lookup,
-             * Check the hardcoded anchors first and then the dynamic anchor cache. */
-            if (SecIsAppleTrustAnchor(certificate, kSecAppleTrustAnchorFlagsIncludeTestAnchors)) {
+             * we need to also check that the cert matches the anchor for that lookup. */
+            if (SecAnchorCacheIsBuiltInAppleAnchor(certificate)) {
                 return true;
             }
-            NSArray* anchors = [sAnchorCache anchorsForKey:anchorLookupKey];
+            NSArray* anchors = [anchorCache anchorsForKey:anchorLookupKey];
             return [anchors containsObject:(__bridge id)certificate];
         }
         return false;
+    }
+}
+
+CFDictionaryRef SecAnchorCacheCopyAppleAnchors(CFStringRef policyId) {
+    @autoreleasepool {
+        NSMutableDictionary *result = [NSMutableDictionary dictionary];
+        SecAnchorCache *anchorCache = getAnchorCache();
+        for (NSString *lookup in anchorCache.apple_anchor_lookups.allObjects) {
+            NSArray *anchorRecords = [anchorCache anchorRecordsForLookupKey:lookup];
+            /* If no policyId is specified, allow trusted for _any_ policy;
+             * ow, filter for policy specified. */
+            if (policyId) {
+                anchorRecords = [SecAnchorCache anchorRecordsPermitttedForPolicy:anchorRecords
+                                                                        policyId:(__bridge NSString*)policyId];
+            }
+
+            if (anchorRecords.count == 0) {
+                // Anchor not permitted for this policy
+                continue;
+            }
+
+            /* In theory, if allowTestAnchors is false, we should not have gotten any records for
+             * test anchor types, but let's double check the records. If allowTestAnchors is true
+             * we need to determine prod vs. test. */
+            BOOL prod = YES;
+            for (NSDictionary *record in anchorRecords) {
+                NSString *type = record[@"type"];
+
+                if ([type isEqual:(__bridge NSString*)kSecAnchorTypeSystemTEST] ||
+                    [type isEqual:(__bridge NSString*)kSecAnchorTypeCustomTEST] ||
+                    [type isEqual:(__bridge NSString*)kSecAnchorTypePlatformTEST]) {
+                    prod = NO;
+                    if (![SecAnchorCache allowTestAnchors]) {
+                        secerror("Found test anchor type for %@; not allowed on prod system", lookup);
+                    }
+                }
+            }
+
+            /* Get the certs */
+            NSArray *anchors = [anchorCache anchorsForKey:lookup];
+            for (id anchor in anchors) {
+                SecCertificateRef cert = (__bridge SecCertificateRef)anchor;
+                NSData *certData = CFBridgingRelease(SecCertificateCopyData(cert));
+                [result setObject:@(prod) forKey:certData];
+            }
+        }
+
+        return CFDictionaryCreateCopy(NULL, (__bridge CFDictionaryRef)result);
     }
 }

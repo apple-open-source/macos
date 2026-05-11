@@ -7,6 +7,8 @@
 #import <ProtocolBuffer/PBHashUtil.h>
 #import <ProtocolBuffer/PBDataReader.h>
 
+#import "OTAccountMetadataClassCEscrowRecordCache.h"
+
 #if !__has_feature(objc_arc)
 # error This generated file depends on ARC but it is not enabled; turn on ARC, or use 'objc_use_arc' option to generate non-ARC code.
 #endif
@@ -306,20 +308,6 @@
     return _machineID != nil;
 }
 @synthesize machineID = _machineID;
-@synthesize escrowRepairAttemptVersion = _escrowRepairAttemptVersion;
-- (void)setEscrowRepairAttemptVersion:(int64_t)v
-{
-    _has.escrowRepairAttemptVersion = (uint)YES;
-    _escrowRepairAttemptVersion = v;
-}
-- (void)setHasEscrowRepairAttemptVersion:(BOOL)f
-{
-    _has.escrowRepairAttemptVersion = (uint)f;
-}
-- (BOOL)hasEscrowRepairAttemptVersion
-{
-    return _has.escrowRepairAttemptVersion != 0;
-}
 @synthesize peerSecretsAccessibilityFixUpPerformed = _peerSecretsAccessibilityFixUpPerformed;
 - (void)setPeerSecretsAccessibilityFixUpPerformed:(BOOL)v
 {
@@ -334,6 +322,11 @@
 {
     return _has.peerSecretsAccessibilityFixUpPerformed != 0;
 }
+- (BOOL)hasEscrowRecordCache
+{
+    return _escrowRecordCache != nil;
+}
+@synthesize escrowRecordCache = _escrowRecordCache;
 
 - (NSString *)description
 {
@@ -427,13 +420,13 @@
     {
         [dict setObject:self->_machineID forKey:@"machineID"];
     }
-    if (self->_has.escrowRepairAttemptVersion)
-    {
-        [dict setObject:[NSNumber numberWithLongLong:self->_escrowRepairAttemptVersion] forKey:@"escrowRepairAttemptVersion"];
-    }
     if (self->_has.peerSecretsAccessibilityFixUpPerformed)
     {
         [dict setObject:[NSNumber numberWithBool:self->_peerSecretsAccessibilityFixUpPerformed] forKey:@"peerSecretsAccessibilityFixUpPerformed"];
+    }
+    if (self->_escrowRecordCache)
+    {
+        [dict setObject:[_escrowRecordCache dictionaryRepresentation] forKey:@"escrowRecordCache"];
     }
     return dict;
 }
@@ -583,16 +576,28 @@ BOOL OTAccountMetadataClassCReadFrom(__unsafe_unretained OTAccountMetadataClassC
                 self->_machineID = new_machineID;
             }
             break;
-            case 27 /* escrowRepairAttemptVersion */:
-            {
-                self->_has.escrowRepairAttemptVersion = (uint)YES;
-                self->_escrowRepairAttemptVersion = PBReaderReadInt64(reader);
-            }
-            break;
             case 31 /* peerSecretsAccessibilityFixUpPerformed */:
             {
                 self->_has.peerSecretsAccessibilityFixUpPerformed = (uint)YES;
                 self->_peerSecretsAccessibilityFixUpPerformed = PBReaderReadBOOL(reader);
+            }
+            break;
+            case 32 /* escrowRecordCache */:
+            {
+                OTAccountMetadataClassCEscrowRecordCache *new_escrowRecordCache = [[OTAccountMetadataClassCEscrowRecordCache alloc] init];
+                self->_escrowRecordCache = new_escrowRecordCache;
+                PBDataReaderMark mark_escrowRecordCache;
+                BOOL markError = !PBReaderPlaceMark(reader, &mark_escrowRecordCache);
+                if (markError)
+                {
+                    return NO;
+                }
+                BOOL inError = !OTAccountMetadataClassCEscrowRecordCacheReadFrom(new_escrowRecordCache, reader);
+                if (inError)
+                {
+                    return NO;
+                }
+                PBReaderRecallMark(reader, &mark_escrowRecordCache);
             }
             break;
             default:
@@ -757,18 +762,18 @@ BOOL OTAccountMetadataClassCReadFrom(__unsafe_unretained OTAccountMetadataClassC
             PBDataWriterWriteStringField(writer, self->_machineID, 26);
         }
     }
-    /* escrowRepairAttemptVersion */
-    {
-        if (self->_has.escrowRepairAttemptVersion)
-        {
-            PBDataWriterWriteInt64Field(writer, self->_escrowRepairAttemptVersion, 27);
-        }
-    }
     /* peerSecretsAccessibilityFixUpPerformed */
     {
         if (self->_has.peerSecretsAccessibilityFixUpPerformed)
         {
             PBDataWriterWriteBOOLField(writer, self->_peerSecretsAccessibilityFixUpPerformed, 31);
+        }
+    }
+    /* escrowRecordCache */
+    {
+        if (self->_escrowRecordCache != nil)
+        {
+            PBDataWriterWriteSubmessage(writer, self->_escrowRecordCache, 32);
         }
     }
 }
@@ -876,15 +881,14 @@ BOOL OTAccountMetadataClassCReadFrom(__unsafe_unretained OTAccountMetadataClassC
     {
         other.machineID = _machineID;
     }
-    if (self->_has.escrowRepairAttemptVersion)
-    {
-        other->_escrowRepairAttemptVersion = _escrowRepairAttemptVersion;
-        other->_has.escrowRepairAttemptVersion = YES;
-    }
     if (self->_has.peerSecretsAccessibilityFixUpPerformed)
     {
         other->_peerSecretsAccessibilityFixUpPerformed = _peerSecretsAccessibilityFixUpPerformed;
         other->_has.peerSecretsAccessibilityFixUpPerformed = YES;
+    }
+    if (_escrowRecordCache)
+    {
+        other.escrowRecordCache = _escrowRecordCache;
     }
 }
 
@@ -964,16 +968,12 @@ BOOL OTAccountMetadataClassCReadFrom(__unsafe_unretained OTAccountMetadataClassC
         copy->_has.lastEscrowRepairAttempted = YES;
     }
     copy->_machineID = [_machineID copyWithZone:zone];
-    if (self->_has.escrowRepairAttemptVersion)
-    {
-        copy->_escrowRepairAttemptVersion = _escrowRepairAttemptVersion;
-        copy->_has.escrowRepairAttemptVersion = YES;
-    }
     if (self->_has.peerSecretsAccessibilityFixUpPerformed)
     {
         copy->_peerSecretsAccessibilityFixUpPerformed = _peerSecretsAccessibilityFixUpPerformed;
         copy->_has.peerSecretsAccessibilityFixUpPerformed = YES;
     }
+    copy->_escrowRecordCache = [_escrowRecordCache copyWithZone:zone];
     return copy;
 }
 
@@ -1024,9 +1024,9 @@ BOOL OTAccountMetadataClassCReadFrom(__unsafe_unretained OTAccountMetadataClassC
     &&
     ((!self->_machineID && !other->_machineID) || [self->_machineID isEqual:other->_machineID])
     &&
-    ((self->_has.escrowRepairAttemptVersion && other->_has.escrowRepairAttemptVersion && self->_escrowRepairAttemptVersion == other->_escrowRepairAttemptVersion) || (!self->_has.escrowRepairAttemptVersion && !other->_has.escrowRepairAttemptVersion))
-    &&
     ((self->_has.peerSecretsAccessibilityFixUpPerformed && other->_has.peerSecretsAccessibilityFixUpPerformed && ((self->_peerSecretsAccessibilityFixUpPerformed && other->_peerSecretsAccessibilityFixUpPerformed) || (!self->_peerSecretsAccessibilityFixUpPerformed && !other->_peerSecretsAccessibilityFixUpPerformed))) || (!self->_has.peerSecretsAccessibilityFixUpPerformed && !other->_has.peerSecretsAccessibilityFixUpPerformed))
+    &&
+    ((!self->_escrowRecordCache && !other->_escrowRecordCache) || [self->_escrowRecordCache isEqual:other->_escrowRecordCache])
     ;
 }
 
@@ -1076,9 +1076,9 @@ BOOL OTAccountMetadataClassCReadFrom(__unsafe_unretained OTAccountMetadataClassC
     ^
     [self->_machineID hash]
     ^
-    (self->_has.escrowRepairAttemptVersion ? PBHashInt((NSUInteger)self->_escrowRepairAttemptVersion) : 0)
-    ^
     (self->_has.peerSecretsAccessibilityFixUpPerformed ? PBHashInt((NSUInteger)self->_peerSecretsAccessibilityFixUpPerformed) : 0)
+    ^
+    [self->_escrowRecordCache hash]
     ;
 }
 
@@ -1180,15 +1180,18 @@ BOOL OTAccountMetadataClassCReadFrom(__unsafe_unretained OTAccountMetadataClassC
     {
         [self setMachineID:other->_machineID];
     }
-    if (other->_has.escrowRepairAttemptVersion)
-    {
-        self->_escrowRepairAttemptVersion = other->_escrowRepairAttemptVersion;
-        self->_has.escrowRepairAttemptVersion = YES;
-    }
     if (other->_has.peerSecretsAccessibilityFixUpPerformed)
     {
         self->_peerSecretsAccessibilityFixUpPerformed = other->_peerSecretsAccessibilityFixUpPerformed;
         self->_has.peerSecretsAccessibilityFixUpPerformed = YES;
+    }
+    if (self->_escrowRecordCache && other->_escrowRecordCache)
+    {
+        [self->_escrowRecordCache mergeFrom:other->_escrowRecordCache];
+    }
+    else if (!self->_escrowRecordCache && other->_escrowRecordCache)
+    {
+        [self setEscrowRecordCache:other->_escrowRecordCache];
     }
 }
 

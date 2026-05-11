@@ -277,6 +277,11 @@
     return [self _dateForMillisecondsSinceEpoch:self.lastEscrowRepairAttempted];
 }
 
+- (NSDate* _Nullable)memoizedEscrowRecordCacheTimestamp
+{
+    return [self _dateForMillisecondsSinceEpoch:self.escrowRecordCache.cacheTimestamp];
+}
+
 - (NSDate* _Nullable)_dateForMillisecondsSinceEpoch:(uint64_t)timestamp
 {
     NSDate* result = nil;
@@ -284,6 +289,26 @@
         result = [[NSDate alloc] initWithTimeIntervalSince1970:(NSTimeInterval)timestamp / 1000.0];
     }
     return result;
+}
+
+@end
+
+@implementation OTAccountMetadataClassCEscrowRecordCache (KeychainSupport)
+
+- (NSInteger)rateLimitTimeLeft
+{
+    NSDate* now = [NSDate date];
+    NSDate* lastAttemptDate = [NSDate dateWithTimeIntervalSince1970:((NSTimeInterval)self.cacheTimestamp) / 1000.0];
+
+    NSTimeInterval timeSinceLastAttemptDate = [now timeIntervalSinceDate:lastAttemptDate];
+    if (timeSinceLastAttemptDate < ESCROW_TIME_BETWEEN_SILENT_MOVE) {
+        NSInteger daysLeft = ceil((ESCROW_TIME_BETWEEN_SILENT_MOVE - timeSinceLastAttemptDate)/secondsInADay);
+        secnotice("octagon-escrow-repair", "rate limited, days left on rate limit %ld", (long)daysLeft);
+        return daysLeft;
+    }
+
+    secnotice("octagon-escrow-repair", "not rate limited");
+    return 0;
 }
 
 @end

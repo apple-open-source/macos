@@ -30,6 +30,10 @@
 #ifndef _H_CSUTILITIES
 #define _H_CSUTILITIES
 
+// Encode a major.minor.patch version triplet into the uint32_t format
+// used by LC_BUILD_VERSION's minos / sdk fields.
+#define MACHO_VERSION(major, minor, patch) (((major) << 16) | ((minor) << 8) | (patch))
+
 #include <Security/Security.h>
 #include <Security/CSCommon.h>
 #include <Security/SecAsn1Types.h>

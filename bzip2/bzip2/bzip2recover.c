@@ -25,6 +25,11 @@
 #include <stdlib.h>
 #include <string.h>
 
+#ifdef __APPLE__
+#include <sys/stat.h>
+#include <copyfile.h>
+#include <unistd.h>
+#endif
 
 /* This program records bit locations in the file to be recovered.
    That means that if 64-bit ints are not supported, we will not
@@ -269,6 +274,39 @@ static Bool endsInBz2 ( Char* name )
        name[n-1] == '2');
 }
 
+#ifdef __APPLE__
+static int
+apply_attrs(int infd, int outfd)
+{
+	struct stat sb;
+	int error;
+
+	error = fstat(infd, &sb);
+	if (error != 0)
+		return (-1);
+
+	error = fchmod(outfd, sb.st_mode);
+	if (error != 0)
+		return (-1);
+
+	/*
+	 * Propagate ACLs and EAs; we're not as concerned with clearing the
+	 * type/creator here, that'll happen on decompressing.  Failing to
+	 * preserve xattrs means that we may lose important information about,
+	 * e.g., quarantine status.
+	 */
+	error = fcopyfile(infd, outfd, NULL, COPYFILE_ACL | COPYFILE_XATTR);
+	if (error != 0 && errno != ENOTSUP)
+		return (-1);
+
+	(void)fchown(outfd, sb.st_uid, sb.st_gid );
+	/*
+	 * chown() will in many cases return with EPERM, which can
+	 * be safely ignored.
+	 */
+	return (0);
+}
+#endif
 
 /*---------------------------------------------------*/
 /*---                                             ---*/
@@ -495,6 +533,12 @@ Int32 main ( Int32 argc, Char** argv )
                       progName, outFileName );
             exit(1);
          }
+#ifdef __APPLE__
+         if (apply_attrs(fileno(inFile), fileno(outFile)) != 0) {
+            fprintf ( stderr, "%s: apply_attrs '%s': %s\n",
+                      progName, outFileName, strerror(errno));
+         }
+#endif
          bsWr = bsOpenWriteStream ( outFile );
          bsPutUChar ( bsWr, BZ_HDR_B );    
          bsPutUChar ( bsWr, BZ_HDR_Z );    

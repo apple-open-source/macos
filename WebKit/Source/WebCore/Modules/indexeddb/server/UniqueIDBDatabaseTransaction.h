@@ -62,7 +62,7 @@ public:
 
     WEBCORE_EXPORT ~UniqueIDBDatabaseTransaction();
 
-    UniqueIDBDatabaseConnection* databaseConnection() const;
+    WEBCORE_EXPORT UniqueIDBDatabaseConnection* databaseConnection() const;
     UniqueIDBDatabase* database() const;
     CheckedPtr<UniqueIDBDatabase> checkedDatabase() const;
     const IDBTransactionInfo& info() const { return m_transactionInfo; }
@@ -104,8 +104,11 @@ public:
     bool generateIndexKeyForRecord(const IDBIndexInfo&, const std::optional<IDBKeyPath>&, const IDBKeyData&, const IDBValue&, std::optional<int64_t> recordID);
     WEBCORE_EXPORT void didGenerateIndexKeyForRecord(IDBResourceIdentifier createIndexRequestIdentifier, const IDBIndexInfo&, const IDBKeyData&, const IndexKey&, std::optional<int64_t> recordID);
 
+    bool isFinishingOrFinished() const { return m_isFinishingOrFinished; }
+
 private:
     UniqueIDBDatabaseTransaction(UniqueIDBDatabaseConnection&, const IDBTransactionInfo&);
+    void setIsFinishingOrFinished() { m_isFinishingOrFinished = true; }
 
     WeakPtr<UniqueIDBDatabaseConnection> m_databaseConnection;
     IDBTransactionInfo m_transactionInfo;
@@ -119,6 +122,7 @@ private:
 
     uint64_t m_pendingGenerateIndexKeyRequests { 0 };
     IDBResourceIdentifier m_createIndexRequestIdentifier;
+    bool m_isFinishingOrFinished { false };
 };
 
 } // namespace IDBServer

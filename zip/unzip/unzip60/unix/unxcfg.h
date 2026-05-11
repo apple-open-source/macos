@@ -13,6 +13,9 @@
 #ifndef __unxcfg_h
 #define __unxcfg_h
 
+#ifdef __APPLE__
+#include <quarantine.h>
+#endif /* __APPLE__ */
 
 /* LARGE FILE SUPPORT - 10/6/04 EG */
 /* This needs to be set before the includes so they set the right sizes */
@@ -221,6 +224,7 @@ typedef struct stat z_stat;
     ZCONST char *wildname;\
     char *dirname, matchname[FILNAMSIZ];\
     int rootlen, rootdir, have_dirname, dirnamelen, notfirstcall;\
+    qtn_file_t qf;\
     zvoid *wild_dir;
 #else
 #define SYSTEM_SPECIFIC_GLOBALS \

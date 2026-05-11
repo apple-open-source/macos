@@ -182,7 +182,24 @@ RefPtr<WebKit::BrowsingWarning> Navigation::safeBrowsingWarning()
 
 void Navigation::setSafeBrowsingWarning(RefPtr<WebKit::BrowsingWarning>&& safeBrowsingWarning)
 {
+    if (safeBrowsingWarning)
+        m_hadSafeBrowsingWarning = true;
     m_safeBrowsingWarning = WTF::move(safeBrowsingWarning);
+}
+
+void Navigation::whenSafeBrowsingCheckCompletes(Function<void()>&& callback)
+{
+    if (!safeBrowsingCheckOngoing()) {
+        callback();
+        return;
+    }
+    m_safeBrowsingCheckCompletionCallbacks.append(WTF::move(callback));
+}
+
+void Navigation::fireSafeBrowsingCheckCompletionCallbacks()
+{
+    for (auto& callback : std::exchange(m_safeBrowsingCheckCompletionCallbacks, { }))
+        callback();
 }
 
 size_t Navigation::redirectChainIndex(const WTF::URL& url)

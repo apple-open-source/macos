@@ -227,7 +227,7 @@ public:
 	// lock/unlock processing
 	void lockDb();											// unconditional lock
 	void unlockDb(bool unlockKeybag);                       // full-feature unlock
-	void unlockDb(const CssmData &passphrase, bool unlockKeybag);	// unlock with passphrase
+	void unlockDb(const CssmData &passphrase, bool unlockKeybag, bool alwaysCheck);	// unlock with passphrase
 	// unlock only the keybag with passphrase, but no-op if this is not a login keychain,
 	// as other keychains don't pertain.
 	void unlockKeybag(const CssmData &passphrase);
@@ -286,7 +286,7 @@ protected:
 
 	void makeUnlocked(bool unlockKeybag);	// interior version of unlock()
 	void makeUnlocked(const AccessCredentials *cred, bool unlockKeybag); // like () with explicit cred
-	void makeUnlocked(const CssmData &passphrase, bool unlockKeybag);	 // interior version of unlock(CssmData)
+	void makeUnlocked(const CssmData &passphrase, bool unlockKeybag, bool alwaysCheck);	 // interior version of unlock(CssmData)
 	void makeKeybagUnlocked(const CssmData &passphrase);                 // interior version of unlockKeybag(CssmData)
 	
 	void establishOldSecrets(const AccessCredentials *creds);

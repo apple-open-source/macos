@@ -287,6 +287,18 @@ bool Location::operator==(Location other) const
     }
 }
 
+bool Location::rangesOverlap(Location a, uint32_t aSize, Location b, uint32_t bSize)
+{
+    if (a.m_kind != b.m_kind)
+        return false;
+    if (a.isStack() || a.isStackArgument()) {
+        ASSERT(aSize);
+        ASSERT(bSize);
+        return WTF::nonEmptyRangesOverlap(a.m_offset, a.m_offset + static_cast<int32_t>(aSize), b.m_offset, b.m_offset + static_cast<int32_t>(bSize));
+    }
+    return a == b;
+}
+
 Location::Kind Location::kind() const
 {
     return Kind(m_kind);
@@ -3133,8 +3145,8 @@ void BBQJIT::emitEntryTierUpCheck()
 WARN_UNUSED_RETURN ControlData BBQJIT::addTopLevel(BlockSignature signature)
 {
     if (Options::verboseBBQJITInstructions()) [[unlikely]] {
-        auto nameSection = m_info.nameSection;
-        std::pair<const Name*, RefPtr<NameSection>> name = nameSection->get(m_functionIndex);
+        auto& nameSection = m_info.nameSection();
+        std::pair<const Name*, RefPtr<NameSection>> name = nameSection.get(m_functionIndex);
         dataLog("BBQ\tFunction ");
         if (name.first)
             dataLog(makeString(*name.first));
@@ -5406,7 +5418,7 @@ void BBQJIT::emitShuffle(Vector<Value, N, OverflowHandler>& srcVector, Vector<Lo
 #if ASSERT_ENABLED
     for (size_t i = 0; i < dstVector.size(); ++i) {
         for (size_t j = i + 1; j < dstVector.size(); ++j)
-            ASSERT(dstVector[i] != dstVector[j]);
+            ASSERT(!Location::rangesOverlap(dstVector[i], srcVector[i].size(), dstVector[j], srcVector[j].size()));
     }
 
     // This algorithm assumes at most one cycle: https://xavierleroy.org/publi/parallel-move.pdf

@@ -64,6 +64,7 @@ static void TestBreakIteratorSuppressions(void);
 // rdar://31001006 Add some initial tests for urbtok_xxx interfaces
 static void TestRuleBasedTokenizer(void);
 static void TestTokenizerThaiHang(void); // rdar://120754236
+static void TestColon(void); // rdar://170769853
 #endif // APPLE_ICU_CHANGES
 
 void addBrkIterAPITest(TestNode** root);
@@ -89,6 +90,7 @@ void addBrkIterAPITest(TestNode** root)
     // rdar://31001006 Add some initial tests for urbtok_xxx interfaces
     addTest(root, &TestRuleBasedTokenizer, "tstxtbd/cbiapts/TestRuleBasedTokenizer");
     addTest(root, &TestTokenizerThaiHang, "tstxtbd/cbiapts/TestTokenizerThaiHang"); // rdar://120754236
+    addTest(root, &TestColon, "tstxtbd/cbiapts/TestColon"); // rdar://170769853
 #endif // APPLE_ICU_CHANGES
 }
 
@@ -3010,6 +3012,37 @@ static void TestTokenizerThaiHang(void) {
         ubrk_close(tok);
     }
 }
+    
+// rdar://170769853
+static void TestColon(void) {
+    struct {
+        const char* locale;
+        int32_t expectedNumSegments;
+    } testCases[] = {
+        { "en_US", 5 },
+        { "fi_FI", 1 },
+        { "sv_SE", 1 },
+    };
+    
+    for (int32_t i = 0; i < UPRV_LENGTHOF(testCases); i++) {
+        UErrorCode err = U_ZERO_ERROR;
+        UBreakIterator* tok = urbtok_open(UBRK_WORD, testCases[i].locale, &err);
+        if (assertSuccess("Failed to create tokenizer", &err)) {
+            ubrk_setText(tok, u"foo:bar:baz", -1, &err);
+            
+            RuleBasedTokenRange ranges[20];
+            unsigned long flags[20];
+            
+            int32_t numTokens = urbtok_tokenize(tok, 20, ranges, flags);
+            
+            if (assertSuccess("Failed to tokenize test string", &err)) {
+                assertIntEquals("Wrong number of tokens returned", testCases[i].expectedNumSegments, numTokens);
+            }
+        }
+        ubrk_close(tok);
+    }
+}
+
 
 #endif // APPLE_ICU_CHANGES
 

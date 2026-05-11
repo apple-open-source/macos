@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2012-2025 Apple Inc. All rights reserved.
+ * Copyright (C) 2012-2026 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -601,7 +601,7 @@ void NetworkConnectionToWebProcess::scheduleResourceLoad(NetworkResourceLoadPara
     }
 
     auto identifier = loadParameters.identifier;
-    RELEASE_ASSERT(identifier);
+    MESSAGE_CHECK(identifier);
     RELEASE_ASSERT(RunLoop::isMain());
     ASSERT(!m_networkResourceLoaders.contains(*identifier));
 
@@ -693,7 +693,7 @@ void NetworkConnectionToWebProcess::removeLoadIdentifier(WebCore::ResourceLoader
 
 void NetworkConnectionToWebProcess::pageLoadCompleted(PageIdentifier webPageID)
 {
-    stopAllNetworkActivityTrackingForPage(webPageID);
+    stopAllNetworkActivityTrackingForPage(webPageID, NetworkActivityTracker::CompletionCode::Success);
 }
 
 void NetworkConnectionToWebProcess::browsingContextRemoved(WebPageProxyIdentifier webPageProxyID, PageIdentifier webPageID, FrameIdentifier webFrameID)
@@ -702,6 +702,7 @@ void NetworkConnectionToWebProcess::browsingContextRemoved(WebPageProxyIdentifie
         if (RefPtr cache = session->cache())
             cache->browsingContextRemoved(webPageProxyID, webPageID, webFrameID);
     }
+    m_lastRootActivityCompletionCodesForTesting.remove(webPageID);
 }
 
 void NetworkConnectionToWebProcess::prefetchDNS(const String& hostname)
@@ -933,6 +934,8 @@ void NetworkConnectionToWebProcess::setRawCookie(const URL& firstParty, const UR
 {
     auto allowCookieAccess = m_networkProcess->allowsFirstPartyForCookies(m_webProcessIdentifier, firstParty);
     MESSAGE_CHECK(allowCookieAccess != NetworkProcess::AllowCookieAccess::Terminate);
+    MESSAGE_CHECK(RegistrableDomain::uncheckedCreateFromHost(cookie.domain).matches(firstParty));
+    MESSAGE_CHECK(RegistrableDomain(url).matches(firstParty));
     if (allowCookieAccess != NetworkProcess::AllowCookieAccess::Allow)
         return;
 
@@ -1478,6 +1481,7 @@ std::optional<NetworkActivityTracker> NetworkConnectionToWebProcess::startTracki
     auto& newActivityTracker = m_networkActivityTrackers[newActivityIndex];
     newActivityTracker.networkActivity.setParent(m_networkActivityTrackers[rootActivityIndex].networkActivity);
     newActivityTracker.networkActivity.start();
+    newActivityTracker.isTopResource = isTopResource;
 
     return newActivityTracker.networkActivity;
 }
@@ -1488,8 +1492,13 @@ void NetworkConnectionToWebProcess::stopTrackingResourceLoad(WebCore::ResourceLo
     if (itemIndex == notFound)
         return;
 
+    bool isTopResource = m_networkActivityTrackers[itemIndex].isTopResource;
+    auto pageID = m_networkActivityTrackers[itemIndex].pageID;
     m_networkActivityTrackers[itemIndex].networkActivity.complete(code);
     m_networkActivityTrackers.removeAt(itemIndex);
+
+    if (isTopResource && code != NetworkActivityTracker::CompletionCode::Success)
+        stopAllNetworkActivityTrackingForPage(pageID, code);
 }
 
 void NetworkConnectionToWebProcess::stopAllNetworkActivityTracking()
@@ -1498,18 +1507,35 @@ void NetworkConnectionToWebProcess::stopAllNetworkActivityTracking()
         activityTracker.networkActivity.complete(NetworkActivityTracker::CompletionCode::Cancel);
 
     m_networkActivityTrackers.clear();
+    m_lastRootActivityCompletionCodesForTesting.clear();
 }
 
-void NetworkConnectionToWebProcess::stopAllNetworkActivityTrackingForPage(PageIdentifier pageID)
+void NetworkConnectionToWebProcess::stopAllNetworkActivityTrackingForPage(PageIdentifier pageID, NetworkActivityTracker::CompletionCode rootCompletionCode)
 {
     for (auto& activityTracker : m_networkActivityTrackers) {
-        if (activityTracker.pageID == pageID)
-            activityTracker.networkActivity.complete(NetworkActivityTracker::CompletionCode::Cancel);
+        if (activityTracker.pageID == pageID) {
+            auto code = activityTracker.isRootActivity ? rootCompletionCode : NetworkActivityTracker::CompletionCode::Cancel;
+            activityTracker.networkActivity.complete(code);
+            if (activityTracker.isRootActivity)
+                m_lastRootActivityCompletionCodesForTesting.set(pageID, code);
+        }
     }
 
     m_networkActivityTrackers.removeAllMatching([&](const auto& activityTracker) {
         return activityTracker.pageID == pageID;
     });
+
+    // Note: We clear m_lastRootActivityCompletionCodesForTesting in browsingContextRemoved
+    // instead of here so that it exists long enough for the test infrastructure
+    // to read it.
+}
+
+auto NetworkConnectionToWebProcess::lastRootActivityCompletionCodeForTesting(PageIdentifier pageID) const -> std::optional<NetworkActivityTracker::CompletionCode>
+{
+    auto it = m_lastRootActivityCompletionCodesForTesting.find(pageID);
+    if (it == m_lastRootActivityCompletionCodesForTesting.end())
+        return std::nullopt;
+    return it->value;
 }
 
 size_t NetworkConnectionToWebProcess::findRootNetworkActivity(PageIdentifier pageID)
@@ -1691,6 +1717,9 @@ MessageBatchIdentifier NetworkConnectionToWebProcess::nextMessageBatchIdentifier
 
 void NetworkConnectionToWebProcess::takeAllMessagesForPort(const MessagePortIdentifier& port, CompletionHandler<void(Vector<MessageWithMessagePorts>&&, std::optional<MessageBatchIdentifier>)>&& callback)
 {
+    // A WebContent process may only receive messages for ports entangled to it.
+    MESSAGE_CHECK_COMPLETION(m_processEntangledPorts.contains(port), callback({ }, std::nullopt));
+
     m_networkProcess->checkedMessagePortChannelRegistry()->takeAllMessagesForPort(port, [this, protectedThis = Ref { *this }, callback = WTF::move(callback)](Vector<MessageWithMessagePorts>&& messages, CompletionHandler<void()>&& deliveryCallback) mutable {
         callback(WTF::move(messages), nextMessageBatchIdentifier(WTF::move(deliveryCallback)));
     });
@@ -1774,8 +1803,13 @@ void NetworkConnectionToWebProcess::useRedirectionForCurrentNavigation(WebCore::
 }
 
 #if ENABLE(DECLARATIVE_WEB_PUSH)
+
+#define SCOPEURL_MESSAGE_CHECK() { auto allowAccess = m_networkProcess->allowsFirstPartyForCookies(m_webProcessIdentifier, scopeURL); MESSAGE_CHECK_COMPLETION_BASE(allowAccess != NetworkProcess::AllowCookieAccess::Terminate, this->connection(), completionHandler(makeUnexpected(ExceptionData { ExceptionCode::SecurityError, "Invalid scope"_s }))); }
+
 void NetworkConnectionToWebProcess::navigatorSubscribeToPushService(URL&& scopeURL, Vector<uint8_t>&& applicationServerKey, CompletionHandler<void(Expected<WebCore::PushSubscriptionData, WebCore::ExceptionData>&&)>&& completionHandler)
 {
+    SCOPEURL_MESSAGE_CHECK();
+
     CheckedPtr session = networkSession();
     if (!session) {
         completionHandler(makeUnexpected(ExceptionData { ExceptionCode::InvalidStateError, "No active network session"_s }));
@@ -1795,6 +1829,8 @@ void NetworkConnectionToWebProcess::navigatorSubscribeToPushService(URL&& scopeU
 
 void NetworkConnectionToWebProcess::navigatorUnsubscribeFromPushService(URL&& scopeURL, const PushSubscriptionIdentifier& subscriptionIdentifier, CompletionHandler<void(Expected<bool, WebCore::ExceptionData>&&)>&& completionHandler)
 {
+    SCOPEURL_MESSAGE_CHECK();
+
     CheckedPtr session = networkSession();
     if (!session) {
         completionHandler(makeUnexpected(ExceptionData { ExceptionCode::InvalidStateError, "No active network session"_s }));
@@ -1802,11 +1838,12 @@ void NetworkConnectionToWebProcess::navigatorUnsubscribeFromPushService(URL&& sc
     }
 
     session->notificationManager().unsubscribeFromPushService(WTF::move(scopeURL), subscriptionIdentifier, WTF::move(completionHandler));
-
 }
 
 void NetworkConnectionToWebProcess::navigatorGetPushSubscription(URL&& scopeURL, CompletionHandler<void(Expected<std::optional<WebCore::PushSubscriptionData>, WebCore::ExceptionData>&&)>&& completionHandler)
 {
+    SCOPEURL_MESSAGE_CHECK();
+
     CheckedPtr session = networkSession();
     if (!session) {
         completionHandler(makeUnexpected(ExceptionData { ExceptionCode::InvalidStateError, "No active network session"_s }));
@@ -1818,6 +1855,8 @@ void NetworkConnectionToWebProcess::navigatorGetPushSubscription(URL&& scopeURL,
 
 void NetworkConnectionToWebProcess::navigatorGetPushPermissionState(URL&& scopeURL, CompletionHandler<void(Expected<uint8_t, WebCore::ExceptionData>&&)>&& completionHandler)
 {
+    SCOPEURL_MESSAGE_CHECK();
+
     CheckedPtr session = networkSession();
     if (!session) {
         completionHandler(makeUnexpected(ExceptionData { ExceptionCode::InvalidStateError, "No active network session"_s }));
@@ -1828,6 +1867,9 @@ void NetworkConnectionToWebProcess::navigatorGetPushPermissionState(URL&& scopeU
         completionHandler(static_cast<uint8_t>(state));
     });
 }
+
+#undef SCOPEURL_MESSAGE_CHECK
+
 #endif // ENABLE(DECLARATIVE_WEB_PUSH)
 
 void NetworkConnectionToWebProcess::initializeWebTransportSession(WebTransportSessionIdentifier identifier, URL&& url, WebCore::WebTransportOptions&& options, WebPageProxyIdentifier&& pageID, WebCore::ClientOrigin&& clientOrigin, CompletionHandler<void(std::optional<WebCore::WebTransportConnectionInfo>&&)>&& completionHandler)

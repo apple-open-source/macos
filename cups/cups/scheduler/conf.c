@@ -35,6 +35,7 @@
 #endif
 
 #include <os/log.h>
+#include <AssertMacros.h>
 /*
  * Possibly missing network definitions...
  */
@@ -237,163 +238,133 @@ cupsdAddAlias(cups_array_t *aliases,	/* I - Array of aliases */
  * 'cupsdCheckPermissions()' - Fix the mode and ownership of a file or directory.
  */
 
-int					/* O - 0 on success, -1 on error, 1 on warning */
+int          /* O - 0 on success, -1 on error, 1 on warning */
 cupsdCheckPermissions(
-    const char *filename,		/* I - File/directory name */
-    const char *suffix,			/* I - Additional file/directory name */
-    mode_t     mode,			/* I - Permissions */
-    uid_t      user,			/* I - Owner */
-    gid_t      group,			/* I - Group */
-    int        is_dir,			/* I - 1 = directory, 0 = file */
-    int        create_dir)		/* I - 1 = create directory, -1 = create w/o logging, 0 = not */
+    const char *filename,     /* I - File/directory name */
+    const char *suffix,       /* I - Additional file/directory name */
+    mode_t     mode,          /* I - Permissions */
+    uid_t      user,          /* I - Owner */
+    gid_t      group,         /* I - Group */
+    int        is_dir,        /* I - 1 = directory, 0 = file */
+    int        create_dir)    /* I - 1 = create directory, -1 = create w/o logging, 0 = not */
 {
-  int		dir_created = 0;	/* Did we create a directory? */
-  char		pathname[1024];		/* File name with prefix */
-  struct stat	fileinfo;		/* Stat buffer */
-  int		is_symlink;		/* Is "filename" a symlink? */
+  int               dir_created = 0;                        /* Did we create a directory? */
+  char              pathname[ MAX_PATH_LENGTH ];            /* File name with prefix */
+  struct stat       fileinfo;                               /* Stat buffer */
+  int               fd = -1;                                /* File descriptor */
+  int               ret = 0;                                /* Return value */
+  int               err = -1;                               /* Error */
 
+  __Require_Action( filename != NULL, exit, ret = -1 );
 
- /*
-  * Prepend the given root to the filename before testing it...
-  */
+  /*
+   * Prepend the given root to the filename before testing it...
+   */
 
-  if (suffix)
+  if ( suffix )
   {
-    snprintf(pathname, sizeof(pathname), "%s/%s", filename, suffix);
+    int count = snprintf( pathname, sizeof(pathname), "%s/%s", filename, suffix );
+    __Require_Action( ( (count >= 0) && ( count < MAX_PATH_LENGTH ) ), exit , ret = -1 );
     filename = pathname;
   }
 
- /*
-  * See if we can stat the file/directory...
-  */
+  /*
+   * Use fd and open with O_NOFOLLOW to prevent symlink attacks
+   */
+  fd = open( filename, O_RDONLY | O_NOFOLLOW | ( is_dir ? O_DIRECTORY : 0 ) );
 
-  if (lstat(filename, &fileinfo))
+  if ( fd < 0 )
   {
-    if (errno == ENOENT && create_dir)
-    {
-      if (create_dir > 0)
-	cupsdLogMessage(CUPSD_LOG_DEBUG, "Creating missing directory \"%s\"",
-			filename);
+    
+    /* Do nothing for symlink */
+    __Require_Action( ( errno != ELOOP ) , exit ,
+                        cupsdLogMessage( CUPSD_LOG_ERROR, "\"%s\" is a symlink, skipping permission repair", filename ) );
+    
+    __Require_Action( ( (errno == ENOENT ) && ( create_dir) ) , exit, ret = ( create_dir ? -1 : 1 ) );
 
-      if (mkdir(filename, mode))
-      {
-        if (create_dir > 0)
-	  cupsdLogMessage(CUPSD_LOG_ERROR,
-			  "Unable to create directory \"%s\" - %s", filename,
-			  strerror(errno));
-        else
-#ifdef HAVE_SYSTEMD_SD_JOURNAL_H
-	  sd_journal_print(LOG_ERR, "Unable to create directory \"%s\" - %s", filename, strerror(errno));
-#else
-	  syslog(LOG_ERR, "Unable to create directory \"%s\" - %s", filename, strerror(errno));
-#endif /* HAVE_SYSTEMD_SD_JOURNAL_H */
+    /*
+     * The directory doesn't exist, create one
+     */
 
-        return (-1);
-      }
+    if ( create_dir > 0 )
+      cupsdLogMessage( CUPSD_LOG_DEBUG, "Creating missing directory \"%s\"", filename );
+    
+    err = mkdir( filename, mode );
+    __Require_noErr_Action( err, exit, {
+                            cupsdLogMessage( CUPSD_LOG_ERROR, "Unable to create directory \"%s\" - %s", filename, strerror( errno ) );
+                            ret = -1; }
+                          );
+    
+    dir_created      = 1;
 
-      dir_created      = 1;
-      fileinfo.st_mode = mode | S_IFDIR;
+    /*
+     * Populate fd after creating directory
+     */
+    fd = open( filename, O_RDONLY | O_NOFOLLOW | O_DIRECTORY );
+    
+    __Require_Action( ( fd >= 0 ), exit, ret = -1 ;
+                     cupsdLogMessage( CUPSD_LOG_ERROR, "Unable to open newly created directory \"%s\" - %s", filename, strerror(errno) ) );
+  }
+
+  /* Stat through fd to avoid TOCTOU attack */
+  err = fstat(fd, &fileinfo);
+   __Require_noErr_Action( err, exit, {
+                           cupsdLogMessage( CUPSD_LOG_ERROR, "Unable to stat \"%s\" - %s", filename, strerror( errno ) );
+                           ret = -1; }
+                         );
+
+
+   /*
+    * Make sure it's a regular file or a directory as needed...
+    */
+
+   if ( !dir_created )
+   {
+       if( !is_dir )
+         __Require_Action( S_ISREG( fileinfo.st_mode ), exit, ret = -1 ;
+                          cupsdLogMessage( CUPSD_LOG_ERROR, "\"%s\" is not a regular file.", filename ) );
+     
+       else
+         __Require_Action( S_ISDIR( fileinfo.st_mode ), exit, ret = -1 ;
+                          cupsdLogMessage(CUPSD_LOG_ERROR, "\"%s\" is not a directory.", filename) );
+   }
+
+   /*
+    * Fix owner, group, and mode as needed...
+    */
+
+   if ( dir_created || fileinfo.st_uid != user || fileinfo.st_gid != group )
+   {
+     if ( create_dir >= 0 )
+       cupsdLogMessage(CUPSD_LOG_DEBUG, "Repairing ownership of \"%s\"",
+                       filename);
+
+     __Require_Action( ( fchown( fd, user, group ) == 0 || getuid() ), exit, {
+                          cupsdLogMessage( CUPSD_LOG_ERROR, "Unable to change ownership of \"%s\" - %s", filename, strerror(errno) );
+                          ret = 1; };
+                      );
     }
-    else
-      return (create_dir ? -1 : 1);
-  }
 
-  if ((is_symlink = S_ISLNK(fileinfo.st_mode)) != 0)
-  {
-    if (stat(filename, &fileinfo))
+    if ( dir_created || (fileinfo.st_mode & 07777) != mode )
     {
-      cupsdLogMessage(CUPSD_LOG_ERROR, "\"%s\" is a bad symlink - %s",
-                      filename, strerror(errno));
-      return (-1);
+      if ( create_dir >= 0 )
+        cupsdLogMessage(CUPSD_LOG_DEBUG, "Repairing access permissions of \"%s\"",
+                        filename);
+
+      __Require_Action( fchmod( fd, mode ) == 0, exit, {
+                          cupsdLogMessage( CUPSD_LOG_ERROR, "Unable to change permissions of \"%s\" - %s", filename, strerror(errno) );
+                          ret = 1; };
+                      );
     }
-  }
 
- /*
-  * Make sure it's a regular file or a directory as needed...
-  */
+    /*
+     * Everything is OK...
+     */
+  exit:
+    if( fd >= 0 )
+      close( fd );
 
-  if (!dir_created && !is_dir && !S_ISREG(fileinfo.st_mode))
-  {
-    cupsdLogMessage(CUPSD_LOG_ERROR, "\"%s\" is not a regular file.", filename);
-    return (-1);
-  }
-
-  if (!dir_created && is_dir && !S_ISDIR(fileinfo.st_mode))
-  {
-    if (create_dir >= 0)
-      cupsdLogMessage(CUPSD_LOG_ERROR, "\"%s\" is not a directory.", filename);
-    else
-#ifdef HAVE_SYSTEMD_SD_JOURNAL_H
-      sd_journal_print(LOG_ERR, "\"%s\" is not a directory.", filename);
-#else
-      syslog(LOG_ERR, "\"%s\" is not a directory.", filename);
-#endif /* HAVE_SYSTEMD_SD_JOURNAL_H */
-
-    return (-1);
-  }
-
- /*
-  * If the filename is a symlink, do not change permissions (STR #2937)...
-  */
-
-  if (is_symlink)
-    return (0);
-
- /*
-  * Fix owner, group, and mode as needed...
-  */
-
-  if (dir_created || fileinfo.st_uid != user || fileinfo.st_gid != group)
-  {
-    if (create_dir >= 0)
-      cupsdLogMessage(CUPSD_LOG_DEBUG, "Repairing ownership of \"%s\"",
-                      filename);
-
-    if (chown(filename, user, group) && !getuid())
-    {
-      if (create_dir >= 0)
-	cupsdLogMessage(CUPSD_LOG_ERROR,
-			"Unable to change ownership of \"%s\" - %s", filename,
-			strerror(errno));
-      else
-#ifdef HAVE_SYSTEMD_SD_JOURNAL_H
-	sd_journal_print(LOG_ERR, "Unable to change ownership of \"%s\" - %s", filename, strerror(errno));
-#else
-	syslog(LOG_ERR, "Unable to change ownership of \"%s\" - %s", filename, strerror(errno));
-#endif /* HAVE_SYSTEMD_SD_JOURNAL_H */
-
-      return (1);
-    }
-  }
-
-  if (dir_created || (fileinfo.st_mode & 07777) != mode)
-  {
-    if (create_dir >= 0)
-      cupsdLogMessage(CUPSD_LOG_DEBUG, "Repairing access permissions of \"%s\"",
-		      filename);
-
-    if (chmod(filename, mode))
-    {
-      if (create_dir >= 0)
-	cupsdLogMessage(CUPSD_LOG_ERROR,
-			"Unable to change permissions of \"%s\" - %s", filename,
-			strerror(errno));
-      else
-#ifdef HAVE_SYSTEMD_SD_JOURNAL_H
-	sd_journal_print(LOG_ERR, "Unable to change permissions of \"%s\" - %s", filename, strerror(errno));
-#else
-	syslog(LOG_ERR, "Unable to change permissions of \"%s\" - %s", filename, strerror(errno));
-#endif /* HAVE_SYSTEMD_SD_JOURNAL_H */
-
-      return (1);
-    }
-  }
-
- /*
-  * Everything is OK...
-  */
-
-  return (0);
+  return ret;
 }
 
 

@@ -5,6 +5,8 @@
 #import <Foundation/Foundation.h>
 #import <ProtocolBuffer/PBCodable.h>
 
+@class OTAccountMetadataClassCEscrowRecordCache;
+
 /**
  * The state of accounts on the system is complicated. Here's how we handle them:
  *  If there is no account, we will be in NO_ACCOUNT and have no altDSID
@@ -157,13 +159,13 @@ __attribute__((visibility("hidden")))
 @interface OTAccountMetadataClassC : PBCodable <NSCopying>
 {
     int64_t _epoch;
-    int64_t _escrowRepairAttemptVersion;
     uint64_t _lastEscrowRepairAttempted;
     uint64_t _lastEscrowRepairTriggered;
     uint64_t _lastHealthCheckup;
     NSString *_altDSID;
     OTAccountMetadataClassC_AttemptedAJoinState _attemptedJoin;
     OTAccountMetadataClassC_CDPState _cdpState;
+    OTAccountMetadataClassCEscrowRecordCache *_escrowRecordCache;
     OTAccountMetadataClassC_AccountState _icloudAccountState;
     NSString *_machineID;
     NSString *_oldPeerID;
@@ -181,7 +183,6 @@ __attribute__((visibility("hidden")))
     BOOL _warnedTooManyPeers;
     struct {
         uint epoch:1;
-        uint escrowRepairAttemptVersion:1;
         uint lastEscrowRepairAttempted:1;
         uint lastEscrowRepairTriggered:1;
         uint lastHealthCheckup:1;
@@ -291,13 +292,15 @@ __attribute__((visibility("hidden")))
 /** Machine id */
 @property (nonatomic, retain) NSString *machineID;
 
-@property (nonatomic) BOOL hasEscrowRepairAttemptVersion;
-/** Escrow repair "version" for the most recent repair attempt. */
-@property (nonatomic) int64_t escrowRepairAttemptVersion;
-
 @property (nonatomic) BOOL hasPeerSecretsAccessibilityFixUpPerformed;
-/** fixup for changing `kSecAttrAccessible`: "kSecAttrAccessibleWhenUnlocked" -> "kSecAttrAccessibleWhenUnlockedThisDeviceOnly" for (escrowKeys + RecoveryKeys + secrets) */
+/**
+ * Escrow repair "version" for the most recent repair attempt.
+ * fixup for changing `kSecAttrAccessible`: "kSecAttrAccessibleWhenUnlocked" -> "kSecAttrAccessibleWhenUnlockedThisDeviceOnly" for (escrowKeys + RecoveryKeys + secrets)
+ */
 @property (nonatomic) BOOL peerSecretsAccessibilityFixUpPerformed;
+
+@property (nonatomic, readonly) BOOL hasEscrowRecordCache;
+@property (nonatomic, retain) OTAccountMetadataClassCEscrowRecordCache *escrowRecordCache;
 
 // Performs a shallow copy into other
 - (void)copyTo:(OTAccountMetadataClassC *)other;

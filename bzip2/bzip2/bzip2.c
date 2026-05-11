@@ -224,6 +224,9 @@ static void    compressedStreamEOF   ( void )        NORETURN;
 
 static void    copyFileName ( Char*, Char* );
 static void*   myMalloc     ( Int32 );
+#ifdef __APPLE__
+static void    apply_attrs(int inFd, int outFd);
+#endif
 static void    applySavedFileAttrToOutputFile ( IntNative fd );
 
 
@@ -344,6 +347,13 @@ void compressStream ( FILE *stream, FILE *zStream )
 
    if (ferror(stream)) goto errhandler_io;
    if (ferror(zStream)) goto errhandler_io;
+#ifdef __APPLE__
+   /*
+    * Apply EAs/ACLs early and often to properly propagate, e.g., quarantine
+    * status even on error.
+    */
+   apply_attrs(fileno(stream), fileno(zStream));
+#endif
 
    bzf = BZ2_bzWriteOpen ( &bzerr, zStream, 
                            blockSize100k, verbosity, workFactor );   
@@ -452,6 +462,13 @@ Bool uncompressStream ( FILE *zStream, FILE *stream )
 
    if (ferror(stream)) goto errhandler_io;
    if (ferror(zStream)) goto errhandler_io;
+#ifdef __APPLE__
+   /*
+    * Apply EAs/ACLs early and often to properly propagate, e.g., quarantine
+    * status even on error.
+    */
+   apply_attrs(fileno(zStream), fileno(stream));
+#endif
 
    while (True) {
 
@@ -1067,7 +1084,7 @@ void applySavedTimeInfoToOutputFile ( Char *dstName )
 
 #ifdef __APPLE__
 static void
-clear_type_and_creator(char *path)
+clear_type_and_creator(int fd)
 {
 	struct attrlist alist;
 	struct {
@@ -1079,10 +1096,33 @@ clear_type_and_creator(char *path)
 	alist.bitmapcount = ATTR_BIT_MAP_COUNT;
 	alist.commonattr = ATTR_CMN_FNDRINFO;
 
-	if (!getattrlist(path, &alist, &abuf, sizeof(abuf), 0) && abuf.length == sizeof(abuf)) {
+	if (!fgetattrlist(fd, &alist, &abuf, sizeof(abuf), 0) && abuf.length == sizeof(abuf)) {
 		memset(abuf.info, 0, 8);
-		setattrlist(path, &alist, abuf.info, sizeof(abuf.info), 0);
+		fsetattrlist(fd, &alist, abuf.info, sizeof(abuf.info), 0);
 	}
+}
+
+static void
+apply_attrs(int inFd, int outFd)
+{
+    IntNative retVal;
+
+    /*
+     * ENOTSUP isn't fatal because we may be compressing or decompressing from
+     * a pipe.  If our destination is a pipe, we may get an EINVAL instead, in
+     * which case we'll only propagate if the out file is known to be a regular
+     * file.
+     */
+    retVal = fcopyfile(inFd, outFd, 0, COPYFILE_ACL | COPYFILE_XATTR);
+    if (retVal != 0 && errno != ENOTSUP) {
+       struct stat sb;
+
+       if (fstat(outFd, &sb) == 0 && S_ISREG(sb.st_mode))
+           ioError();
+    }
+
+    if (retVal == 0)
+       clear_type_and_creator(outFd);
 }
 #endif /* __APPLE__ */
 
@@ -1096,10 +1136,6 @@ void applySavedFileAttrToOutputFile ( IntNative fd )
    ERROR_IF_NOT_ZERO ( retVal );
 
    (void) fchown ( fd, fileMetaInfo.st_uid, fileMetaInfo.st_gid );
-#if __APPLE__
-    copyfile(inName, outName, 0, COPYFILE_ACL | COPYFILE_XATTR);
-    clear_type_and_creator(outName);
-#endif
    /* chown() will in many cases return with EPERM, which can
       be safely ignored.
    */

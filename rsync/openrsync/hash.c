@@ -86,7 +86,7 @@ hash_slow(const void *buf, size_t len,
 }
 
 void
-hash_fmap_chunks(struct fmap *map, size_t mapsz, MD4_CTX *ctx)
+hash_fmap_chunks(struct fmap *map, off_t mapsz, MD4_CTX *ctx)
 {
 	off_t offset;
 
@@ -105,7 +105,7 @@ hash_fmap_chunks(struct fmap *map, size_t mapsz, MD4_CTX *ctx)
 }
 
 int
-hash_fmap(const char *path, struct fmap *map, size_t mapsz, unsigned char *md,
+hash_fmap(const char *path, struct fmap *map, off_t mapsz, unsigned char *md,
     const struct sess *sess)
 {
 	MD4_CTX ctx;
@@ -137,7 +137,7 @@ hash_fmap(const char *path, struct fmap *map, size_t mapsz, unsigned char *md,
  * feature is used to compute seedless hashes for --checksum).
  */
 void
-hash_file(const void *buf, size_t len,
+hash_file(const void *buf, off_t len,
 	unsigned char *md, const struct sess *sess)
 {
 	MD4_CTX ctx;
@@ -148,7 +148,19 @@ hash_file(const void *buf, size_t len,
 
 		MD4_Update(&ctx, &seed, sizeof(int32_t));
 	}
+
+#if __SIZEOF_LONG__ == 4
+	while (len != 0) {
+		size_t cursz;
+
+		cursz = MIN(HASH_LARGE_CHUNK_SIZE, len);
+		MD4_Update(&ctx, buf, cursz);
+		len -= cursz;
+	}
+#else
 	MD4_Update(&ctx, buf, len);
+#endif
+
 	MD4_Final(md, &ctx);
 }
 
@@ -158,7 +170,7 @@ hash_file(const void *buf, size_t len,
  * file is not already open nor mapped.
  */
 int
-hash_file_by_path(int rootfd, const char *path, size_t len, unsigned char *md)
+hash_file_by_path(int rootfd, const char *path, off_t len, unsigned char *md)
 {
 	int fd, rc, save;
 	struct fmap *map;

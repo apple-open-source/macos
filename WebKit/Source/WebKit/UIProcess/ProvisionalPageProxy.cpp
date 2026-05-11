@@ -120,11 +120,13 @@ ProvisionalPageProxy::ProvisionalPageProxy(WebPageProxy& page, Ref<FrameProcess>
         ASSERT(&suspendedPage->process() == process.ptr());
         suspendedPage->unsuspend();
         m_mainFrame = suspendedPage->mainFrame();
+        m_mainFrame->updateReferrerPolicy(ReferrerPolicy::EmptyString);
         m_needsMainFrameObserver = true;
-    } else if (m_shouldReuseMainFrame)
+    } else if (m_shouldReuseMainFrame) {
         m_mainFrame = page.mainFrame();
-    else {
-        Ref mainFrame = WebFrameProxy::create(page, m_frameProcess, generateFrameIdentifier(), previousMainFrame->effectiveSandboxFlags(), previousMainFrame->effectiveReferrerPolicy(), previousMainFrame->scrollingMode(), nullptr, IsMainFrame::Yes);
+        m_mainFrame->updateReferrerPolicy(ReferrerPolicy::EmptyString);
+    } else {
+        Ref mainFrame = WebFrameProxy::create(page, m_frameProcess, generateFrameIdentifier(), previousMainFrame->effectiveSandboxFlags(), ReferrerPolicy::EmptyString, previousMainFrame->scrollingMode(), nullptr, IsMainFrame::Yes);
         m_mainFrame = mainFrame.copyRef();
 
         m_needsMainFrameObserver = true;
@@ -238,11 +240,13 @@ void ProvisionalPageProxy::cancel()
     ASSERT(mainFrame);
     auto error = WebKit::cancelledError(m_request);
     error.setType(WebCore::ResourceError::Type::Cancellation);
+    auto securityOriginData = SecurityOriginData::fromURLWithoutStrictOpaqueness(m_request.url());
     FrameInfoData frameInfo {
         true, // isMainFrame
         FrameType::Local,
         m_request,
-        SecurityOriginData::fromURLWithoutStrictOpaqueness(m_request.url()),
+        securityOriginData,
+        securityOriginData,
         { },
         mainFrame->frameID(),
         m_page ? std::optional { m_page->identifier() } : std::nullopt,
@@ -718,7 +722,7 @@ void ProvisionalPageProxy::didReceiveMessage(IPC::Connection& connection, IPC::D
 
     if (decoder.messageName() == Messages::WebBackForwardList::BackForwardUpdateItem::name()) {
         if (RefPtr page = m_page.get())
-            page->backForwardList().didReceiveMessage(connection, decoder);
+            page->backForwardList().didReceiveProvisionalMessage(connection, decoder);
         return;
     }
 

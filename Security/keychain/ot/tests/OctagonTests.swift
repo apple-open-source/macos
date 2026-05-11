@@ -188,14 +188,20 @@ class OTMockDeviceInfoAdapter: OTDeviceInformationAdapter {
     }
 }
 
+// TODO: should merge with OTMockSecureBackup / OctagonEscrowRecovererPrococol and EscrowRecordFormatQuery
 class OTMockSecureBackupAdapter: OTSecureBackupAdapter {
     var moveAllowedFederations: Set<String>
     var moveError: NSError?
-    var enableError: NSError?
+    var generateError: NSError?
 
-    init() {
+    var storeRecordListener: ((OTSerializedPlistEscrowRecord) -> NSError?)?
+
+    let fakeCuttlefish: FakeCuttlefishServer
+
+    init(fakeCuttlefish: FakeCuttlefishServer) {
         self.moveAllowedFederations = ["101", "102", "103", "310", "500"]
         self.moveError = nil
+        self.fakeCuttlefish = fakeCuttlefish
     }
 
     func move(toFederationAllowed federation: String, altDSID: String, error: NSErrorPointer) -> Bool {
@@ -206,23 +212,97 @@ class OTMockSecureBackupAdapter: OTSecureBackupAdapter {
         return moveAllowedFederations.contains(federation)
     }
 
-    func enable(withSecureBackup sb: Any, error: NSErrorPointer) -> Bool {
-        if self.enableError != nil {
-            error!.pointee = self.enableError
-            return false
+    func enable(withResults sb: any OTSecureBackupEnablerProtocol, reply: @escaping @Sendable ([AnyHashable: Any]?, (any Error)?) -> Void) {
+        if self.generateError != nil {
+            reply(nil, self.generateError)
+            return
         }
+
+        let fakeSerializedRecord = OTSerializedPlistEscrowRecord()
+        fakeSerializedRecord.label = "com.apple.test"
+
+        // Tag some extra data into the blob, to check how often a blob is created
+        var bytes = [UInt8](repeating: 0, count: 16)
+        let status = SecRandomCopyBytes(kSecRandomDefault, bytes.count, &bytes)
+        guard status == errSecSuccess else {
+            abort()
+        }
+        let tag = Data(bytes)
+
+        fakeSerializedRecord.blob = tag + (sb.entropy ?? Data())
+
+        // In a real OTSerializedPlistEscrowRecord, the metadata is a plist. But here, let's just use a serialized EscrowInformation!
+
+        let bottleID = sb.bottleID ?? "missing-bottle-id"
+        let escrowSigningPublicKey = sb.escrowSigningPublicKey ?? Data()
+
+        let escrowInformation = EscrowInformation.with {
+            $0.label = "com.apple.icdp.record." + bottleID
+            $0.creationDate = Google_Protobuf_Timestamp(date: Date())
+            $0.remainingAttempts = 10
+            $0.silentAttemptAllowed = 1
+            $0.recordStatus = .valid
+            $0.escrowInformationMetadata = EscrowInformation.Metadata.with {
+                $0.backupKeybagDigest = Data()
+                $0.secureBackupUsesMultipleIcscs = 1
+                $0.secureBackupTimestamp = Google_Protobuf_Timestamp(date: Date())
+                $0.peerInfo = Data()
+                $0.bottleID = bottleID
+                $0.escrowedSpki = escrowSigningPublicKey
+                $0.serial = "TODO-serial"
+                $0.build = "18A214-TODO"
+                $0.passcodeGeneration = PasscodeGeneration.with {
+                    $0.value = 2
+                }
+                $0.clientMetadata = EscrowInformation.Metadata.ClientMetadata.with {
+                    $0.deviceColor = "#202020"
+                    $0.deviceEnclosureColor = "#020202"
+                    $0.deviceModel = "model"
+                    $0.deviceModelClass = "modelClass"
+                    $0.deviceModelVersion = "modelVersion"
+                    $0.deviceMid = "mid"
+                    $0.deviceName = "my device"
+                    $0.devicePlatform = 1
+                    $0.secureBackupNumericPassphraseLength = 6
+                    $0.secureBackupMetadataTimestamp = Google_Protobuf_Timestamp(date: Date())
+                    $0.secureBackupUsesNumericPassphrase = 1
+                    $0.secureBackupUsesComplexPassphrase = 1
+                }
+            }
+        }
+
+        do {
+            fakeSerializedRecord.metadata = try escrowInformation.serializedData()
+        } catch {
+            reply(nil, error)
+            return
+        }
+
+        reply(["SecureBackupSerializedEscrowRecord": fakeSerializedRecord], nil)
+    }
+
+    func store(withSecureBackup sb: any OTSecureBackupEnablerProtocol, escrowRecord: OTSerializedPlistEscrowRecord, error: NSErrorPointer) -> Bool {
+        if let storeRecordListener = self.storeRecordListener {
+            let invokeError = storeRecordListener(escrowRecord)
+
+            if invokeError != nil {
+                error!.pointee = invokeError
+                return false
+            }
+        }
+
+        let er = EscrowRecordFormatQuery.with {
+            $0.label = escrowRecord.label
+            $0.metadata = escrowRecord.metadata
+            $0.blob = escrowRecord.blob
+        }
+
+        _ = self.fakeCuttlefish.store(escrowRecords: [er])
         return true
     }
 
-    func enable(withSecureBackupAndReturnHint sb: Any, error: NSErrorPointer) -> [AnyHashable: Any]? {
-        if self.enableError != nil {
-            error!.pointee = self.enableError
-            return ["SecureBackupNetworkReachedHint": false]
-        }
-        return ["SecureBackupNetworkReachedHint": true]
-    }
-
     func getAccountInfo(withSecureBackup sb: Any, error: NSErrorPointer) -> [AnyHashable: Any] {
+        // TODO: needs an implementation to test record creation vs update (at EP)
         return [:]
     }
 }
@@ -234,6 +314,40 @@ class OTMockLAContextAdapter: OTLAContextAdapter {
         return true
     }
     func discardPasscodeStashSecret(_ contextType: cache_flow_enabled_context_t) {
+    }
+}
+
+class OTMockAppleKeyStoreAdapter: OTAppleKeyStoreAdapter {
+    var callback: ((AKSEventType, CFDictionary?) -> Void)? = nil
+
+    func eventsRegister(_ queue: dispatch_queue_t!, callback: ((AKSEventType, CFDictionary?) -> Void)!) -> OpaquePointer! {
+        XCTAssertNil(self.callback, "only one registration permitted")
+        self.callback = callback
+        return OpaquePointer(bitPattern: 0x11223344)
+    }
+
+    func eventsUnregister(_ ref: OpaquePointer!) {
+        XCTAssertEqual(ref, OpaquePointer(bitPattern: 0x11223344), "deregister must use identical fake pointer")
+        XCTAssertNotNil(self.callback, "must register before deregister")
+        self.callback = nil
+    }
+
+    func devicePasscodeChanged() {
+        if let callback = self.callback {
+            let payload = [kAKSInfoCacheFlowContext: NSNumber(value: cache_flow_enabled_passcode_changed.rawValue)] as CFDictionary
+            callback(kAKSCacheFlowEnabled, payload)
+        }
+    }
+
+    func deviceUnlockedByPasscode() {
+        if !SecMockAKS.cacheFlowEnabled() {
+            return
+        }
+        if let callback = self.callback {
+            let payload = [kAKSInfoCacheFlowContext: NSNumber(value: cache_flow_enabled_passcode_unlocked.rawValue)] as CFDictionary
+            callback(kAKSCacheFlowEnabled, payload)
+            SecMockAKS.resetCacheFlow()
+        }
     }
 }
 
@@ -420,6 +534,7 @@ class OctagonTestsBase: CloudKitKeychainSyncingMockXCTest {
     var mockSecureBackupAdapter: OTMockSecureBackupAdapter!
 
     var mockLAContextAdapter: OTMockLAContextAdapter!
+    var mockAppleKeyStoreAdapter: OTMockAppleKeyStoreAdapter!
     var otControl: OTControl!
     var otXPCProxy: ProxyXPCConnection!
 
@@ -514,8 +629,9 @@ class OctagonTestsBase: CloudKitKeychainSyncingMockXCTest {
         self.fakeCuttlefishServer = FakeCuttlefishServer(nil, ckZones: self.zones!, ckksZoneKeys: self.keys!)
 
         self.fakeCuttlefishCreator = FakeCuttlefishCKOperationRunner(server: self.fakeCuttlefishServer)
-        self.mockSecureBackupAdapter = OTMockSecureBackupAdapter()
+        self.mockSecureBackupAdapter = OTMockSecureBackupAdapter(fakeCuttlefish: self.fakeCuttlefishServer)
         self.mockLAContextAdapter = OTMockLAContextAdapter()
+        self.mockAppleKeyStoreAdapter = OTMockAppleKeyStoreAdapter()
         self.mockPersonaAdapter = OTMockPersonaAdapter()
         self.mcAdapterPlaceholder = FakeManagedConfiguration()
         self.tphClient = Client(endpoint: nil,
@@ -595,6 +711,7 @@ class OctagonTestsBase: CloudKitKeychainSyncingMockXCTest {
                                  deviceInformationAdapter: self.mockDeviceInfo,
                                  secureBackupAdapter: self.mockSecureBackupAdapter,
                                  laContextAdapter: self.mockLAContextAdapter,
+                                 appleKeyStoreAdapter: self.mockAppleKeyStoreAdapter,
                                  personaAdapter: self.mockPersonaAdapter!,
                                  apsConnectionClass: FakeAPSConnection.self,
                                  escrowRequestClass: OTMockSecEscrowRequest.self,
@@ -605,6 +722,10 @@ class OctagonTestsBase: CloudKitKeychainSyncingMockXCTest {
                                  cloudKitClassDependencies: cloudKitClassDependencies,
                                  cuttlefishXPCConnection: tphXPCProxy.connection(),
                                  cdpd: self.otFollowUpController)
+
+        // should this actually do a full initializeOctagon?
+        self.manager.registerForPasscodeCacheFlowNotifications()
+
         return self.manager
     }
 
@@ -1457,10 +1578,13 @@ class OctagonTestsBase: CloudKitKeychainSyncingMockXCTest {
     }
 
     @discardableResult
-    func assertResetAndBecomeTrusted(context: OTCuttlefishContext, file: StaticString = #file, line: UInt = #line) -> String {
+    func assertResetAndBecomeTrusted(context: OTCuttlefishContext, assertStartsUntrusted: Bool = true, file: StaticString = #file, line: UInt = #line) -> String {
         context.startOctagonStateMachine()
         XCTAssertNoThrow(try context.setCDPEnabled(), file: file, line: line)
-        self.assertEnters(context: context, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC, file: file, line: line)
+
+        if assertStartsUntrusted {
+            self.assertEnters(context: context, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC, file: file, line: line)
+        }
 
         let trustChangeNotificationExpectation = XCTNSNotificationExpectation(name: NSNotification.Name(rawValue: "com.apple.security.octagon.trust-status-change"))
         let cliqueChangedNotificationExpectation = XCTNSNotificationExpectation(name: NSNotification.Name(rawValue: OTCliqueChanged))
@@ -4411,31 +4535,24 @@ class OctagonTests: OctagonTestsBase {
             }
         }
 
-        // Store some test keys and secrets with insufficient protection before starting Octagon
-        let testKeyData = Data("test-key-data-123456789012345678901234567890".utf8)
-        let testSecret = Data("test-secret-data-1234567890123456789012345678".utf8)
+        // Store 47 test keys and secrets with insufficient protection before starting Octagon.
+        // 47 exceeds the batch size (10) in updateItemsAccessibilityInBatches to exercise
+        // multiple fetch-update cycles: 4 full batches of 10 + 1 partial batch of 7.
+        let itemCount = 47
 
-        try storeItemWithInsufficientProtection(data: testKeyData, label: "test-escrow-label", applicationLabel: "Test Escrow Key", type: .key)
-        try storeItemWithInsufficientProtection(data: testSecret, label: "test-bottle-entropy", type: .internetPassword)
+        for i in 0..<itemCount {
+            let keyData = Data("test-key-data-\(i)-padding-for-length-requirement-here".utf8)
+            let secretData = Data("test-secret-data-\(i)-padding-for-length-requirement".utf8)
 
-        // Verify keys are stored with insufficient protection initially
-        let initialKeysQuery: [CFString: Any] = [
-            kSecClass: kSecClassKey,
-            kSecAttrAccessGroup: "com.apple.security.octagon",
-            kSecUseDataProtectionKeychain: true,
-            kSecAttrSynchronizable: false,
-            kSecAttrLabel: "test-escrow-label",
-            kSecReturnAttributes: true,
-        ]
+            try storeItemWithInsufficientProtection(data: keyData, label: "test-escrow-label-\(i)", applicationLabel: "Test Escrow Key \(i)", type: .key)
+            try storeItemWithInsufficientProtection(data: secretData, label: "test-bottle-entropy-\(i)", type: .internetPassword)
+        }
 
-        var initialResult: CFTypeRef?
-        let initialStatus = SecItemCopyMatching(initialKeysQuery as CFDictionary, &initialResult)
-        XCTAssertEqual(initialStatus, errSecSuccess, "Should find initially stored key")
-
-        let initialKey = try XCTUnwrap(initialResult as? [CFString: Any], "Initial result should be a dictionary")
-        let initialAccessible = try XCTUnwrap(initialKey[kSecAttrAccessible] as? String, "Initial key must have kSecAttrAccessible attribute")
-        XCTAssertEqual(initialAccessible, kSecAttrAccessibleWhenUnlocked as String,
-                     "Initial key should have WhenUnlocked protection before fixup")
+        // Verify items are stored with insufficient protection initially
+        for i in 0..<itemCount {
+            try verifyItemsHaveProtection(label: "test-escrow-label-\(i)", type: .key, expectedAccessibility: kSecAttrAccessibleWhenUnlocked)
+            try verifyItemsHaveProtection(label: "test-bottle-entropy-\(i)", type: .internetPassword, expectedAccessibility: kSecAttrAccessibleWhenUnlocked)
+        }
 
         // Start Octagon
         self.startCKAccountStatusMock()
@@ -4460,12 +4577,13 @@ class OctagonTests: OctagonTestsBase {
         XCTAssertTrue(metadata.peerSecretsAccessibilityFixUpPerformed,
                      "Fixup flag should be set to true in account metadata after fixup")
 
-        // Verify all keys and secrets now have ThisDeviceOnly protection
-        try verifyItemsHaveProtection(label: "test-escrow-label", type: .key, expectedAccessibility: kSecAttrAccessibleWhenUnlockedThisDeviceOnly)
-        try verifyItemsHaveProtection(label: "test-bottle-entropy", type: .internetPassword, expectedAccessibility: kSecAttrAccessibleWhenUnlockedThisDeviceOnly)
+        // Verify all 47 keys and secrets now have ThisDeviceOnly protection
+        for i in 0..<itemCount {
+            try verifyItemsHaveProtection(label: "test-escrow-label-\(i)", type: .key, expectedAccessibility: kSecAttrAccessibleWhenUnlockedThisDeviceOnly)
+            try verifyItemsHaveProtection(label: "test-bottle-entropy-\(i)", type: .internetPassword, expectedAccessibility: kSecAttrAccessibleWhenUnlockedThisDeviceOnly)
+        }
 
-        // To verify fixup only happens once, we can add the items back with unprotected access level and they should remain in that state
-        // Store some test keys and secrets with insufficient protection before starting Octagon
+        // To verify fixup only happens once, add items back with unprotected access level — they should remain unchanged
         let testKeyDataUnprotected = Data("test-key-data-unprotected-123456789012345678901234567890".utf8)
         let testSecretUnprotected = Data("test-secret-data-unprotected-1234567890123456789012345678".utf8)
 
@@ -4484,9 +4602,12 @@ class OctagonTests: OctagonTestsBase {
         XCTAssertTrue(metadataAfterRestart.peerSecretsAccessibilityFixUpPerformed,
                      "Fixup flag should remain true after restart")
 
-        // Verify keys still have correct protection after restart
-        try verifyItemsHaveProtection(label: "test-escrow-label", type: .key, expectedAccessibility: kSecAttrAccessibleWhenUnlockedThisDeviceOnly)
-        try verifyItemsHaveProtection(label: "test-bottle-entropy", type: .internetPassword, expectedAccessibility: kSecAttrAccessibleWhenUnlockedThisDeviceOnly)
+        // Verify the originally fixedup 47 keys still have correct protection after restart
+        // (check a sample to confirm they weren't reverted)
+        for i in 0..<itemCount {
+            try verifyItemsHaveProtection(label: "test-escrow-label-\(i)", type: .key, expectedAccessibility: kSecAttrAccessibleWhenUnlockedThisDeviceOnly)
+            try verifyItemsHaveProtection(label: "test-bottle-entropy-\(i)", type: .internetPassword, expectedAccessibility: kSecAttrAccessibleWhenUnlockedThisDeviceOnly)
+        }
 
         // Verify the unprotected items remain at unprotected protection
         try verifyItemsHaveProtection(label: "test-escrow-label-unprotected", type: .key, expectedAccessibility: kSecAttrAccessibleWhenUnlocked)

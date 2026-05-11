@@ -1088,10 +1088,10 @@ void KeychainDatabase::stashDb()
 // The following unlock given an explicit passphrase, rather than using
 // (special cred sample based) default procedures.
 //
-void KeychainDatabase::unlockDb(const CssmData &passphrase, bool unlockKeybag)
+void KeychainDatabase::unlockDb(const CssmData &passphrase, bool unlockKeybag, bool alwaysCheck)
 {
 	StLock<Mutex> _(common());
-	makeUnlocked(passphrase, unlockKeybag);
+	makeUnlocked(passphrase, unlockKeybag, alwaysCheck);
 }
 
 void KeychainDatabase::unlockKeybag(const CssmData &passphrase)
@@ -1100,9 +1100,9 @@ void KeychainDatabase::unlockKeybag(const CssmData &passphrase)
     makeKeybagUnlocked(passphrase);
 }
 
-void KeychainDatabase::makeUnlocked(const CssmData &passphrase, bool unlockKeybag)
+void KeychainDatabase::makeUnlocked(const CssmData &passphrase, bool unlockKeybag, bool alwaysCheck)
 {
-	if (isLocked()) {
+	if (alwaysCheck || isLocked()) {
 		if (decode(passphrase))
 			return;
 		else
@@ -1143,7 +1143,13 @@ bool KeychainDatabase::decode(const CssmData &passphrase)
 	common().setup(mBlob, passphrase);
 	bool success = decode();
     if (success && common().isLoginKeychain()) {
-        unlock_keybag(*this, passphrase.data(), (int)passphrase.length());
+        service_context_t context = common().session().get_current_service_context();
+        bool locked = true;
+        if (kb_is_locked(&context, &locked, NULL) == 0 && locked == false) {
+            secnotice("keybag", "keybag already unlocked, not trying again");
+        } else {
+            unlock_keybag(*this, passphrase.data(), (int)passphrase.length());
+        }
     }
     return success;
 }

@@ -44,6 +44,7 @@
 #import "keychain/ot/OTCuttlefishContext.h"
 #import "keychain/ot/OctagonStateMachine.h"
 #import "keychain/ot/OctagonStateMachineHelpers.h"
+#import "keychain/ot/OctagonPlatform.h"
 
 #import "keychain/ot/OTDeviceInformationAdapter.h"
 

@@ -2318,13 +2318,20 @@ IOHIDLibUserClient::releaseReport(mach_vm_address_t reportToken)
     IOHIDOOBReportDescriptor * tmp = NULL;
 
     queue_iterate(&fReportList, tmp, IOHIDOOBReportDescriptor *, qc) {
-        if ((mach_vm_address_t)tmp->getBytesNoCopy() == reportToken || (tmp->mapping && tmp->mapping->getAddress() == reportToken)) {
+        if (tmp->mapping) {
+            if (tmp->mapping->getAddress() == reportToken) {
+                md = tmp;
+                break;
+            }
+        } else if ((mach_vm_address_t)tmp->getBytesNoCopy() == reportToken) {
+            // No mapping means the descriptor was created on the sync path,
+            // so getBytesNoCopy() is guaranteed to return a userspace address.
             md = tmp;
             break;
         }
     }
 
-    __Require_Action(md, exit, HIDLibUserClientLogError("Unable to find report descriptor for address %#llx", reportToken));
+    __Require_Action(md, exit, HIDLibUserClientLogError("Unable to find report descriptor"));
     queue_remove(&fReportList, md, IOHIDOOBReportDescriptor *, qc);
 
     OSSafeReleaseNULL(md->mapping);

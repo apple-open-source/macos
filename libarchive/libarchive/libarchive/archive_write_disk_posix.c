@@ -121,10 +121,6 @@
 #define to_int64_time(t) \
    ((t) < 0 ? (int64_t)(t) : (uint64_t)(t) > (uint64_t)INT64_MAX ? INT64_MAX : (int64_t)(t))
 
-#ifdef HAVE_MAC_QUARANTINE
-#include <quarantine.h>
-#endif // HAVE_MAC_QUARANTINE
-
 #ifdef HAVE_ZLIB_H
 #include <zlib.h>
 #endif
@@ -156,6 +152,7 @@
 #include "archive_write_disk_private.h"
 
 #ifdef __APPLE__
+#include "archive_mac.h"
 #include "archive_hooks.h"
 #endif
 
@@ -580,14 +577,14 @@ archive_write_disk_set_options(struct archive *_a, int flags)
 }
 
 #ifdef HAVE_MAC_QUARANTINE
-void
+int
 archive_write_disk_set_quarantine(struct archive *_a, qtn_file_t qf)
 {
 	struct archive_write_disk *a = (struct archive_write_disk *)_a;
 
-	qtn_file_t new_qtn_file_t = qtn_file_clone(qf);
-	a->qf = new_qtn_file_t;
-
+	if ((a->qf = qtn_file_clone(qf)) == NULL)
+		return (ARCHIVE_WARN);
+	return (ARCHIVE_OK);
 }
 #endif // HAVE_MAC_QUARANTINE
 
@@ -1873,17 +1870,6 @@ _archive_write_disk_finish_entry(struct archive *_a)
 		if (r2 < ret) ret = r2;
 	}
 
-#ifdef HAVE_MAC_QUARANTINE
-	/* Restore quarantine this needs to be done before any permissions are added */
-	if (a->qf) {
-		if (qtn_file_apply_to_path(a->qf, a->name)) {
-			if (ARCHIVE_WARN < ret) {
-				ret = ARCHIVE_WARN;
-			}
-		}
-	}
-#endif // HAVE_MAC_QUARANTINE
-
 	/*
 	 * Look up the "real" UID only if we're going to need it.
 	 * TODO: the TODO_SGID condition can be dropped here, can't it?
@@ -2411,6 +2397,11 @@ create_filesystem_object_at(int dird, const char *name, struct archive_write_dis
 	struct stat st;
 	struct archive_string error_string;
 	int error_number;
+#ifdef __APPLE__
+#ifdef HAVE_MAC_QUARANTINE
+	int fd, serrno;
+#endif /* HAVE_MAC_QUARANTINE */
+#endif /* __APPLE__ */
 
 	/* We identify hard/symlinks according to the link names. */
 	/* Since link(2) and symlink(2) don't handle modes, we're done here. */
@@ -2506,6 +2497,16 @@ create_filesystem_object_at(int dird, const char *name, struct archive_write_dis
 #ifdef __APPLE__
 				a->fd = openat(dird, name, O_WRONLY | O_TRUNC |
 				    O_BINARY | O_CLOEXEC | O_NOFOLLOW);
+#ifdef HAVE_MAC_QUARANTINE
+				/* Apply quarantine status */
+				if (a->fd >= 0 && a->qf != NULL &&
+				    qtn_file_apply_to_fd(a->qf, a->fd) != 0) {
+					serrno = errno;
+					close(a->fd);
+					a->fd = -1;
+					errno = serrno;
+				}
+#endif /* HAVE_MAC_QUARANTINE */
 #else /* __APPLE__ */
 				a->fd = open(a->name, O_WRONLY | O_TRUNC |
 				    O_BINARY | O_CLOEXEC | O_NOFOLLOW);
@@ -2529,7 +2530,23 @@ create_filesystem_object_at(int dird, const char *name, struct archive_write_dis
 #ifdef __APPLE__
 		if (a->flags & ARCHIVE_EXTRACT_SAFE_WRITES)
 			(void)unlinkat(dird, name, 0);
-		return symlinkat(linkname, dird, name) ? errno : 0;
+		r = symlinkat(linkname, dird, name);
+#ifdef HAVE_MAC_QUARANTINE
+		/* Apply quarantine status */
+		if (r == 0 && a->qf != NULL) {
+			if ((fd = openat(dird, name, O_SYMLINK | O_RDWR)) < 0 ||
+			    qtn_file_apply_to_fd(a->qf, fd) != 0) {
+				serrno = errno;
+				(void)unlinkat(dird, name, 0);
+				r = -1;
+			}
+			if (fd >= 0)
+				close(fd);
+			if (r != 0)
+				errno = serrno;
+		}
+#endif /* HAVE_MAC_QUARANTINE */
+		return r ? errno : 0;
 #else /* __APPLE__ */
 		if (a->flags & ARCHIVE_EXTRACT_SAFE_WRITES)
 			unlink(a->name);
@@ -2574,6 +2591,17 @@ create_filesystem_object_at(int dird, const char *name, struct archive_write_dis
 		a->fd = openat(dird, name,
 		    ((a->flags & ARCHIVE_EXTRACT_SECURE_SYMLINKS) ? O_NOFOLLOW : 0) |
 		    O_WRONLY | O_CREAT | O_EXCL | O_BINARY | O_CLOEXEC, mode);
+#ifdef HAVE_MAC_QUARANTINE
+		/* Apply quarantine status */
+		if (a->fd >= 0 && a->qf != NULL &&
+		    qtn_file_apply_to_fd(a->qf, a->fd) != 0) {
+			serrno = errno;
+			(void)unlinkat(dird, name, 0);
+			close(a->fd);
+			a->fd = -1;
+			errno = serrno;
+		}
+#endif // HAVE_MAC_QUARANTINE
 #else /* !__APPLE__ */
 		a->fd = open(a->name,
 		    O_WRONLY | O_CREAT | O_EXCL | O_BINARY | O_CLOEXEC, mode);
@@ -2617,6 +2645,25 @@ create_filesystem_object_at(int dird, const char *name, struct archive_write_dis
 		mode = (mode | MINIMUM_DIR_MODE) & MAXIMUM_DIR_MODE;
 #ifdef __APPLE__
 		r = mkdirat(dird, name, mode);
+#ifdef HAVE_MAC_QUARANTINE
+		/* Apply quarantine status */
+		if (r != 0)
+			serrno = errno;
+		if ((r == 0 || serrno == EEXIST) && a->qf != NULL) {
+			if ((fd = openat(dird, name, O_DIRECTORY | O_SEARCH)) < 0 ||
+			    qtn_file_apply_to_fd(a->qf, fd) != 0) {
+				if (r == 0) {
+					serrno = errno;
+					(void)unlinkat(dird, name, AT_REMOVEDIR);
+					r = -1;
+				}
+			}
+			if (fd >= 0)
+				close(fd);
+			if (r != 0)
+				errno = serrno;
+		}
+#endif // HAVE_MAC_QUARANTINE
 #else /* __APPLE__ */
 		r = mkdir(a->name, mode);
 #endif /* !__APPLE__ */
@@ -2856,7 +2903,7 @@ _archive_write_disk_free(struct archive *_a)
 	}
 #endif
 #ifdef HAVE_MAC_QUARANTINE
-	if (a->qf) {
+	if (a->qf != NULL) {
 		qtn_file_free(a->qf);
 		a->qf = NULL;
 	}
@@ -3659,7 +3706,22 @@ create_dir(struct archive_write_disk *a, char *path)
 	mode = mode_final;
 	mode |= MINIMUM_DIR_MODE;
 	mode &= MAXIMUM_DIR_MODE;
+#ifdef __APPLE__
+	r = mkdir(path, mode);
+#ifdef HAVE_MAC_QUARANTINE
+	if (r == 0 && a->qf != NULL) {
+		if (qtn_file_apply_to_path(a->qf, path) != 0) {
+			int serrno = errno;
+			(void)rmdir(path);
+			errno = serrno;
+			r = 1;
+		}
+	}
+#endif /* HAVE_MAC_QUARANTINE */
+	if (r == 0) {
+#else /* !__APPLE__ */
 	if (mkdir(path, mode) == 0) {
+#endif /* __APPLE__ */
 		if (mode != mode_final) {
 			le = new_fixup(a, path);
 			if (le == NULL)
@@ -3676,8 +3738,22 @@ create_dir(struct archive_write_disk *a, char *path)
 	 * don't add it to the fixup list here, as it's already been
 	 * added.
 	 */
+#ifndef __APPLE__
 	if (la_stat(path, &st) == 0 && S_ISDIR(st.st_mode))
 		return (ARCHIVE_OK);
+#else /* __APPLE__ */
+	if (errno == EEXIST) {
+		if (la_stat(path, &st) == 0) {
+			if (S_ISDIR(st.st_mode))
+				return (ARCHIVE_OK);
+			/* path exists but is not a directory */
+			errno = ENOTDIR;
+		} else {
+			/* restore original errno */
+			errno = EEXIST;
+		}
+	}
+#endif /* !__APPLE__ */
 
 	archive_set_error(&a->archive, errno, "Failed to create dir '%s'",
 	    path);
@@ -4747,6 +4823,18 @@ set_xattrs(struct archive_write_disk *a)
 
 		if (name == NULL)
 			continue;
+#ifdef __APPLE__
+#ifdef HAVE_MAC_QUARANTINE
+		if (a->qf != NULL) {
+			/*
+			 * Don't let a quarantined archive override the
+			 * quarantine status of its extracted members.
+			 */
+			if (strcmp(name, qtn_xattr_name) == 0)
+				continue;
+		}
+#endif /* HAVE_MAC_QUARANTINE */
+#endif /* __APPLE__ */
 #if ARCHIVE_XATTR_LINUX
 		/* Linux: quietly skip POSIX.1e ACL extended attributes */
 		if (strncmp(name, "system.", 7) == 0 &&

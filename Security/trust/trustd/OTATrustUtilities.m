@@ -1099,12 +1099,13 @@ static bool ShouldInitializeWithSupplementalsAsset(void) {
 }
 
 static bool ShouldInitializeWithTrustStoreAutoAsset(SecOTAPKIRef otapkiref) {
+    uint64_t system_version = GetVersionFromSystemAssetVersionPlist((__bridge CFStringRef)kOTATrustStoreContentVersionKey);
     if (!TrustdVariantAllowsMobileAsset()) {
+        secnotice("OTATrust", "Using system trust store %llu", system_version);
         return false;
     }
-    uint64_t system_version = GetVersionFromSystemAssetVersionPlist((__bridge CFStringRef)kOTATrustStoreContentVersionKey);
-    uint64_t asset_version = GetVersionFromAutoAssetAssetVersionPlist(otapkiref, (__bridge CFStringRef)kOTATrustStoreContentVersionKey);
 
+    uint64_t asset_version = GetVersionFromAutoAssetAssetVersionPlist(otapkiref, (__bridge CFStringRef)kOTATrustStoreContentVersionKey);
     if (asset_version > system_version) {
         secnotice("OTATrust", "Using asset trust store %llu instead of system trust store %llu", asset_version, system_version);
         return true;
@@ -2930,14 +2931,16 @@ bool SecOTAPKISetConstrainedAnchorLookupTable(CFDictionaryRef table) {
                 if (!InitializeConstrainedTestAnchors(&testAnchorLookupAdditions, &testConstrainedAnchorTable)) {
                     secnotice("OTATrust", "failed to load constrained test anchors");
                 }
+                CFReleaseNull(kCurrentOTAPKIRef->_testConstrainedAnchorTable);
+                kCurrentOTAPKIRef->_testConstrainedAnchorTable = testConstrainedAnchorTable;
                 if (InitializeConstrainedAnchorLookupTable(kCurrentOTAPKIRef, &constrainedAnchorLookupTable, testAnchorLookupAdditions, kCurrentOTAPKIRef->_useAutoAsset)) {
                     CFReleaseSafe(kCurrentOTAPKIRef->_constrainedAnchorLookupTable);
                     kCurrentOTAPKIRef->_constrainedAnchorLookupTable = constrainedAnchorLookupTable;
                 }
-                CFReleaseNull(testConstrainedAnchorTable);
                 CFReleaseNull(testAnchorLookupAdditions);
             }
         }
     });
+    SecAnchorCacheInitialize();
     return result;
 }

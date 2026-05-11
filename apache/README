@@ -1,3 +1,5 @@
 Updating:
 
-Checkout apacheCleanUpArchive
+1.) Fetch new httpd archive
+2.) Extract it with apacheCleanUpArchive
+3.) Update Info.plist, apache.plist

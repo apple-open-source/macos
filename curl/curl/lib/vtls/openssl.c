@@ -321,6 +321,7 @@ struct multi_ssl_backend_data {
   char *CAfile;         /* CAfile path used to generate X509 store */
   X509_STORE *store;    /* cached X509 store or NULL if none */
   struct curltime time; /* when the cached store was created */
+  BIT(no_partialchain); /* keep partial chain state */
 };
 #endif /* HAVE_SSL_X509_STORE_SHARE */
 
@@ -3402,12 +3403,16 @@ static bool cached_x509_store_expired(const struct Curl_easy *data,
 
 static bool cached_x509_store_different(
   struct Curl_cfilter *cf,
+  const struct Curl_easy *data,
   const struct multi_ssl_backend_data *mb)
 {
   struct ssl_primary_config *conn_config = Curl_ssl_cf_get_primary_config(cf);
+  struct ssl_config_data *ssl_config =
+    Curl_ssl_cf_get_config(cf, data);
+  if(mb->no_partialchain != ssl_config->no_partialchain)
+    return TRUE;
   if(!mb->CAfile || !conn_config->CAfile)
     return mb->CAfile != conn_config->CAfile;
-
   return strcmp(mb->CAfile, conn_config->CAfile);
 }
 
@@ -3422,7 +3427,7 @@ static X509_STORE *get_cached_x509_store(struct Curl_cfilter *cf,
      multi->ssl_backend_data &&
      multi->ssl_backend_data->store &&
      !cached_x509_store_expired(data, multi->ssl_backend_data) &&
-     !cached_x509_store_different(cf, multi->ssl_backend_data)) {
+     !cached_x509_store_different(cf, data, multi->ssl_backend_data)) {
     store = multi->ssl_backend_data->store;
   }
 
@@ -3451,6 +3456,8 @@ static void set_cached_x509_store(struct Curl_cfilter *cf,
 
   if(X509_STORE_up_ref(store)) {
     char *CAfile = NULL;
+    struct ssl_config_data *ssl_config =
+      Curl_ssl_cf_get_config(cf, data);
 
     if(conn_config->CAfile) {
       CAfile = strdup(conn_config->CAfile);
@@ -3468,6 +3475,7 @@ static void set_cached_x509_store(struct Curl_cfilter *cf,
     mbackend->time = Curl_now();
     mbackend->store = store;
     mbackend->CAfile = CAfile;
+    mbackend->no_partialchain = ssl_config->no_partialchain;
   }
 }
 

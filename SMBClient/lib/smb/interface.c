@@ -43,7 +43,11 @@
 #include <spawn.h>
 #include <netsmb/smb_2.h>
 #include <netsmb/smb_dev_2.h>
+#include <netinet/in.h>
 
+
+#define SMB_DEFAULT_LINK_SPEED  990000000       /* 990 Mbps fallback for tunnel/unknown interfaces */
+#define SMB_LINK_SPEED_10G      10000000000ULL  /* 10 Gbps */
 
 struct smb_ifmedia_desc {
     int     ifmt_word;
@@ -375,6 +379,7 @@ releaseNetworkInterfaceVector(struct network_interface_info_vector* vector)
     }
 }
 
+
 /*
  * This routine query the Client's interface and build an Interface List
  * so later on we could use it for Multi Channel
@@ -427,82 +432,126 @@ createNetworkInterfaceVector(struct network_interface_info_vector** responseVect
         /* Query interface media */
         strlcpy(ifmr.ifm_name, ifa->ifa_name, sizeof(ifmr.ifm_name));
         if (ioctl(sockfd, SIOCGIFXMEDIA, &ifmr)) {
-            continue;
-        }
-
-        /* Skip inactive interfaces */
-        if ((ifmr.ifm_status & IFM_ACTIVE) == 0) {
-            continue;
-        }
-
-        /*
-         * <58407760> SIOCGIFXMEDIA is the way to find the link speed of
-         * Ethernet ports but does not apply to Wi-Fi.
-         */
-        if (IFM_TYPE(ifmr.ifm_active) == IFM_ETHER) {
-            /* Does the interface support the subtype? */
-            if (IFM_SUBTYPE(ifmr.ifm_active) != 0) {
-                /* convert IFM_SUBTYPE to speed[b] */
-                uint64_t invalid_speed = -1;
-                for (desc = &ifm_subtype_ethernet_descriptions[0]; desc->speed != invalid_speed; desc++) {
-                    if (IFM_SUBTYPE(ifmr.ifm_active) == desc->ifmt_word) {
-                        link_speed = desc->speed;
-                    }
-                }
+            /*
+             * SIOCGIFXMEDIA fails with EOPNOTSUPP/ENXIO/ENODEV on virtual
+             * tunnel interfaces that have no physical media layer.  Any other
+             * error means something unexpected went wrong — skip the interface.
+             */
+            int xmedia_err = errno;
+            if ((xmedia_err != EOPNOTSUPP) &&
+                (xmedia_err != ENXIO) &&
+                (xmedia_err != ENODEV)) {
+                os_log_error(OS_LOG_DEFAULT,
+                             "%s: SIOCGIFXMEDIA failed unexpectedly for <%s>: %d",
+                             __FUNCTION__, ifa->ifa_name, xmedia_err);
+                continue;
             }
-            else {
-                /*
-                 * <104620653> No IFM_SUBTYPE found.
-                 * Is it Ethernet over Thunderbolt or is it Ethernet over
-                 * Thunderbolt bridge ("bridge#")?
-                 *
-                 * Note: We can possibly remove this check once <103029620> gets
-                 * resolved and we get back an actual Thunderbolt speed to use
-                 * from IFM_SUBTYPE
-                 */
-                strlcpy(ifr.ifr_name, ifa->ifa_name, sizeof(ifr.ifr_name));
 
-                if (ioctl(sockfd, SIOCGIFTYPE, &ifr) != -1) {
-                    if ((ifr.ifr_type.ift_type == IFT_ETHER) &&
-                        (ifr.ifr_type.ift_subfamily == IFRTYPE_SUBFAMILY_THUNDERBOLT)) {
-                        /*
-                         * Its Ethernet over Thunderbolt, so hardcode
-                         * to 10 gbps
-                         */
-                        link_speed = 10000000000;
-                    }
-                    else {
-                        if ((ifr.ifr_type.ift_type == IFT_BRIDGE) &&
-                            (ifr.ifr_type.ift_family == IFRTYPE_FAMILY_ETHERNET)) {
-                            /*
-                             * Assume its Ethernet over Thunderbolt bridge, so
-                             * hardcode to 10 gbps
-                             */
-                            link_speed = 10000000000;
-                        }
-                        else {
-                            os_log_error(OS_LOG_DEFAULT, "%s: IFM_SUBTYPE is 0 for interface <%s>?",
-                                         __FUNCTION__, ifa->ifa_name);
+            /*
+             * SIOCGIFXMEDIA is not supported on virtual tunnel interfaces
+             * (utun, ppp, ipsec, etc.) — they have no physical media layer.
+             * Allow active point-to-point interfaces that have a routable
+             * (non-link-local) address; link_speed is set to the 990 Mbps
+             * default directly below.
+             */
+            bool is_tunnel_candidate =
+                ((ifa->ifa_flags & (IFF_UP | IFF_RUNNING | IFF_POINTOPOINT)) ==
+                 (IFF_UP | IFF_RUNNING | IFF_POINTOPOINT)) &&
+                !(ifa->ifa_flags & IFF_LOOPBACK);
+
+            bool is_link_local = false;
+            if (ifa->ifa_addr->sa_family == AF_INET) {
+                struct sockaddr_in sin;
+                memcpy(&sin, ifa->ifa_addr, sizeof(sin));
+                is_link_local = IN_LINKLOCAL(ntohl(sin.sin_addr.s_addr));
+            } else { /* AF_INET6 */
+                struct sockaddr_in6 sin6;
+                memcpy(&sin6, ifa->ifa_addr, sizeof(sin6));
+                is_link_local = IN6_IS_ADDR_LINKLOCAL(&sin6.sin6_addr);
+            }
+
+            if (!is_tunnel_candidate || is_link_local) {
+                continue;
+            }
+
+            link_speed = SMB_DEFAULT_LINK_SPEED;
+            os_log_info(OS_LOG_DEFAULT, "%s: tunnel interface <%s>, setting link speed to 990Mb",
+                        __FUNCTION__, ifa->ifa_name);
+        } else {
+            /* Skip inactive interfaces */
+            if ((ifmr.ifm_status & IFM_ACTIVE) == 0) {
+                continue;
+            }
+
+            /*
+             * <58407760> SIOCGIFXMEDIA is the way to find the link speed of
+             * Ethernet ports but does not apply to Wi-Fi.
+             */
+            if (IFM_TYPE(ifmr.ifm_active) == IFM_ETHER) {
+                /* Does the interface support the subtype? */
+                if (IFM_SUBTYPE(ifmr.ifm_active) != 0) {
+                    /* convert IFM_SUBTYPE to speed[b] */
+                    uint64_t invalid_speed = -1;
+                    for (desc = &ifm_subtype_ethernet_descriptions[0]; desc->speed != invalid_speed; desc++) {
+                        if (IFM_SUBTYPE(ifmr.ifm_active) == desc->ifmt_word) {
+                            link_speed = desc->speed;
                         }
                     }
                 }
                 else {
-                    os_log_error(OS_LOG_DEFAULT, "%s: SIOCGIFTYPE failed %d for interface <%s>",
-                                 __FUNCTION__, errno, ifr.ifr_name);
+                    /*
+                     * <104620653> No IFM_SUBTYPE found.
+                     * Is it Ethernet over Thunderbolt or is it Ethernet over
+                     * Thunderbolt bridge ("bridge#")?
+                     *
+                     * Note: We can possibly remove this check once <103029620> gets
+                     * resolved and we get back an actual Thunderbolt speed to use
+                     * from IFM_SUBTYPE
+                     */
+                    strlcpy(ifr.ifr_name, ifa->ifa_name, sizeof(ifr.ifr_name));
+
+                    if (ioctl(sockfd, SIOCGIFTYPE, &ifr) != -1) {
+                        if ((ifr.ifr_type.ift_type == IFT_ETHER) &&
+                            (ifr.ifr_type.ift_subfamily == IFRTYPE_SUBFAMILY_THUNDERBOLT)) {
+                            /*
+                             * Its Ethernet over Thunderbolt, so hardcode
+                             * to 10 gbps
+                             */
+                            link_speed = SMB_LINK_SPEED_10G;
+                        }
+                        else {
+                            if ((ifr.ifr_type.ift_type == IFT_BRIDGE) &&
+                                (ifr.ifr_type.ift_family == IFRTYPE_FAMILY_ETHERNET)) {
+                                /*
+                                 * Assume its Ethernet over Thunderbolt bridge, so
+                                 * hardcode to 10 gbps
+                                 */
+                                link_speed = SMB_LINK_SPEED_10G;
+                            }
+                            else {
+                                os_log_error(OS_LOG_DEFAULT, "%s: IFM_SUBTYPE is 0 for interface <%s>?",
+                                             __FUNCTION__, ifa->ifa_name);
+                            }
+                        }
+                    }
+                    else {
+                        os_log_error(OS_LOG_DEFAULT, "%s: SIOCGIFTYPE failed %d for interface <%s>",
+                                     __FUNCTION__, errno, ifr.ifr_name);
+                    }
                 }
+            } else if ((IFM_TYPE(ifmr.ifm_active) == IFM_IEEE80211)) {
+                link_speed = getWifiLinkSpeed(sockfd, ifa->ifa_name);
+            } else {
+                // We currently support only Ethernet and WiFi
+                continue;
             }
-        } else if ((IFM_TYPE(ifmr.ifm_active) == IFM_IEEE80211)) {
-            link_speed = getWifiLinkSpeed(sockfd, ifa->ifa_name);
-        } else {
-            // We currently support only Ethernet and WiFi
-            continue;
         }
 
         if (link_speed == 0) {
             os_log_error(OS_LOG_DEFAULT,
                          "%s: could not get %s speed -- set it to 990Mb",
                          __FUNCTION__, ifa->ifa_name);
-            link_speed = 990000000;
+            link_speed = SMB_DEFAULT_LINK_SPEED;
         }
 
         if ((*responseVector) == NULL) {

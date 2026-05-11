@@ -2347,6 +2347,40 @@ danglingPeerCleanup:(BOOL)danglingPeerCleanup
 #endif
 }
 
+- (int)icscRepairInvalidateCacheVersionWithArguments:(OTControlArguments*)arguments
+                                                json:(bool)json
+{
+#if OCTAGON
+    __block int ret = 1;
+    
+    [self.control icscRepairInvalidateCacheVersion:arguments
+                                             reply:^(NSError* _Nullable error) {
+        if(error) {
+            if (json) {
+                print_json(@{@"error" : [error description]});
+            } else {
+                fprintf(stderr, "Error invalidating icsc repair cache version: %s\n", [[error description] UTF8String]);
+            }
+        } else {
+            if (json) {
+                print_json(@{@"success" : @YES});
+            } else {
+                printf("Successfully invalidated icsc repair cache version.\n");
+            }
+            ret = 0;
+        }
+    }];
+    return ret;
+#else
+    if (json) {
+        print_json(@{@"unimplemented" : @YES});
+    } else {
+        fprintf(stderr, "Unimplemented.\n");
+    }
+    return 1;
+#endif
+}
+
 - (int)fetchTotalTrustedPeersWithArguments:(OTControlArguments*)arguments
                                       json:(bool)json
 {

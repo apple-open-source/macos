@@ -2915,6 +2915,9 @@ void Document::resolveStyle(ResolveStyleType type)
                 documentElement->invalidateStyleForSubtree();
         }
 
+        // Size media queries are affected by zoom which is read from root style set in resolveForDocument above.
+        styleScope().evaluateMediaQueriesForViewportChange();
+
         {
             Style::TreeResolver resolver(*this, WTF::move(m_pendingRenderTreeUpdate));
             auto styleUpdate = resolver.resolve();
@@ -4527,7 +4530,7 @@ void Document::enqueueEventTimingEntriesIfNeeded()
     if (!window())
         return;
 
-    protectedWindow()->dispatchPendingEventTimingEntries();
+protectedWindow()->finalizeAndQueueEventTimingEntries();
 }
 
 ExceptionOr<void> Document::write(Document* entryDocument, SegmentedString&& text)
@@ -5071,6 +5074,11 @@ IDBClient::IDBConnectionProxy* Document::idbConnectionProxy()
 RefPtr<IDBClient::IDBConnectionProxy> Document::protectedIDBConnectionProxy()
 {
     return idbConnectionProxy();
+}
+
+void Document::clearIDBConnectionProxy()
+{
+    m_idbConnectionProxy = nullptr;
 }
 
 StorageConnection* Document::storageConnection()

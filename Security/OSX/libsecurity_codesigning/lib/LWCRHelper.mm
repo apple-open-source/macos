@@ -11,7 +11,7 @@
 #include "TLE.h"
 #endif
 
-#undef verify // Macro from Foundation conflicts with Security framework headers and isn't used below.
+#import "undef_foundation_macros.h"
 
 #import <Security/Security.h>
 #import <kern/cs_blobs.h>

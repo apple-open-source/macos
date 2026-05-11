@@ -220,6 +220,9 @@ idmsTargetContext:(NSString*_Nullable)idmsTargetContextString idmsCuttlefishPass
 - (int)icscRepairResetWithArguments:(OTControlArguments*)arguments
                                json:(bool)json;
 
+- (int)icscRepairInvalidateCacheVersionWithArguments:(OTControlArguments*)arguments
+                                                json:(bool)json;
+
 - (int)fetchTotalTrustedPeersWithArguments:(OTControlArguments*)arguments
                                       json:(bool)json;
 

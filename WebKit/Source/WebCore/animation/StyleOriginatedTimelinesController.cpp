@@ -253,13 +253,13 @@ void StyleOriginatedTimelinesController::documentDidResolveStyle()
     }
 
     // Purge any inactive named timeline no longer attached to an animation.
-    for (auto& [name, timelines] : m_nameToTimelineMap) {
+    m_nameToTimelineMap.removeIf([](auto& keyValuePair) {
+        auto& timelines = keyValuePair.value;
         timelines.removeAllMatching([](auto& timeline) {
             return timeline->isInactiveStyleOriginatedTimeline() && timeline->relevantAnimations().isEmpty();
         });
-        if (timelines.isEmpty())
-            m_nameToTimelineMap.remove(name);
-    }
+        return timelines.isEmpty();
+    });
 
     m_removedTimelines.clear();
 }
@@ -317,7 +317,9 @@ void StyleOriginatedTimelinesController::unregisterNamedTimeline(const AtomStrin
     // their `animation-timeline` properly.
     timelines.removeAt(i);
 
-    for (Ref animation : timeline->relevantAnimations()) {
+    // Ensure we iterate on a copy of this timeline's registered animations as calling
+    // CSSAnimation::syncStyleOriginatedTimeline() may mutate it.
+    for (Ref animation : copyToVector(timeline->relevantAnimations())) {
         if (RefPtr cssAnimation = dynamicDowncast<CSSAnimation>(animation)) {
             if (cssAnimation->owningElement())
                 cssAnimation->syncStyleOriginatedTimeline();
@@ -503,7 +505,7 @@ void StyleOriginatedTimelinesController::styleableWasRemoved(const Styleable& st
     for (Ref timeline : m_removedTimelines) {
         if (originatingElement(timeline) != styleable)
             continue;
-        for (Ref animation : timeline->relevantAnimations()) {
+        for (Ref animation : copyToVector(timeline->relevantAnimations())) {
             if (RefPtr cssAnimation = dynamicDowncast<CSSAnimation>(animation.get())) {
                 if (auto owningElement = cssAnimation->owningElement()) {
                     attachAnimation(*cssAnimation, AllowsDeferral::Yes);

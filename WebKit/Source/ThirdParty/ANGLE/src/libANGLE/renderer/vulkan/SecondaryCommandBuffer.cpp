@@ -46,12 +46,20 @@ const char *GetCommandString(CommandID id)
             return "BindIndexBuffer";
         case CommandID::BindIndexBuffer2:
             return "BindIndexBuffer2";
+        case CommandID::BindTileMemory:
+            return "BindTileMemory";
         case CommandID::BindTransformFeedbackBuffers:
             return "BindTransformFeedbackBuffers";
         case CommandID::BindVertexBuffers:
             return "BindVertexBuffers";
         case CommandID::BindVertexBuffers2:
             return "BindVertexBuffers2";
+        case CommandID::BindVertexBuffers2NoSize:
+            return "BindVertexBuffers2NoSize";
+        case CommandID::BindVertexBuffers2NoSizeNoStride:
+            return "BindVertexBuffers2NoSizeNoStride";
+        case CommandID::BindVertexBuffers2NoStride:
+            return "BindVertexBuffers2NoStride";
         case CommandID::BlitImage:
             return "BlitImage";
         case CommandID::BufferBarrier:
@@ -148,6 +156,8 @@ const char *GetCommandString(CommandID id)
             return "SetLogicOp";
         case CommandID::SetPrimitiveRestartEnable:
             return "SetPrimitiveRestartEnable";
+        case CommandID::SetPrimitiveTopology:
+            return "SetPrimitiveTopology";
         case CommandID::SetRasterizerDiscardEnable:
             return "SetRasterizerDiscardEnable";
         case CommandID::SetScissor:
@@ -293,6 +303,15 @@ void SecondaryCommandBuffer::executeCommands(PrimaryCommandBuffer *primary)
                                              params->size, params->indexType);
                     break;
                 }
+                case CommandID::BindTileMemory:
+                {
+                    const BindTileMemoryParams *params =
+                        getParamPtr<BindTileMemoryParams>(currentCommand);
+                    const VkTileMemoryBindInfoQCOM tileMemoryBindInfo = {
+                        VK_STRUCTURE_TYPE_TILE_MEMORY_BIND_INFO_QCOM, nullptr, params->tileMemory};
+                    vkCmdBindTileMemoryQCOM(cmdBuffer, &tileMemoryBindInfo);
+                    break;
+                }
                 case CommandID::BindTransformFeedbackBuffers:
                 {
                     const BindTransformFeedbackBuffersParams *params =
@@ -329,6 +348,30 @@ void SecondaryCommandBuffer::executeCommands(PrimaryCommandBuffer *primary)
                         GetNextArrayParameter<VkDeviceSize>(sizes, params->bindingCount);
                     vkCmdBindVertexBuffers2EXT(cmdBuffer, 0, params->bindingCount, buffers, offsets,
                                                sizes, strides);
+                    break;
+                }
+                case CommandID::BindVertexBuffers2NoSize:
+                {
+                    const BindVertexBuffers2NoSizeParams *params =
+                        getParamPtr<BindVertexBuffers2NoSizeParams>(currentCommand);
+                    const VkBuffer *buffers = GetFirstArrayParameter<VkBuffer>(params);
+                    const VkDeviceSize *offsets =
+                        GetNextArrayParameter<VkDeviceSize>(buffers, params->bindingCount);
+                    const VkDeviceSize *strides =
+                        GetNextArrayParameter<VkDeviceSize>(offsets, params->bindingCount);
+                    vkCmdBindVertexBuffers2EXT(cmdBuffer, 0, params->bindingCount, buffers, offsets,
+                                               nullptr, strides);
+                    break;
+                }
+                case CommandID::BindVertexBuffers2NoSizeNoStride:
+                {
+                    const BindVertexBuffers2NoSizeNoStrideParams *params =
+                        getParamPtr<BindVertexBuffers2NoSizeNoStrideParams>(currentCommand);
+                    const VkBuffer *buffers = GetFirstArrayParameter<VkBuffer>(params);
+                    const VkDeviceSize *offsets =
+                        GetNextArrayParameter<VkDeviceSize>(buffers, params->bindingCount);
+                    vkCmdBindVertexBuffers2EXT(cmdBuffer, 0, params->bindingCount, buffers, offsets,
+                                               nullptr, nullptr);
                     break;
                 }
                 case CommandID::BindVertexBuffers2NoStride:
@@ -802,6 +845,13 @@ void SecondaryCommandBuffer::executeCommands(PrimaryCommandBuffer *primary)
                     vkCmdSetPrimitiveRestartEnableEXT(cmdBuffer, params->primitiveRestartEnable);
                     break;
                 }
+                case CommandID::SetPrimitiveTopology:
+                {
+                    const SetPrimitiveTopologyParams *params =
+                        getParamPtr<SetPrimitiveTopologyParams>(currentCommand);
+                    vkCmdSetPrimitiveTopologyEXT(cmdBuffer, params->primitiveTopology);
+                    break;
+                }
                 case CommandID::SetRasterizerDiscardEnable:
                 {
                     const SetRasterizerDiscardEnableParams *params =
@@ -906,7 +956,7 @@ void SecondaryCommandBuffer::executeCommands(PrimaryCommandBuffer *primary)
                 {
                     const WriteTimestampParams *params =
                         getParamPtr<WriteTimestampParams>(currentCommand);
-                    vkCmdWriteTimestamp(cmdBuffer, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
+                    vkCmdWriteTimestamp(cmdBuffer, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
                                         params->queryPool, params->query);
                     break;
                 }
@@ -914,7 +964,7 @@ void SecondaryCommandBuffer::executeCommands(PrimaryCommandBuffer *primary)
                 {
                     const WriteTimestampParams *params =
                         getParamPtr<WriteTimestampParams>(currentCommand);
-                    vkCmdWriteTimestamp2KHR(cmdBuffer, VK_PIPELINE_STAGE_2_BOTTOM_OF_PIPE_BIT,
+                    vkCmdWriteTimestamp2KHR(cmdBuffer, VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
                                             params->queryPool, params->query);
                     break;
                 }

@@ -178,6 +178,8 @@ _SSLCiphersuteGroupToTLSCiphersuiteGroup(SSLCiphersuiteGroup group)
             return tls_ciphersuite_group_ats;
         case kSSLCiphersuiteGroupATSCompatibility:
             return tls_ciphersuite_group_ats_compatibility;
+        case kSSLCiphersuiteGroupATSFCP_v2_1:
+            return tls_ciphersuite_group_ats_fcp_v2_1;
     }
     return tls_ciphersuite_group_default;
 }

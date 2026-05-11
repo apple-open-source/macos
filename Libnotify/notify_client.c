@@ -307,6 +307,30 @@ atomic_increment32(atomic_uint_fast32_t *val)
 	return os_atomic_inc(val, relaxed);
 }
 
+/*
+ * Check if notification registration limit would be exceeded.
+ * Only call this for registrations that result in IPC to notifyd.
+ * Uses a smaller threshold to account for concurrent registrations.
+ */
+static inline void
+check_ipc_registration_limit(notify_globals_t globals, const char *name)
+{
+	uint32_t count = os_atomic_load(&globals->ipc_registration_count, acquire);
+	if (os_unlikely(count >= (NOTIFY_MAX_REGISTRATIONS_PER_CLIENT - 100))) {
+		char reason_string[256];
+		snprintf(reason_string, sizeof(reason_string),
+				 "BUG IN CLIENT OF LIBNOTIFY: exceeded registration limit. "
+				 "Last registration was for name %s", name);
+		os_crash(reason_string);
+	}
+}
+
+static inline uint32_t
+allocate_token_id(notify_globals_t globals)
+{
+	return atomic_increment32(&globals->token_id);
+}
+
 inline static void
 name_node_retain(name_node_t *node)
 {
@@ -410,6 +434,7 @@ _notify_init_globals(void * /* notify_globals_t */ _globals)
 	}
 	globals->notify_lock = OS_UNFAIR_LOCK_INIT;
 	os_atomic_store(&globals->token_id, INITIAL_TOKEN_ID, relaxed);
+	os_atomic_store(&globals->ipc_registration_count, 0, relaxed);
 	globals->notify_common_token = -1;
 	globals->check_lock = OS_UNFAIR_LOCK_INIT;
 	_nc_table_init(&globals->name_node_table, offsetof(name_node_t, name));
@@ -798,6 +823,11 @@ registration_node_delete_locked(notify_globals_t globals, registration_node_t *r
 #ifdef DEBUG
 	if (_libnotify_debug & DEBUG_NODES) _notify_client_log(ASL_LEVEL_NOTICE, "%s token %u refcount %d flags 0x%08x %p FREE", __func__, r->token, r->refcount, r->flags, r);
 #endif
+
+	/* Only decrement for IPC registrations (not self or coalesced non-base) */
+	if (!(r->flags & NOTIFY_FLAG_SELF) && !(r->flags & NOTIFY_FLAG_COALESCED)) {
+		os_atomic_dec(&globals->ipc_registration_count, release);
+	}
 
 	_nc_table_delete_n(&globals->registration_table, r->token, &r->token);
 
@@ -1287,6 +1317,14 @@ client_registration_create_base( __attribute__((nonnull)) const char * name, uin
 	reg_node->client_id = cid;
 
 	/*
+	 * Increment IPC registration count for registrations that result in IPC to notifyd.
+	 * This matches the decrement in registration_node_delete_locked().
+	 */
+	if (!(flags & NOTIFY_FLAG_SELF) && !(flags & NOTIFY_FLAG_COALESCED)) {
+		os_atomic_inc(&globals->ipc_registration_count, release);
+	}
+
+	/*
 	 * Registration nodes retain their name node, so in theory we should
 	 * retain name_node here.  However, name_node_for_name() retains
 	 * the name node, so we just make the assignment here and skip
@@ -1338,7 +1376,8 @@ client_registration_create(const char *name, uint64_t nid, uint32_t token, uint3
 	return client_registration_create_base(name, nid, token, cid, slot, flags, sig, fd, mp, false);
 }
 
-/*
+/**
+ * Create base registrations for IPC coalesced registrations.
  * N.B. base_registration_create is called from notify_register_mach_port(), which holds the global lock
  */
 static uint32_t
@@ -1388,6 +1427,10 @@ base_registration_create_locked(notify_globals_t globals, __attribute__((nonnull
 	reg_node->fd = FD_NONE;
 	reg_node->signal_or_xtra_mp = SIGNAL_NONE;
 	reg_node->name_node = name_node;
+
+	os_assert_zero(reg_node->flags & NOTIFY_FLAG_SELF);
+	os_assert_zero(reg_node->flags & NOTIFY_FLAG_COALESCED);
+	os_atomic_inc(&globals->ipc_registration_count, release);
 
 	/*
 	 * Registration nodes retain their name node, so in theory we should
@@ -2487,7 +2530,7 @@ notify_register_check(const char *name, int *out_token)
 
 	if (notification_name_is_self(name))
 	{
-		token = atomic_increment32(&globals->token_id);
+		token = allocate_token_id(globals);
 		status = _notify_lib_register_plain(&globals->self_state, name, NOTIFY_CLIENT_SELF, token, SLOT_NONE, 0, 0, &nid);
 		if (status != NOTIFY_STATUS_OK)
 		{
@@ -2544,7 +2587,8 @@ notify_register_check(const char *name, int *out_token)
 		}
 	}
 
-	token = atomic_increment32(&globals->token_id);
+	check_ipc_registration_limit(globals, name);
+	token = allocate_token_id(globals);
 	cid = token;
 	kstatus = _notify_server_register_check_2(globals->notify_server_port, (caddr_t)name, token, &shmsize, &slot, &nid, (int32_t *)&status);
 
@@ -2583,17 +2627,8 @@ notify_register_check(const char *name, int *out_token)
 				if (_libnotify_debug & DEBUG_API) _notify_client_log(ASL_LEVEL_NOTICE, "<- %s [%d]\n", __func__, __LINE__ + 2);
 #endif
 				mutex_unlock("global", &globals->notify_lock, __func__, __LINE__);
-				return NOTIFY_STATUS_FAILED;
-			}
-
-			if (globals->shm_base == NULL)
-			{
-#ifdef DEBUG
-				if (_libnotify_debug & DEBUG_API) _notify_client_log(ASL_LEVEL_NOTICE, "<- %s [%d]\n", __func__, __LINE__ + 2);
-#endif
-				mutex_unlock("global", &globals->notify_lock, __func__, __LINE__);
-				REPORT_BAD_BEHAVIOR("Libnotify: %s failed with code %d on line %d", __func__,
-							NOTIFY_STATUS_SHM_BASE_REMAINS_NULL, __LINE__);
+				/* Cancel the server-side registration to avoid leak (rdar://172291342) */
+				_notify_server_cancel_2(globals->notify_server_port, token);
 				return NOTIFY_STATUS_FAILED;
 			}
 		}
@@ -2669,7 +2704,7 @@ notify_register_plain(const char *name, int *out_token)
 
 	if (notification_name_is_self(name))
 	{
-		token = atomic_increment32(&globals->token_id);
+		token = allocate_token_id(globals);
 		status = _notify_lib_register_plain(&globals->self_state, name, NOTIFY_CLIENT_SELF, token, SLOT_NONE, 0, 0, &nid);
 		if (status != NOTIFY_STATUS_OK)
 		{
@@ -2727,7 +2762,8 @@ notify_register_plain(const char *name, int *out_token)
 		}
 	}
 
-	token = atomic_increment32(&globals->token_id);
+	check_ipc_registration_limit(globals, name);
+	token = allocate_token_id(globals);
 	cid = token;
 	kstatus = _notify_server_register_plain_2(globals->notify_server_port, (caddr_t)name, token);
 
@@ -2805,7 +2841,7 @@ notify_register_signal(const char *name, int sig, int *out_token)
 
 	if (notification_name_is_self(name))
 	{
-		token = atomic_increment32(&globals->token_id);
+		token = allocate_token_id(globals);
 		status = _notify_lib_register_signal(&globals->self_state, name, NOTIFY_CLIENT_SELF, token, sig, 0, 0, &nid);
 		if (status != NOTIFY_STATUS_OK)
 		{
@@ -2876,7 +2912,8 @@ notify_register_signal(const char *name, int sig, int *out_token)
 		}
 	}
 
-	token = atomic_increment32(&globals->token_id);
+	check_ipc_registration_limit(globals, name);
+	token = allocate_token_id(globals);
 	cid = token;
 	kstatus = _notify_server_register_signal_2(globals->notify_server_port, (caddr_t)name, token, sig);
 	if (kstatus != KERN_SUCCESS)
@@ -2963,7 +3000,7 @@ notify_register_mach_port_self(const char *name, mach_port_name_t *notify_port, 
 		return NOTIFY_STATUS_INVALID_PORT;
 	}
 
-	token = atomic_increment32(&globals->token_id);
+	token = allocate_token_id(globals);
 	status = _notify_lib_register_mach_port(&globals->self_state, name, NOTIFY_CLIENT_SELF, token, *notify_port, 0, 0, &nid);
 	if (status != NOTIFY_STATUS_OK)
 	{
@@ -3053,7 +3090,8 @@ notify_register_mach_port_no_dispatch(const char *name, mach_port_name_t *notify
 		}
 	}
 
-	token = atomic_increment32(&globals->token_id);
+	check_ipc_registration_limit(globals, name);
+	token = allocate_token_id(globals);
 	cid = token;
 
 	if ((flags & NOTIFY_REUSE) == 0) {
@@ -3200,7 +3238,8 @@ notify_register_coalesced_registration(const char *name, int flags, int *out_tok
 	if (create_base)
 	{
 		/* base of coalesced registrations gets a private token */
-		token = atomic_increment32(&globals->token_id);
+		check_ipc_registration_limit(globals, name);
+		token = allocate_token_id(globals);
 
 		kstatus = _notify_server_register_common_port(globals->notify_server_port, (caddr_t)name, token);
 		if (kstatus != KERN_SUCCESS)
@@ -3244,7 +3283,7 @@ notify_register_coalesced_registration(const char *name, int flags, int *out_tok
 	mutex_unlock("global", &globals->notify_lock, __func__, __LINE__);
 
 	/* caller's token */
-	token = atomic_increment32(&globals->token_id);
+	token = allocate_token_id(globals);
 	cid = token;
 	tflags |= NOTIFY_FLAG_COALESCED;
 
@@ -3557,7 +3596,7 @@ notify_register_file_descriptor(const char *name, int *notify_fd, int flags, int
 
 	if (notification_name_is_self(name))
 	{
-		token = atomic_increment32(&globals->token_id);
+		token = allocate_token_id(globals);
 		status = _notify_lib_register_file_descriptor(&globals->self_state, name, NOTIFY_CLIENT_SELF, token, fdpair[1], 0, 0, &nid);
 		if (status != NOTIFY_STATUS_OK)
 		{
@@ -3682,7 +3721,8 @@ notify_register_file_descriptor(const char *name, int *notify_fd, int flags, int
 		return NOTIFY_STATUS_FAILED;
 	}
 
-	token = atomic_increment32(&globals->token_id);
+	check_ipc_registration_limit(globals, name);
+	token = allocate_token_id(globals);
 	kstatus = _notify_server_register_file_descriptor_2(globals->notify_server_port, (caddr_t)name, token, (mach_port_t)fileport);
 	if (kstatus != KERN_SUCCESS)
 	{

@@ -78,8 +78,7 @@ static NSString *const kFvunlockResetDbFileName = @"%@/%@/var/db/.authdbreset";
 
 - (BOOL) loadWithError:(NSError **)error;
 
-- (NSArray<NSDictionary *> *) users;
-- (NSArray<NSDictionary *> *) users:(NSString *)volumeUuid;
+- (NSArray<NSDictionary *> *) users:(NSString *)volumeUuid includeKeys:(BOOL)includeKeys;
 - (NSDictionary *) globalPrefs:(NSString *)uuid domain:(NSString *)domain;
 - (NSDictionary *) managedPrefs:(NSString *)uuid domain:(NSString *)domain;
 - (NSDictionary *) userPrefs:(NSString *)uuid user:(NSString *)user domain:(NSString *)domain;
@@ -226,13 +225,7 @@ OSStatus preloginDb(PreloginUserDb * _Nonnull * _Nonnull _Nonnulldb);
     [self processPrebootVolumes:localVolumes.allValues worker:volumeWorker canMount:YES];
 }
 
-- (NSArray<NSDictionary *> *)users
-{
-    [self processBusyVolumes];
-    return [self users:nil];
-}
-
-- (NSArray<NSDictionary *> *)users:(NSString *)requestedUuid
+- (NSArray<NSDictionary *> *)users:(NSString *)requestedUuid includeKeys:(BOOL)includeKeys
 {
     [self processBusyVolumes];
 
@@ -258,14 +251,23 @@ OSStatus preloginDb(PreloginUserDb * _Nonnull * _Nonnull _Nonnulldb);
         os_log_debug_air("Requested volume %{public}@ has no users, trying volume %{public}@", requestedUuid, realUuid);
         requestedUuid = realUuid;
     }
-    
+
     NSMutableArray *allUsers = [NSMutableArray new];
     for (NSString *uuid in _dbDataDict) {
         if (requestedUuid && ![requestedUuid isEqualToString:uuid]) {
             os_log_debug_air("Requested volume %{public}@ so ignoring volume %{public}@", requestedUuid, uuid);
             continue;
         }
-        [allUsers addObjectsFromArray:_dbDataDict[uuid]];
+        for (NSDictionary *userDict in _dbDataDict[uuid]) {
+            if (includeKeys) {
+                [allUsers addObject:userDict];
+            } else {
+                NSMutableDictionary *sanitized = [userDict mutableCopy];
+                [sanitized removeObjectForKey:@PLUDB_KEK];
+                [sanitized removeObjectForKey:@PLUDB_VEK];
+                [allUsers addObject:sanitized];
+            }
+        }
     }
     return allUsers;
 }
@@ -982,7 +984,7 @@ OSStatus preloginDb(PreloginUserDb * _Nonnull * _Nonnull _Nonnulldb);
             _dbDataDict[volumeUuid.UUIDString] = array;
         }
         
-        os_log_debug_air("Prelogin UserDB added entry: %{public}@", dict);
+        os_log_debug_air("Prelogin UserDB added entry for user: %{public}@ guid: %{public}@", dict[@PLUDB_USERNAME], dict[@PLUDB_GUID]);
         [array addObject:dict];
     }
     
@@ -1137,7 +1139,7 @@ OSStatus preloginDb(PreloginUserDb **db)
     return noErr;
 }
 
-OSStatus preloginudb_copy_userdb(const char *uuid, UInt32 flags, CFArrayRef *output)
+OSStatus preloginudb_copy_userdb(const char *uuid, UInt32 flags, Boolean includeKeys, CFArrayRef *output)
 {
     if (!output) {
         return errAuthorizationBadAddress;
@@ -1148,10 +1150,10 @@ OSStatus preloginudb_copy_userdb(const char *uuid, UInt32 flags, CFArrayRef *out
         os_log_error(AUTHD_LOG, "Unable to read db");
         return retval;
     }
-    
+
     os_log_debug_air("Processing user db for volume %{public}s with flags %d", uuid, flags);
 
-    *output = CFBridgingRetain([database users:uuid ? [NSString stringWithUTF8String:uuid]  : nil]);
+    *output = CFBridgingRetain([database users:uuid ? [NSString stringWithUTF8String:uuid]  : nil includeKeys:includeKeys]);
     return errAuthorizationSuccess;
 }
 

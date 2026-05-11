@@ -79,7 +79,16 @@ CFArrayRef SecAnchorCacheCopyAnchors(CFStringRef policyId);
 CF_RETURNS_RETAINED
 _Nullable CFArrayRef SecAnchorPolicyPermittedAnchorRecords(CFArrayRef cfAnchorRecords, CFStringRef policyId);
 
+bool SecAnchorCacheIsBuiltInAppleAnchor(SecCertificateRef certificate);
 bool SecAnchorCacheIsAppleAnchor(SecCertificateRef certificate);
+
+CF_RETURNS_RETAINED
+CFDictionaryRef SecAnchorCacheCopyAppleAnchors(CFStringRef _Nullable policyId);
+
+CF_RETURNS_RETAINED
+_Nullable CFArrayRef SecAnchorCacheCopyAnchorRecordsForCertificate(SecCertificateRef cert);
+CF_RETURNS_RETAINED
+_Nullable CFArrayRef SecAnchorCacheCopyAnchorRecordsForSPKI(SecCertificateRef cert);
 
 CF_IMPLICIT_BRIDGING_DISABLED
 CF_ASSUME_NONNULL_END

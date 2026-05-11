@@ -50,10 +50,16 @@
 #include <stdio.h>
 #include <stdbool.h>
 
+#include <mach/host_info.h>
 #include <mach/mach.h>
+#include <mach/mach_error.h>
 #include <mach/vm_page_size.h>
+#include <mach/vm_statistics.h>
+#include <sys/errno.h>
+#include <sys/sysctl.h>
 
 vm_statistics64_data_t	vm_stat, last;
+bool has_mte = false;
 char	*pgmname;
 mach_port_t myHost;
 
@@ -104,6 +110,13 @@ main(int argc, char *argv[])
 
 	myHost = mach_host_self();
 
+	boolean_t feat_mte2;
+	size_t feat_mte2_size = sizeof(feat_mte2);
+	int ret = sysctlbyname("hw.optional.arm.FEAT_MTE2", &feat_mte2, &feat_mte2_size, NULL, 0);
+	if (!ret && feat_mte2 == TRUE) {
+		has_mte = true;
+	}
+
 	if (delay == 0.0) {
 		snapshot();
 	} else {
@@ -151,12 +164,27 @@ snapshot(void)
 	sspstat("Pageouts:", (uint64_t) (vm_stat.pageouts));
 	sspstat("Swapins:", (uint64_t) (vm_stat.swapins));
 	sspstat("Swapouts:", (uint64_t) (vm_stat.swapouts));
+	if (has_mte) {
+		sspstat("Pages tagged:", vm_stat.total_tagged_pages);
+		sspstat("Pages tagged resident:", vm_stat.resident_tagged_pages);
+		sspstat("Pages tagged compressed:", vm_stat.compressed_tagged_pages);
+
+		sspstat("Pages tag-storage:", vm_stat.total_tag_storage_pages);
+		sspstat("Pages tag-storage holding tags:", vm_stat.tag_storing_tag_storage_pages);
+		sspstat("Pages tag-storage free:", vm_stat.free_tag_storage_pages);
+		sspstat("Pages tag-storage non-tag pageable:", vm_stat.nontag_pageable_tag_storage_pages);
+		sspstat("Pages tag-storage non-tag wired:", vm_stat.nontag_wired_tag_storage_pages);
+
+		sspstat("Bytes of compressed tags:", vm_stat.compressed_tag_storage_bytes);
+		sspstat("Tagged compressions:", vm_stat.tagged_compressions);
+		sspstat("Tagged decompressions:", vm_stat.tagged_decompressions);
+	}
 }
 
 void
 sspstat(char *str, uint64_t n)
 {
-	printf("%-30s %16llu.\n", str, n);
+	printf("%-35s %16llu.\n", str, n);
 }
 
 void
@@ -165,7 +193,8 @@ banner(void)
 	get_stats(&vm_stat);
 	printf("Mach Virtual Memory Statistics: ");
 	printf("(page size of %llu bytes)\n", (mach_vm_size_t)vm_kernel_page_size);
-	printf("%8s %8s %8s %8s %8s %8s %8s %8s %8s %8s %8s %8s %11s %9s %8s %8s %8s %8s %8s %8s %8s %8s\n",
+	printf("%8s %8s %8s %8s %8s %8s %8s %8s %8s %8s %8s %8s %11s %9s %8s %8s %8s "
+	       "%8s %8s %8s %8s %8s",
 	       "free",
 	       "active",
 	       "specul",
@@ -188,6 +217,21 @@ banner(void)
 	       "pageout",
 	       "swapins",
 	       "swapouts");
+	if (has_mte) {
+		printf(" %8s %9s %12s %11s %8s %8s %13s %14s %11s %10s %11s",
+	       "tagged",
+	       "tgd-rsdnt",
+	       "tgd-cmprssed",
+	       "tag-storage",
+	       "tgs-tags",
+	       "tgs-free",
+	       "tgs-ntag-pgbl",
+		   "tgs-ntag-wired",
+		   "cmprsd-tags",
+	       "tgd-comprs",
+	       "tgd-dcomprs");
+	}
+	putchar('\n');
 	bzero(&last, sizeof(last));
 }
 
@@ -225,6 +269,19 @@ print_stats(void)
 	pstat((uint64_t) (vm_stat.pageouts - last.pageouts), 8);
 	pstat((uint64_t) (vm_stat.swapins - last.swapins), 8);
 	pstat((uint64_t) (vm_stat.swapouts - last.swapouts), 8);
+	if (has_mte) {
+		pstat(vm_stat.total_tagged_pages, 8);
+		pstat(vm_stat.resident_tagged_pages, 9);
+		pstat(vm_stat.compressed_tagged_pages, 12);
+		pstat(vm_stat.total_tag_storage_pages, 11);
+		pstat(vm_stat.tag_storing_tag_storage_pages, 8);
+		pstat(vm_stat.free_tag_storage_pages, 8);
+		pstat(vm_stat.nontag_pageable_tag_storage_pages, 13);
+		pstat(vm_stat.nontag_wired_tag_storage_pages, 14);
+		pstat(vm_stat.compressed_tag_storage_bytes, 11);
+		pstat(vm_stat.tagged_compressions - last.tagged_compressions, 10);
+		pstat(vm_stat.tagged_decompressions - last.tagged_decompressions, 11);
+	}
 	putchar('\n');
 	last = vm_stat;
 }
@@ -259,10 +316,10 @@ pstat(uint64_t n, int width)
 void
 get_stats(vm_statistics64_t stat)
 {
-	unsigned int count = HOST_VM_INFO64_COUNT;
+	mach_msg_type_number_t count = HOST_VM_INFO64_COUNT;
 	kern_return_t ret;
 	if ((ret = host_statistics64(myHost, HOST_VM_INFO64, (host_info64_t)stat, &count) != KERN_SUCCESS)) {
-		fprintf(stderr, "%s: failed to get statistics. error %d\n", pgmname, ret);
+		fprintf(stderr, "%s: failed to get statistics. error %s\n", pgmname, mach_error_string(ret));
 		exit(EXIT_FAILURE);
 	}
 }

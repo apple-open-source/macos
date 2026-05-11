@@ -531,7 +531,7 @@ static bool _ShouldSkipExpirationCheck(SecCertificateRef certificate, SecPVCRef 
     }
     if (!_SecTrustRemoveOldAppleAnchorSource()) {
         // Fallback to old Apple Anchor source
-        if (SecIsAppleTrustAnchor(certificate, kSecAppleTrustAnchorFlagsIncludeTestAnchors)) {
+        if (SecIsBuiltInAppleAnchor(certificate, kSecAppleTrustAnchorFlagsIncludeTestAnchors)) {
             return true;
         }
     }
@@ -929,7 +929,7 @@ static void SecPolicyCheckAnchorApple(SecPVCRef pvc,
     if (!_SecTrustRemoveOldAppleAnchorSource()) {
         // Fallback to old source
         SecAppleTrustAnchorFlags flags = 0;
-       foundMatch = foundMatch || SecIsAppleTrustAnchor(cert, flags);
+       foundMatch = foundMatch || SecIsBuiltInAppleAnchor(cert, flags);
     }
 
     if (!foundMatch)
@@ -1333,7 +1333,7 @@ static void SecPolicyCheckBasicCertificateProcessing(SecPVCRef pvc,
                          SecPVCSetResultForced(pvc, kSecPolicyCheckNameConstraints, 0, kCFBooleanFalse, true));
 #endif
 
-    if (!SecCertificatePathVCVerifyPolicyTree(path, is_anchor_trusted)) {
+    if (!SecCertificatePathVCVerifyPolicyGraph(path, is_anchor_trusted)) {
         if (!SecPVCSetResultForced(pvc, kSecPolicyCheckPolicyConstraints, 0, kCFBooleanFalse, true)) {
             goto errOut;
         }
@@ -1404,14 +1404,14 @@ static void SecPolicyCheckBasicCertificateProcessing(SecPVCRef pvc,
             }
         }
 #endif
-        /* (d) (e) (f) handled by SecCertificatePathVCVerifyPolicyTree */
+        /* (d) (e) (f) handled by SecCertificatePathVCVerifyPolicyGraph */
 
         /* If Last Cert in Path */
         if (i == n)
             break;
 
         /* Prepare for Next Cert */
-        /* (a) (b) Done by SecCertificatePathVCVerifyPolicyTree */
+        /* (a) (b) Done by SecCertificatePathVCVerifyPolicyGraph */
         /* (c)(d)(e)(f)  Done by SecPathBuilderGetNext and SecCertificatePathVCVerify */
 #if POLICY_SUBTREES
         /* (g) If a name constraints extension is included in the certificate, modify the permitted_subtrees and excluded_subtrees state variables.
@@ -1464,7 +1464,7 @@ static void SecPolicyCheckBasicCertificateProcessing(SecPVCRef pvc,
             }
         }
 #endif
-        /* (h), (i), (j) done by SecCertificatePathVCVerifyPolicyTree */
+        /* (h), (i), (j) done by SecCertificatePathVCVerifyPolicyGraph */
 
         /* (k) Checked in chain builder pre signature verify already. SecPVCParentCertificateChecks */
 
@@ -1500,7 +1500,7 @@ static void SecPolicyCheckBasicCertificateProcessing(SecPVCRef pvc,
 
     } /* end loop over certs in path */
     /* Wrap up */
-    /* (a) (b) done by SecCertificatePathVCVerifyPolicyTree */
+    /* (a) (b) done by SecCertificatePathVCVerifyPolicyGraph */
     /* (c) */
     /* (d) */
     /* If the subjectPublicKeyInfo field of the certificate contains an algorithm field with null parameters or parameters are omitted, compare the certificate subjectPublicKey algorithm to the working_public_key_algorithm. If the certificate subjectPublicKey algorithm and the
@@ -1514,7 +1514,7 @@ working_public_key_algorithm are different, set the working_public_key_parameter
         }
     }
 
-    /* (g) done by SecCertificatePathVCVerifyPolicyTree */
+    /* (g) done by SecCertificatePathVCVerifyPolicyGraph */
 
 errOut:
     CFReleaseNull(permitted_subtrees);

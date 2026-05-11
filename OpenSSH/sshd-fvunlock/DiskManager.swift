@@ -42,8 +42,6 @@ public struct DiskManager {
     }
 
     public func unlockVolume(_ path: String, username: String, password: Data) throws(Error) {
-        try setACMEnvironment(username: username, password: password)
-
         var err: DMDiskErrorType = .diskErrorNoError
         guard let disk = manager.copyDisk(forPath: path, error: &err) else {
             Logger.fvunlock.error("failed to copy disk for path \(path): \(err.rawValue)")
@@ -184,27 +182,6 @@ public struct DiskManager {
                 // log acm failure
                 Logger.fvunlock.error("acm policy failed")
             }
-        }
-    }
-
-    private func setACMEnvironment(username: String, password: Data) throws(Error) {
-        let usernameStatus = username.withCString { usernamePtr in
-            ACMSetEnvironmentVariable(
-                UInt32(kACMEnvironmentVariableLoginUserName), .init(usernamePtr), username.count)
-        }
-        let passwordStatus = password.withUnsafeBytes { passwordPtr in
-            ACMSetEnvironmentVariable(
-                UInt32(kACMEnvironmentVariableLoginUserName), passwordPtr.baseAddress!,
-                username.count)
-        }
-
-        guard usernameStatus == kACMErrorSuccess else {
-            Logger.fvunlock.error("failed to set acm username: \(usernameStatus, privacy: .public)")
-            throw .acmError(usernameStatus)
-        }
-        guard passwordStatus == kACMErrorSuccess else {
-            Logger.fvunlock.error("failed to set acm password: \(passwordStatus, privacy: .public)")
-            throw .acmError(passwordStatus)
         }
     }
 }

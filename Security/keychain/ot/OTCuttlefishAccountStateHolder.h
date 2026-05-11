@@ -62,10 +62,11 @@ NS_ASSUME_NONNULL_BEGIN
 - (BOOL)persistLastEscrowRepairAttempted:(NSDate*)date error:(NSError**)error;
 - (BOOL)clearLastEscrowRepairAttempt:(NSError**)error;
 
-- (NSInteger)checkEscrowRepairRateLimitAndReturnTimeLeft:(NSError* _Nullable* _Nullable)error;
+- (BOOL)persistEscrowRepairAttemptVersion:(int64_t)version error:(NSError**)error;
 
-// For tests only.
-- (BOOL)_persistEscrowRepairAttemptVersion:(int64_t)version error:(NSError**)error;
+- (BOOL)persistEscrowRecordCache:(OTAccountMetadataClassCEscrowRecordCache* _Nullable)escrowRecordCache error:(NSError**)error;
+- (OTAccountMetadataClassCEscrowRecordCache* _Nullable)getEscrowRecordCache:(NSError**)error;
+- (BOOL)clearCachedEscrowRecord:(NSError**)error;
 
 @end
 

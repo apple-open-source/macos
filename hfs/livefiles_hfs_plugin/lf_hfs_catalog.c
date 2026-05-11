@@ -2855,6 +2855,17 @@ getkey(struct hfsmount *hfsmp, cnid_t cnid, CatalogKey * key)
             keyp = (CatalogKey *)&recp->hfsPlusThread.reserved;
             keyp->hfsPlus.keyLength = kHFSPlusCatalogKeyMinimumLength +
             (keyp->hfsPlus.nodeName.length * 2);
+			/*
+			 * Sanity-check the length. A thread record can't have an
+			 * empty name, so it should be greater than the minimum,
+			 * and of course it should be at most the maximum.
+			 */
+			if (keyp->hfsPlus.keyLength <= kHFSPlusCatalogKeyMinimumLength ||
+				keyp->hfsPlus.keyLength > kHFSPlusCatalogKeyMaximumLength) {
+				result = fxRangeErr;
+			} else {
+				bcopy(keyp, key, keyp->hfsPlus.keyLength + 2);
+			}
             bcopy(keyp, key, keyp->hfsPlus.keyLength + 2);
             break;
 

@@ -1072,7 +1072,7 @@ Reason QueryDBBlobSecret::accept(CssmManagedData &passphrase,
 		try
 		{
 			RefPointer<KeychainDatabase> dbToUnlock = Server::keychain(*currHdl);
-			dbToUnlock->unlockDb(passphrase, false);
+			dbToUnlock->unlockDb(passphrase, false, false);
 			authenticated = true;
 			*dbHandleAuthenticated = *currHdl; // return the DbHandle that 'passphrase' authenticated with.
 		}

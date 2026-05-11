@@ -1201,25 +1201,36 @@ static int acsp_plugin_read(acsp_plugin_context* context, ACSP_Input* acsp_in)
         case CI_DOMAINS:
             // WCast-align fix - this routine changed to use memcpy for unaligned access
             inPtr = pkt->data;
-            while (len > 2) {
+            while (len >= ACSP_DOMAIN_DATA_HDRSIZE) {
                 memcpy(&domain_data, inPtr, ACSP_DOMAIN_DATA_HDRSIZE);
+                len -= ACSP_DOMAIN_DATA_HDRSIZE;
+                inPtr += ACSP_DOMAIN_DATA_HDRSIZE;
+
+                domain_len = ntohs(domain_data.len);
+                if (domain_len > len) {
+                    error("ACSP plugin: not enough data (%d) for domain length (%d)", len, domain_len);
+                    return -1;
+                }
+
                 if ((domain = (acsp_domain*)malloc(sizeof(acsp_domain))) == 0) {
                     error("ACSP plugin: no memory\n");
                     return -1;
                 }
-                domain_len = ntohs(domain_data.len);
+
+                domain->server.s_addr = domain_data.server;
+
                 if ((domain->name = malloc(domain_len + 1)) == 0) {
                     error("ACSP plugin: no memory\n");
                     free(domain);
                     return -1;
                 }
-                domain->server.s_addr = domain_data.server;
-                memcpy(domain->name, inPtr + ACSP_DOMAIN_DATA_HDRSIZE, domain_len);
+                memcpy(domain->name, inPtr, domain_len);
                 *(domain->name + domain_len) = 0;	// zero terminate
+                len -= domain_len;
+                inPtr += domain_len;
+
                 domain->next = (acsp_domain*)context->list;
                 context->list = domain;
-                len -= (domain_len + ACSP_DOMAIN_DATA_HDRSIZE);
-                inPtr += (ACSP_DOMAIN_DATA_HDRSIZE + domain_len);
             }
             break;
         
@@ -2550,12 +2561,22 @@ void *arg;
 			ACSP_PRINTPKT_PAYLOAD("CI_DOMAINS");
             while (len >= sizeof(acsp_domain_data)) {
                 memcpy(&domain_data_aligned, ptr, sizeof(acsp_domain_data));      // Wcast-align fix - memcpy for unaligned move
+                len -= ACSP_DOMAIN_DATA_HDRSIZE;
+                ptr += ACSP_DOMAIN_DATA_HDRSIZE;
+
                 slen = ntohs(domain_data_aligned.len);
-				domain_name_len = MIN(slen, sizeof(domain_name));
-				if (slen) {
-					memcpy(domain_name, ((acsp_domain_data *)(void*)ptr)->name, domain_name_len);
-				}
-				domain_name[domain_name_len] = 0;
+                if (slen > len) {
+                    break;
+                }
+
+                domain_name_len = MIN(slen, sizeof(domain_name) - 1);
+                if (domain_name_len) {
+                    memcpy(domain_name, ((acsp_domain_data *)(void*)ptr)->name, domain_name_len);
+                }
+                domain_name[domain_name_len] = 0;
+                len -= slen;
+                ptr += slen;
+
 				if (domain_data_aligned.server) {
 					printer(arg, "\n    <domain: name %s, server %s>",
 							domain_name,
@@ -2564,8 +2585,6 @@ void *arg;
 					printer(arg, "\n    <domain: name %s>",
 							domain_name);
 				}
-                len -= (ACSP_DOMAIN_DATA_HDRSIZE + slen);
-                ptr += (ACSP_DOMAIN_DATA_HDRSIZE + slen);
             }
 			p = (__typeof__(p))ptr;
 		} else {

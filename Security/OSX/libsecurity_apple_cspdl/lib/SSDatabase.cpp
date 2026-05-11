@@ -110,28 +110,31 @@ SSDatabaseImpl::unlock(const CSSM_DATA &password)
 {
     if (_SecProtectLoginKeychainWithDP()) {
         if (isLoginKeychain()) {
-            bool rekey = password.Data != NULL;
+            bool passNull = password.Data == NULL;
 
             SVOTelemetryWithCoreAnalytics telemetry;
-            secnotice("dp_login", "attempting to unlock with %sempty %s rekey", password.Length == 0 ? "" : "non-", rekey ? "might" : "will not");
+            secnotice("dp_login", "attempting to unlock with %s", passNull ? "empty, will not rekey" : "non-empty, might rekey");
             //secnotice("dp_login", "🤫 %s", password.Data);
-            try {
-                // This may fail in chrooted environments with MIG_BAD_ID
-                telemetry.initialKeybagUnlock = SVOTelemetry::initialKeybagUnlock_otherError;
-                mClientSession.unlockKeybag(dbHandle(), CssmData::overlay(password));
-                telemetry.initialKeybagUnlock = SVOTelemetry::initialKeybagUnlock_unlocked;
-            } catch (MachPlusPlus::Error mppe) {
-                secnotice("dp_login", "caught MachPlusPlus error: %d", mppe.error);
-                telemetry.initialKeybagUnlock = SVOTelemetry::initialKeybagUnlock_machError;
-                telemetry.initialKeybagUnlockErrorCode = mppe.error;
-                if (mppe.error != MIG_BAD_ID) {
-                    throw;
+            if (!passNull) {
+                // Don't try to unlock the keybag in the SC case
+                try {
+                    // This may fail in chrooted environments with MIG_BAD_ID
+                    telemetry.initialKeybagUnlock = SVOTelemetry::initialKeybagUnlock_otherError;
+                    mClientSession.unlockKeybag(dbHandle(), CssmData::overlay(password));
+                    telemetry.initialKeybagUnlock = SVOTelemetry::initialKeybagUnlock_unlocked;
+                } catch (MachPlusPlus::Error mppe) {
+                    secnotice("dp_login", "caught MachPlusPlus error: %d", mppe.error);
+                    telemetry.initialKeybagUnlock = SVOTelemetry::initialKeybagUnlock_machError;
+                    telemetry.initialKeybagUnlockErrorCode = mppe.error;
+                    if (mppe.error != MIG_BAD_ID) {
+                        throw;
+                    }
+                    secnotice("dp_login", "proceeding with original unlock");
+                    telemetry.passwordUnlockValue = SVOTelemetry::passwordUnlock_failure;
+                    mClientSession.unlock(dbHandle(), CssmData::overlay(password));
+                    telemetry.passwordUnlockValue = SVOTelemetry::passwordUnlock_success;
+                    return;
                 }
-                secnotice("dp_login", "proceeding with original unlock");
-                telemetry.passwordUnlockValue = SVOTelemetry::passwordUnlock_failure;
-                mClientSession.unlock(dbHandle(), CssmData::overlay(password));
-                telemetry.passwordUnlockValue = SVOTelemetry::passwordUnlock_success;
-                return;
             }
 
             uint8_t saltBytes[sizeof(DbBlob::salt)];
@@ -175,7 +178,7 @@ SSDatabaseImpl::unlock(const CSSM_DATA &password)
             bool passwordSucceeded = false;
             try {
                 telemetry.passwordUnlockValue = SVOTelemetry::passwordUnlock_failure;
-                mClientSession.unlock(dbHandle(), CssmData::overlay(password));
+                mClientSession.unlockAlwaysCheck(dbHandle(), CssmData::overlay(password));
                 telemetry.passwordUnlockValue = SVOTelemetry::passwordUnlock_success;
                 passwordSucceeded = true;
                 secnotice("dp_login", "unlocking with password succeeded");
@@ -191,7 +194,7 @@ SSDatabaseImpl::unlock(const CSSM_DATA &password)
             secnotice("dp_login", "generateDerivedEntropy returned handle %u", kh);
 
             if (passwordSucceeded) {
-                if (rekey) {
+                if (!passNull) {
                     telemetry.rekeyValue = SVOTelemetry::rekey_failure;
                     secnotice("dp_login", "need to rekey, changing to indirect passphrase");
                     changePassphrase(kh);

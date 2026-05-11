@@ -44,7 +44,7 @@
 
 #include <CoreServices/CoreServicesPriv.h>
 #include "SecCodePriv.h"
-#undef check // Macro! Yech.
+#import "undef_foundation_macros.h"
 
 namespace Security {
 namespace CodeSigning {

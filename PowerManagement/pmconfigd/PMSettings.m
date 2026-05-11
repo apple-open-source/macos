@@ -514,6 +514,7 @@ static int getAggressivenessFactorsFromProfile(
     getAggressivenessValue(p, CFSTR(kIOPMWakeOnLANKey), kCFNumberSInt32Type, &agg->fWakeOnLAN);
     getAggressivenessValue(p, CFSTR(kIOPMWakeOnRingKey), kCFNumberSInt32Type, &agg->fWakeOnRing);
     getAggressivenessValue(p, CFSTR(kIOPMRestartOnPowerLossKey), kCFNumberSInt32Type, &agg->fAutomaticRestart);
+    getAggressivenessValue(p, CFSTR(kIOPMRestartOnPowerConnectKey), kCFNumberSInt32Type, &agg->fAutomaticRestartAtConnect);
     getAggressivenessValue(p, CFSTR(kIOPMSleepOnPowerButtonKey), kCFNumberSInt32Type, &agg->fSleepOnPowerButton);
     getAggressivenessValue(p, CFSTR(kIOPMWakeOnClamshellKey), kCFNumberSInt32Type, &agg->fWakeOnClamshell);
     getAggressivenessValue(p, CFSTR(kIOPMWakeOnACChangeKey), kCFNumberSInt32Type, &agg->fWakeOnACChange);
@@ -750,8 +751,6 @@ static int ProcessHibernateSettings(CFDictionaryRef dict, bool standby, bool isD
     return (0);
 }
 
-
-
 static void sendEnergySettingsToKernel(
                                        CFDictionaryRef                 useSettings,
                                        bool                            removeUnsupportedSettings,
@@ -832,8 +831,17 @@ static void sendEnergySettingsToKernel(
        || IOPMFeatureIsAvailableWithSupportedTable(CFSTR(kIOPMRestartOnPowerLossKey), providing_power, _supportedCached))
     {
         IORegistryEntrySetCFProperty(PMRootDomain,
-                                     CFSTR(kIOPMSettingRestartOnPowerLossKey),
-                                     (p->fAutomaticRestart?number1:number0));
+                                    CFSTR(kIOPMSettingRestartOnPowerLossKey),
+                                    (p->fAutomaticRestart?number1:number0));
+    }
+
+    // Automatic Restart On Power Connect
+    if( !removeUnsupportedSettings
+       || IOPMFeatureIsAvailableWithSupportedTable(CFSTR(kIOPMRestartOnPowerConnectKey), providing_power, _supportedCached))
+    {
+        IORegistryEntrySetCFProperty(PMRootDomain,
+                                    CFSTR(kIOPMSettingRestartOnPowerConnectKey),
+                                    (p->fAutomaticRestartAtConnect?number1:number0));
     }
 
     // Wake on change of AC state -- battery to AC or vice versa
@@ -1493,6 +1501,7 @@ CFStringRef energyPrefsKeys[] = {
     CFSTR(kIOPMDisplaySleepUsesDimKey),
     CFSTR(kIOPMReduceBrightnessKey),
     CFSTR(kIOPMRestartOnPowerLossKey),
+    CFSTR(kIOPMRestartOnPowerConnectKey),
     CFSTR(kIOPMSystemSleepKey),
     CFSTR(kIOPMWakeOnLANKey)
 };

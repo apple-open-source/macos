@@ -211,6 +211,7 @@ static bool policy_graph_add_child(policy_graph_t graph, int32_t depth, policy_n
         return false;
     }
     if (graph->size >= POLICY_TREE_MAX_NODES) {
+        secerror("policy_graph: max nodes (%d) reached at depth %d", POLICY_TREE_MAX_NODES, depth);
         return false;
     }
 
@@ -221,8 +222,10 @@ static bool policy_graph_add_child(policy_graph_t graph, int32_t depth, policy_n
          /* This level should have been created when we started processing cert */
          return false;
     }
-    [nodesAtDepth addObject:child];
-    graph->size++;
+    if (![nodesAtDepth containsObject:child]) {
+        [nodesAtDepth addObject:child];
+        graph->size++;
+    }
     return true;
 }
 
@@ -256,7 +259,10 @@ static bool policy_graph_for_each_at_depth(policy_graph_t graph, int32_t depth,
         return false;
     }
 
-    NSMutableSet <policy_node_t>*nodes = graph->nodes[(uint32_t)depth];
+    /* Snapshot the set before iterating: callbacks (e.g. b.2 policy-mapping expansion)
+     * may add new nodes to this same depth, which would otherwise trigger
+     * NSFastEnumerationMutationHandler and crash. */
+    NSSet <policy_node_t>*nodes = [graph->nodes[(uint32_t)depth] copy];
     bool match = false;
     for (policy_node_t node in nodes) {
         match |= callback(node);
@@ -381,7 +387,7 @@ static void policy_graph_prune_childless_nodes(policy_graph_t graph, int32_t dep
         return;
     }
 
-    for (int32_t i = depth-1; i > 0; i--) {
+    for (int32_t i = depth-1; i >= 0; i--) {
         NSMutableArray <policy_node_t>*nodesToRemove = [NSMutableArray array];
         policy_graph_for_each_at_depth(graph, i, ^bool(policy_node_t node) {
             if (policy_node_get_children(node).count == 0) {
@@ -448,24 +454,31 @@ create_policy_mappings_dictionary(const SecCEPolicyMappings *pm) {
  */
 static bool policy_graph_process_policy_mappings(policy_graph_t graph, int32_t depth, const SecCEPolicyMappings *pm, policy_qualifier_t anyPolicyQualifier) {
     if (!pm || pm->numMappings == 0) {
-        return false;
+        return true;
     }
 
     NSDictionary <NSData *, NSMutableArray <NSData *>*>*mappings = create_policy_mappings_dictionary(pm);
     if (!mappings) {
+        secerror("policy_graph: failed to create mappings dictionary at depth %d (%zu mappings, limit %d)",
+                 depth, pm->numMappings, POLICY_MAPPINGS_MAX);
         return false;
     }
 
     /* b.1
-     If there is a node in the valid_policy_graph of depth i where ID-P is the valid_policy, set expected_policy_set to the set of subjectDomainPolicy values that are specified as equivalent to ID-P by the policy mappings extension
+     For each ID-P: if there is a node in the valid_policy_graph of depth i where ID-P is the
+     valid_policy, set expected_policy_set to the set of subjectDomainPolicy values that are
+     specified as equivalent to ID-P by the policy mappings extension.
+     Track which IDPs were matched so b.2 can handle the rest.
      */
-    bool idp_match = policy_graph_for_each_at_depth(graph, depth, ^bool(policy_node_t node) {
+    NSMutableSet <NSData *>*matched_idps = [NSMutableSet set];
+    policy_graph_for_each_at_depth(graph, depth, ^bool(policy_node_t node) {
         oid_t node_policy = policy_node_get_valid_policy(node);
         NSData *node_policy_data = [NSData dataWithBytes:node_policy.data length:node_policy.length];
         for (NSData *idp in mappings) {
             if ([node_policy_data isEqual:idp]) {
                 policy_set_t new_expected_policies = policy_set_create_from_array([mappings objectForKey:idp]);
                 policy_node_replace_expected_policy_set(node, new_expected_policies);
+                [matched_idps addObject:idp];
                 return true;
             }
         }
@@ -473,13 +486,18 @@ static bool policy_graph_process_policy_mappings(policy_graph_t graph, int32_t d
     });
 
     /* b.2
-     No node of depth i in the valid_policy_graph has a valid_policy of ID-P (b.1)
-     but there is a node of depth i with a valid_policy of anyPolicy, then generate a child node of the node of depth i-1 that has a valid_policy of anyPolicy as follows:
+     For each ID-P that was NOT matched in b.1: if there is a node of depth i with a valid_policy
+     of anyPolicy, generate a child node of the node of depth i-1 that has a valid_policy of
+     anyPolicy as follows:
             (i) set the valid_policy to ID-P;
-            (ii) set the qualifier_set to the qualifier set of the policy anyPolicy in the certificate policies extension of certificate i; and
-            (iii) set the expected_policy_set to the set of subjectDomainPolicy values that are specified as equivalent to ID-P by the policy mappings extension.
+            (ii) set the qualifier_set to the qualifier set of the policy anyPolicy in the
+                 certificate policies extension of certificate i; and
+            (iii) set the expected_policy_set to the set of subjectDomainPolicy values that are
+                  specified as equivalent to ID-P by the policy mappings extension.
      */
-    if (!idp_match) {
+    NSMutableSet <NSData *>*unmatched_idps = [NSMutableSet setWithArray:mappings.allKeys];
+    [unmatched_idps minusSet:matched_idps];
+    if (unmatched_idps.count > 0) {
         policy_graph_for_each_at_depth(graph, depth, ^bool(policy_node_t node) {
             oid_t node_policy = policy_node_get_valid_policy(node);
             if (!oid_equal(node_policy, oidAnyPolicy)) {
@@ -493,7 +511,7 @@ static bool policy_graph_process_policy_mappings(policy_graph_t graph, int32_t d
             }
             policy_node_t parent = parents[0];
             bool nodes_added = true;
-            for (NSData *idp in mappings) {
+            for (NSData *idp in unmatched_idps) {
                 NSArray <NSData *>*sdps = [mappings objectForKey:idp];
                 policy_node_t new_child = policy_node_create_from_datas(idp, anyPolicyQualifier, sdps);
                 policy_node_add_parent(new_child, parent);
@@ -612,6 +630,7 @@ bool policy_graph_verify_path(policy_graph_t graph,
         // (*explicit_policy > 0 || graph->size > 0)
         // So if !(*explicit_policy > 0 || graph->size > 0), we need to fail. So applying DeMorgan's law:
         if (*explicit_policy <= 0 && graph->size <= 0) {
+            secerror("policy_graph: empty graph and explicit_policy=0 at depth %d (cert %d)", i, n - i);
             return false;
         }
         
@@ -628,6 +647,7 @@ bool policy_graph_verify_path(policy_graph_t graph,
                 const SecCEPolicyMapping *mapping = &pm->mappings[mapping_ix];
                 if (oid_equal(mapping->issuerDomainPolicy, oidAnyPolicy) ||
                     oid_equal(mapping->subjectDomainPolicy, oidAnyPolicy)) {
+                    secerror("policy_graph: anyPolicy in policy mapping at depth %d (cert %d), mapping %zu", i, n - i, mapping_ix);
                     return false; // anyPolicy not allowed in mappings
                 }
             }
@@ -635,11 +655,13 @@ bool policy_graph_verify_path(policy_graph_t graph,
             if (*policy_mapping > 0) {
                 // RFC 9618 Section 5.4 b.1 &1.2
                 if (!policy_graph_process_policy_mappings(graph, i, pm, anyPolicyQualifier)) {
+                    secerror("policy_graph: failed to process policy mappings at depth %d (cert %d)", i, n - i);
                     return false;
                 }
             } else {
                 // RFC 9618 Section 5.4 b.3 Delete mapped policies when policy_mapping is 0
                 if (!policy_graph_delete_mapped_policies(graph, i, pm)) {
+                    secerror("policy_graph: failed to delete mapped policies at depth %d (cert %d)", i, n - i);
                     return false;
                 }
             }

@@ -9,17 +9,17 @@
 	<key>CFBundleName</key>
 	<string>PKITrustStore</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.2.7</string>
+	<string>1.2.8</string>
 	<key>CFBundleVersion</key>
-	<string>1.2.7</string>
+	<string>1.2.8</string>
 	<key>MobileAssetProperties</key>
 	<dict>
 		<key>AssetSpecifier</key>
 		<string>PKITrustStore</string>
 		<key>AssetVersion</key>
-		<string>1.2.7.0.0,0</string>
+		<string>1.2.8.0.0,0</string>
 		<key>ContentVersion</key>
-		<integer>2026020500</integer>
+		<integer>2026040100</integer>
 		<key>_IsMAAutoAsset</key>
 		<true/>
 		<key>_OSVersionCompatibilities</key>

@@ -1,4 +1,3 @@
-/* $FreeBSD$ */
 /*	$NetBSD: citrus_mmap.c,v 1.4 2011/10/15 23:00:01 christos Exp $	*/
 
 /*-
@@ -32,7 +31,6 @@
 #ifndef __APPLE__
 #include "namespace.h"
 #endif
-#include <sys/cdefs.h>
 #include <sys/mman.h>
 #include <sys/types.h>
 #include <sys/stat.h>

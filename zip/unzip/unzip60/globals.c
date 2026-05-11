@@ -162,6 +162,7 @@ static void apple_globals_ctor(__G)
     __GDEF
 {
     G.rootdir = -1;
+    G.qf = NULL;
 }
 #endif /* __APPLE__ */
 Uz_Globs *globalsCtor()

@@ -37,7 +37,7 @@
 
 __BEGIN_DECLS
 
-#define POLICY_MAPPINGS_MAX 10
+#define POLICY_MAPPINGS_MAX 20
 #define POLICY_TREE_DEPTH_MAX 15
 #define POLICY_TREE_MAX_NODES 512
 
@@ -73,35 +73,6 @@ bool policy_graph_verify_path(policy_graph_t graph,
                               uint32_t *policy_mapping);
 
 CFArrayRef policy_graph_copy_constrained_policy_set(policy_graph_t graph, int32_t n);
-
-typedef struct policy_tree *policy_tree_t;
-struct policy_tree {
-    oid_t valid_policy;
-    policy_qualifier_t qualifier_set;
-    policy_set_t expected_policy_set;
-    policy_tree_t children;
-    policy_tree_t siblings;
-    policy_tree_t parent;
-    uint64_t tree_size; // 0 for non-root nodes
-};
-
-policy_tree_t policy_tree_create(const oid_t *p_oid, policy_qualifier_t p_q);
-
-bool policy_tree_walk_depth(policy_tree_t root, int depth,
-    bool(*callback)(policy_tree_t, void *), void *ctx);
-
-void policy_tree_remove_node(policy_tree_t *node);
-void policy_tree_prune(policy_tree_t *node);
-void policy_tree_prune_childless(policy_tree_t *root, int depth);
-bool policy_tree_add_child(policy_tree_t root, policy_tree_t parent,
-                           const oid_t *p_oid, policy_qualifier_t p_q);
-bool policy_tree_add_sibling(policy_tree_t root, policy_tree_t sibling,
-                             const oid_t *p_oid, policy_qualifier_t p_q, policy_set_t p_expected);
-void policy_tree_set_expected_policy(policy_tree_t node,
-    policy_set_t p_expected);
-
-/* noop unless !defined NDEBUG */
-void policy_tree_dump(policy_tree_t node);
 
 __END_DECLS
 

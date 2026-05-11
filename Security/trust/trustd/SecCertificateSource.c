@@ -41,12 +41,14 @@
 #include <utilities/debugging.h>
 #include <utilities/SecCFWrappers.h>
 #include <utilities/SecAppleAnchorPriv.h>
+#include <utilities/SecInternalReleasePriv.h>
 
 #include "trust/trustd/SecTrustServer.h"
 #include "keychain/securityd/SecItemServer.h"
 #include "trust/trustd/SecTrustStoreServer.h"
 #include "trust/trustd/SecCAIssuerRequest.h"
 #include "trust/trustd/SecAnchorCache.h"
+#include "trust/trustd/personalization.h"
 
 #include "OTATrustUtilities.h"
 #include "SecCertificateSource.h"
@@ -222,111 +224,6 @@ static CFArrayRef CopyCertsFromIndices(CFArrayRef offsets)
 
 }
 
-// CopyAnchorRecordsForKey returns an array containing one or more
-// dictionary records for anchors matching the input lookup key,
-// or NULL if no anchor records matched the key.
-//
-static _Nullable CFArrayRef
-CopyAnchorRecordsForKey(CFStringRef anchorLookupKey) {
-    CFDictionaryRef anchorLookupTable = NULL;
-    CFArrayRef anchorRecords = NULL;
-
-    anchorLookupTable = SecOTAPKICopyConstrainedAnchorLookupTable();
-    __Require_Quiet(isDictionary(anchorLookupTable), errOut);
-    __Require_Quiet(isString(anchorLookupKey), errOut);
-    anchorRecords = (CFArrayRef)CFDictionaryGetValue(anchorLookupTable, anchorLookupKey);
-    CFRetainSafe(anchorRecords);
-    __Require_Quiet(isArray(anchorRecords), errOut);
-
-errOut:
-    CFReleaseSafe(anchorLookupTable);
-    return anchorRecords;
-}
-
-static _Nullable CFArrayRef
-CopyAnchorRecordsForKeyWithHash(CFStringRef anchorLookupKey, CFDataRef hash, CFStringRef key) {
-    CFArrayRef anchorRecords = NULL;
-    CFStringRef hashKey = NULL;
-    CFMutableArrayRef matchingAnchorRecords = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
-
-    __Require_Quiet(isData(hash), errOut);
-    hashKey = CFDataCopyHexString(hash);
-    __Require_Quiet(isString(hashKey), errOut);
-
-    __Require_Quiet(anchorLookupKey, errOut);
-    anchorRecords = CopyAnchorRecordsForKey(anchorLookupKey);
-    __Require_Quiet(isArray(anchorRecords), errOut);
-
-    CFIndex idx, count = CFArrayGetCount(anchorRecords);
-    for (idx = 0; idx < count; idx++) {
-        CFDictionaryRef record = CFArrayGetValueAtIndex(anchorRecords, idx);
-        if (isDictionary(record)) {
-            CFStringRef recordHash = (CFStringRef)CFDictionaryGetValue(record, key);
-            if (isString(recordHash) &&
-                kCFCompareEqualTo == CFStringCompare(recordHash, hashKey, 0)) {
-                CFArrayAppendValue(matchingAnchorRecords, record);
-            }
-        }
-    }
-
-errOut:
-    CFReleaseSafe(anchorRecords);
-    CFReleaseSafe(hashKey);
-    if (CFArrayGetCount(matchingAnchorRecords) > 0) {
-        return matchingAnchorRecords;
-    } else {
-        CFReleaseNull(matchingAnchorRecords);
-        return NULL;
-    }
-}
-
-// CopyAnchorRecordForCertificate returns the dictionary record
-// whose sha2 value matches the digest of the input certificate,
-// or NULL if there is no match.
-//
-_Nullable CFArrayRef
-CopyAnchorRecordsForCertificate(SecCertificateRef certificate) {
-    CFArrayRef anchorRecords = NULL;
-    CFStringRef anchorLookupKey = NULL;
-    CFDataRef certificateHash = NULL;
-
-    __Require_Quiet(certificate, errOut);
-    certificateHash = SecCertificateCopySHA256Digest(certificate);
-    __Require_Quiet(isData(certificateHash), errOut);
-    anchorLookupKey = SecCertificateCopyAnchorLookupKey(certificate);
-    __Require_Quiet(anchorLookupKey, errOut);
-
-    anchorRecords = CopyAnchorRecordsForKeyWithHash(anchorLookupKey, certificateHash, CFSTR("sha2"));
-
-errOut:
-    CFReleaseSafe(anchorLookupKey);
-    CFReleaseSafe(certificateHash);
-    return anchorRecords;
-}
-
-// CopyAnchorRecordForCertificate returns the dictionary record
-// whose spki hahsh value matches the digest of the input certificate,
-// or NULL if there is no match.
-_Nullable CFArrayRef
-CopyAnchorRecordsForSPKI(SecCertificateRef certificate) {
-    CFArrayRef anchorRecords = NULL;
-    CFStringRef anchorLookupKey = NULL;
-    CFDataRef spkiHash = NULL;
-
-    __Require_Quiet(certificate, errOut);
-    spkiHash = SecCertificateCopySubjectPublicKeyInfoSHA256Digest(certificate);
-    __Require_Quiet(isData(spkiHash), errOut);
-    anchorLookupKey = SecCertificateCopyAnchorLookupKey(certificate);
-    __Require_Quiet(anchorLookupKey, errOut);
-
-    anchorRecords = CopyAnchorRecordsForKeyWithHash(anchorLookupKey, spkiHash, CFSTR("spki-sha2"));
-
-errOut:
-    CFReleaseSafe(anchorLookupKey);
-    CFReleaseSafe(spkiHash);
-    return anchorRecords;
-}
-
 static CFMutableArrayRef CopyUsageConstraintsForSystemAnchor(void) {
     CFMutableArrayRef result = NULL;
     CFMutableDictionaryRef options = NULL, strengthConstraints = NULL, trustRoot = NULL;
@@ -488,7 +385,7 @@ CopyUsageConstraintsForCertificate(SecCertificateRef certificate) {
     CFArrayRef anchorRecords = NULL;
 
     /* Hardcoded Apple Anchors have no usage constraints */
-    if (SecIsAppleTrustAnchor(certificate, kSecAppleTrustAnchorFlagsIncludeTestAnchors)) {
+    if (SecAnchorCacheIsBuiltInAppleAnchor(certificate)) {
         result = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
         return result;
     }
@@ -500,7 +397,7 @@ CopyUsageConstraintsForCertificate(SecCertificateRef certificate) {
     }
     __Require_Quiet(trustResult = CFNumberCreate(NULL, kCFNumberSInt32Type, &trustResultValue), errOut);
 
-    __Require_Quiet(anchorRecords = CopyAnchorRecordsForSPKI(certificate), errOut);
+    __Require_Quiet(anchorRecords = SecAnchorCacheCopyAnchorRecordsForSPKI(certificate), errOut);
     CFIndex numRecords = CFArrayGetCount(anchorRecords);
     __Require_Quiet(numRecords > 0, errOut);
 
@@ -688,7 +585,7 @@ static bool SecSystemConstrainedAnchorSourceContains(SecCertificateSourceRef sou
      * the usage constraints by _key_, so we filter the certificate anchor records
      * by policy to determine "Anchor-ness". */
     bool result = false;
-    CFArrayRef anchorRecords = CopyAnchorRecordsForCertificate(certificate);
+    CFArrayRef anchorRecords = SecAnchorCacheCopyAnchorRecordsForCertificate(certificate);
     __Require_Quiet(isArray(anchorRecords), errOut);
 
     /* Determine whether policy allows this anchor record. If no policy specified use the basic policy. */
@@ -707,7 +604,7 @@ errOut:
 
 bool SecSystemConstrainedAnchorSourceContainsAnchorByKey(SecCertificateRef certificate) {
     bool result = false;
-    CFArrayRef anchorRecord = CopyAnchorRecordsForSPKI(certificate);
+    CFArrayRef anchorRecord = SecAnchorCacheCopyAnchorRecordsForSPKI(certificate);
     __Require_Quiet(isArray(anchorRecord), errOut);
     result = true;
 
@@ -736,7 +633,7 @@ static CFArrayRef SecAppleAnchorSourceCopyUsageConstraints(SecCertificateSourceR
     CFArrayRef anchorRecords = NULL;
 
     /* Hardcoded Apple Anchors have no usage constraints */
-    if (SecIsAppleTrustAnchor(certificate, kSecAppleTrustAnchorFlagsIncludeTestAnchors)) {
+    if (SecAnchorCacheIsBuiltInAppleAnchor(certificate)) {
         result = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
         return result;
     }
@@ -748,7 +645,7 @@ static CFArrayRef SecAppleAnchorSourceCopyUsageConstraints(SecCertificateSourceR
     uint32_t trustResultValue = kSecTrustSettingsResultTrustRoot;
     __Require_Quiet(trustResult = CFNumberCreate(NULL, kCFNumberSInt32Type, &trustResultValue), errOut);
 
-    __Require_Quiet(anchorRecords = CopyAnchorRecordsForSPKI(certificate), errOut);
+    __Require_Quiet(anchorRecords = SecAnchorCacheCopyAnchorRecordsForSPKI(certificate), errOut);
     CFIndex numRecords = CFArrayGetCount(anchorRecords);
     __Require_Quiet(numRecords > 0, errOut);
 
@@ -777,7 +674,7 @@ static bool SecAppleAnchorSourceContains(SecCertificateSourceRef source,
                                                      SecCertificateRef certificate,
                                                      SecPVCRef pvc) {
     /* If this is one of the hard-coded anchors it is trusted for everything */
-    if (SecIsAppleTrustAnchor(certificate, kSecAppleTrustAnchorFlagsIncludeTestAnchors)) {
+    if (SecAnchorCacheIsBuiltInAppleAnchor(certificate)) {
         return true;
     }
 
@@ -786,7 +683,7 @@ static bool SecAppleAnchorSourceContains(SecCertificateSourceRef source,
     }
 
     bool result = false;
-    CFArrayRef anchorRecords = CopyAnchorRecordsForCertificate(certificate);
+    CFArrayRef anchorRecords = SecAnchorCacheCopyAnchorRecordsForCertificate(certificate);
     __Require_Quiet(isArray(anchorRecords), errOut);
 
     /* Determine whether policy allows this anchor record. If no policy specified use the basic policy. */

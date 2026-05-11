@@ -1622,7 +1622,19 @@ static int AuthenticateWithDictionary(struct smb_ctx *ctx, CFDictionaryRef authI
         os_log_debug(OS_LOG_DEFAULT, "%s: smb_session_set_client failed %d ", __FUNCTION__, error);
 		return (error);
     }
-		
+
+    /*
+     * If client or server principal name (cpn/spn) is Kerberos, then we are trying kerberos
+     * If min auth is set to kerberos, then force trying only kerberos
+     * Note that for minauth, server was already checked that it support kerberos
+     */
+    if ((ctx->prefs.minAuthAllowed == SMB_MINAUTH_KERBEROS) ||
+        (clientNameType == GSSD_KRB5_PRINCIPAL) ||
+        (serverNameType == GSSD_KRB5_PRINCIPAL)) {
+        os_log_debug(OS_LOG_DEFAULT, "%s: Setting kerberos access ", __FUNCTION__);
+        ctx->ct_setup.ioc_userflags |= SMBV_KERBEROS_ACCESS;
+    }
+    
 	error = smb_session_send_auth(ctx);
 	/* Will need to reset this if these names ever become binary */
 	os_log_debug(OS_LOG_DEFAULT, "%s: Authentication %s, client principal %s - %d server principal %s - %d gss client principal %s - %d gss server principal %s - %d for %s",
@@ -1891,7 +1903,7 @@ skip_minauth_check:
 	 */	
 	if (authInfoDict) {
         //os_log_error(OS_LOG_DEFAULT, "%s: Calling AuthenticateWithDictionary ", __FUNCTION__);
-		return AuthenticateWithDictionary(ctx, authInfoDict);
+        return AuthenticateWithDictionary(ctx, authInfoDict);
 	}
 	
 	/* They want us to use anonymous */
@@ -1914,8 +1926,9 @@ skip_minauth_check:
 		
 		ctx->ct_setup.ioc_userflags |= SMBV_KERBEROS_ACCESS;
 		error = AuthenticateWithURL(ctx, FALSE);
+        
+        /* If no error, then return. If Kerberos error and min auth is Kerberos, then return error */
 		if (!error || (ctx->prefs.minAuthAllowed == SMB_MINAUTH_KERBEROS)) {
-			if (!error)
 			return error;
 		}
 		/* Only fall through if the min level allows it */
@@ -2900,11 +2913,6 @@ int smb_open_session(struct smb_ctx *ctx, CFURLRef url, CFDictionaryRef OpenOpti
 			/* Should we look for other Kerberos Mech here, do we need this anymore? */
 			if (mechanismRef && (CFStringCompare(mechanismRef,  kGSSAPIMechKerberos, 0) == kCFCompareEqualTo)) {
 				ctx->ct_setup.ioc_userflags |= SMBV_KERBEROS_ACCESS;
-			} else if (ctx->prefs.minAuthAllowed == SMB_MINAUTH_KERBEROS) {
-				/* They don't want to use Kerberos, but the min auth level requires it */
-				os_log_error(OS_LOG_DEFAULT, "%s: Kerberos required!", __FUNCTION__);
-				error = ENETFSNOAUTHMECHSUPP;
-				goto done;
 			}
 		} else {
 			os_log_debug(OS_LOG_DEFAULT, "%s: Connecting to %s using authentication, but has no Authentication Info",

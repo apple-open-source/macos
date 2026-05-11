@@ -27,9 +27,20 @@
 
 NS_ASSUME_NONNULL_BEGIN
 
+// These properties already exist on `SecureBackup` objects, but including the CloudServices headers here causes Swift some heartburn.
+// Make a protocol that SecureBackup can conform to, to allow access to these in tests.
+@protocol OTSecureBackupEnablerProtocol
+@property (nullable) NSData* passcodeStashSecret;
+@property (nullable) NSData* entropy;
+@property (nullable) NSString* bottleID;
+@property (nullable) NSData* escrowSigningPublicKey;
+@end
+
+
 @protocol OTSecureBackupAdapter
 - (BOOL)moveToFederationAllowed:(NSString*)federation altDSID:(NSString*)altDSID error:(NSError**)error NS_SWIFT_NOTHROW;
-- (NSDictionary* _Nullable)enableWithSecureBackupAndReturnHint:(id)sb error:(NSError**)error NS_SWIFT_NOTHROW;
+- (void)enableWithResults:(id<OTSecureBackupEnablerProtocol>)sb reply:(void (^)(NSDictionary* _Nullable, NSError* _Nullable))reply NS_SWIFT_NOTHROW;
+- (BOOL)storeWithSecureBackup:(id<OTSecureBackupEnablerProtocol>)sb escrowRecord:(OTSerializedPlistEscrowRecord*)escrowRecord error:(NSError**)error NS_SWIFT_NOTHROW;
 - (NSDictionary*)getAccountInfoWithSecureBackup:(id)sb error:(NSError**)error NS_SWIFT_NOTHROW;
 @end
 

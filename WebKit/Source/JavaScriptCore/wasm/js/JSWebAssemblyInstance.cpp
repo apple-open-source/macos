@@ -165,6 +165,11 @@ void JSWebAssemblyInstance::finishCreation(VM& vm)
 
 JSWebAssemblyInstance::~JSWebAssemblyInstance()
 {
+    if (m_anchor) {
+        m_anchor->tearDown();
+        m_anchor = nullptr;
+    }
+
     m_vm->traps().unregisterMirror(m_stackMirror);
     clearJSCallICs(*m_vm);
 
@@ -176,11 +181,6 @@ JSWebAssemblyInstance::~JSWebAssemblyInstance()
 
     for (auto& slot : baselineDatas())
         std::destroy_at(&slot);
-
-    if (m_anchor) {
-        m_anchor->tearDown();
-        m_anchor = nullptr;
-    }
 
     if (Options::enableWasmDebugger()) [[unlikely]]
         Wasm::DebugServer::singleton().untrackInstance(this);
@@ -366,7 +366,8 @@ JSWebAssemblyInstance* JSWebAssemblyInstance::tryCreate(VM& vm, Structure* insta
         auto* jsMemory = JSWebAssemblyMemory::create(vm, globalObject->webAssemblyMemoryStructure());
 
         RefPtr<Memory> memory = Memory::tryCreate(vm, moduleInformation.memory.initial(), moduleInformation.memory.maximum(), moduleInformation.memory.isShared() ? MemorySharingMode::Shared: MemorySharingMode::Default, std::nullopt,
-            [&vm, jsMemory](Memory::GrowSuccess, PageCount oldPageCount, PageCount newPageCount) { jsMemory->growSuccessCallback(vm, oldPageCount, newPageCount); }
+            [&vm, jsMemory](Memory::GrowSuccess, PageCount oldPageCount, PageCount newPageCount) { jsMemory->growSuccessCallback(vm, oldPageCount, newPageCount); },
+            jsMemory
         );
         if (!memory)
             return exception(createOutOfMemoryError(globalObject));

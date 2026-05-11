@@ -1,4 +1,3 @@
-/* $FreeBSD$ */
 /*	$NetBSD: citrus_euctw.c,v 1.11 2008/06/14 16:01:07 tnozaki Exp $	*/
 
 /*-
@@ -57,7 +56,6 @@
  *	$Citrus: xpg4dl/FreeBSD/lib/libc/locale/euctw.c,v 1.13 2001/06/21 01:51:44 yamt Exp $
  */
 
-#include <sys/cdefs.h>
 #include <sys/types.h>
 
 #include <assert.h>

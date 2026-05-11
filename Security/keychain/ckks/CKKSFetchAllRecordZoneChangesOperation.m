@@ -287,7 +287,8 @@
     if([self.fetchReasons containsObject:CKKSFetchBecauseAPIFetchRequest] ||
        [self.fetchReasons containsObject:CKKSFetchBecauseInitialStart] ||
        [self.fetchReasons containsObject:CKKSFetchBecauseMoreComing] ||
-       [self.fetchReasons containsObject:CKKSFetchBecauseKeyHierarchy]) {
+       [self.fetchReasons containsObject:CKKSFetchBecauseKeyHierarchy] ||
+       [self.fetchReasons containsObject:CKKSFetchBecauseOctagonPairingComplete]) {
 
         // CKKSHighPriorityOperations default enabled
         // This operation might be needed during CKKS/Manatee bringup, which affects the user experience. Bump our priority to get it off-device and unblock Manatee access.

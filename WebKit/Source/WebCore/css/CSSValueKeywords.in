@@ -1093,6 +1093,7 @@ entry
 exit
 entry-crossing
 exit-crossing
+// scroll
 
 //
 // CSS_PROP_ZOOM
@@ -1544,7 +1545,7 @@ to-zero
 // nearest
 // progress
 random
-element-shared
+element-scoped
 // fixed
 sibling-count
 sibling-index

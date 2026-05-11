@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2025 Apple Inc. All rights reserved.
+ * Copyright (C) 2014-2026 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -2554,6 +2554,11 @@ void WebsiteDataStore::originDirectoryForTesting(WebCore::ClientOrigin&& origin,
     protectedNetworkProcess()->websiteDataOriginDirectoryForTesting(m_sessionID, WTF::move(origin), type, WTF::move(completionHandler));
 }
 
+void WebsiteDataStore::lastPageLoadNetworkActivityCompletionCodeForTesting(WebCore::PageIdentifier pageID, CompletionHandler<void(std::optional<NetworkActivityTracker::CompletionCode>)>&& completionHandler)
+{
+    protect(networkProcess())->lastPageLoadNetworkActivityCompletionCodeForTesting(m_sessionID, pageID, WTF::move(completionHandler));
+}
+
 #if ENABLE(APP_BOUND_DOMAINS)
 void WebsiteDataStore::hasAppBoundSession(CompletionHandler<void(bool)>&& completionHandler) const
 {
@@ -2747,7 +2752,7 @@ void WebsiteDataStore::download(const DownloadProxy& downloadProxy, const String
         isAppBound = initiatingPage->isTopFrameNavigatingToAppBoundDomain();
 #endif
 
-        URL initiatingPageURL = URL { initiatingPage->pageLoadState().url() };
+        auto& initiatingPageURL = initiatingPage->pageLoadState().url();
         updatedRequest.setFirstPartyForCookies(initiatingPageURL);
         updatedRequest.setIsSameSite(WebCore::areRegistrableDomainsEqual(initiatingPageURL, downloadProxy.request().url()));
         topOrigin = initiatingPage->pageLoadState().origin();

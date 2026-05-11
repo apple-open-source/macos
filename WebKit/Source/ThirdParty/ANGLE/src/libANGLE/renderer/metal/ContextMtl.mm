@@ -1817,27 +1817,6 @@ angle::Result ContextMtl::getIncompleteTexture(const gl::Context *context,
     return mIncompleteTextures.getIncompleteTexture(context, type, format, nullptr, textureOut);
 }
 
-void ContextMtl::endRenderEncoding(mtl::RenderCommandEncoder *encoder)
-{
-    // End any pending visibility query in the render pass
-    if (mOcclusionQuery)
-    {
-        disableActiveOcclusionQueryInRenderPass();
-    }
-
-    if (mBlitEncoder.valid())
-    {
-        mBlitEncoder.endEncoding();
-    }
-
-    mOcclusionQueryPool.prepareRenderPassVisibilityPoolBuffer(this);
-
-    encoder->endEncoding();
-
-    // Resolve visibility results
-    mOcclusionQueryPool.resolveVisibilityResults(this);
-}
-
 void ContextMtl::endBlitAndComputeEncoding()
 {
     if (mBlitEncoder.valid())
@@ -1864,13 +1843,20 @@ void ContextMtl::endEncoding(bool forceSaveRenderPassContent)
             mRenderEncoder.setStoreAction(MTLStoreActionStore);
         }
 
-        endRenderEncoding(&mRenderEncoder);
-    }
-    // End blit encoder after render encoder, as endRenderEncoding() might create a
-    // blit encoder to resolve the visibility results.
-    if (mBlitEncoder.valid())
-    {
-        mBlitEncoder.endEncoding();
+        disableActiveOcclusionQueryInRenderPass();
+
+        mOcclusionQueryPool.prepareRenderPassVisibilityPoolBuffer(this);
+
+        mRenderEncoder.endEncoding();
+
+        mOcclusionQueryPool.resolveVisibilityResults(this);
+
+        // End blit encoder after render encoder, as occlusion query pool might create a
+        // blit encoder to resolve the visibility results.
+        if (mBlitEncoder.valid())
+        {
+            mBlitEncoder.endEncoding();
+        }
     }
 }
 
@@ -1921,6 +1907,12 @@ angle::Result ContextMtl::finishCommandBuffer()
 {
     flushCommandBuffer(mtl::WaitUntilFinished);
     return checkCommandBufferError();
+}
+
+void ContextMtl::addCommandBufferScheduledCallback(std::function<void()> callback)
+{
+    mCmdBuffer.cmdQueue().addCommandBufferScheduledCallback(mCmdBuffer.getQueueSerial(),
+                                                            std::move(callback));
 }
 
 bool ContextMtl::hasStartedRenderPass(const mtl::RenderPassDesc &desc)
@@ -2054,7 +2046,6 @@ mtl::BlitCommandEncoder *ContextMtl::getBlitCommandEncoder()
         return &mBlitEncoder;
     }
 
-    endEncoding(true);
     ensureCommandBufferReady();
 
     return &mBlitEncoder.restart();
@@ -2085,7 +2076,6 @@ mtl::ComputeCommandEncoder *ContextMtl::getComputeCommandEncoder()
         return &mComputeEncoder;
     }
 
-    endEncoding(true);
     ensureCommandBufferReady();
 
     return &mComputeEncoder.restart();

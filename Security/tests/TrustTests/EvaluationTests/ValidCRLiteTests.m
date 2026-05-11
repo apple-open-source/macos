@@ -36,8 +36,8 @@ enum {
     self.updateData = [NSData dataWithContentsOfURL:[[NSBundle bundleForClass:[self class]] URLForResource:@"v0-recent" withExtension:@"bin" subdirectory:@"CRLiteTests-data"]];
     
     /* Override the FF and turn on CRLite + enforcement */
-    _SecTrustUseCRLiteSetOverride(true);
-    _SecTrustUseCRLiteEnforcementSetOverride(true);
+    _SecTrustUseCRLiteSetOverride(false);
+    _SecTrustUseCRLiteEnforcementSetOverride(false);
 
     /* Set the Valid generation to 8 */
     SecRevocationDbSetGeneration(8);
@@ -121,7 +121,9 @@ enum {
     /* Valid is not supported on bridgeOS */
     XCTSkip();
 #endif
-    
+
+    XCTSkipIf(!_SecTrustUseCRLite());
+
     /* Can't test this if we don't have CRLite support */
     if (!SecRevocationDbHasCRLiteSupport()) {
         XCTSkip();

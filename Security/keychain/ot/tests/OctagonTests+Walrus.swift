@@ -2355,10 +2355,15 @@ class OctagonWalrusTests: OctagonTestsBase {
         let fallbackStingrayRecord = OTSerializedPlistEscrowRecord(fallbackStingrayLabel, blob: Data("fb-sr-blob".utf8), metadata: Data("fb-sr-metadata".utf8))
         let dbrRecord = OTSerializedPlistEscrowRecord(dbrLabel, blob: Data("dbr-blob".utf8), metadata: Data("dbr-metadata".utf8))
 
+        self.fakeCuttlefishServer.disableWalrusListener = { request in
+            XCTAssertEqual(request.pdpState, .active, "pdpState")
+            return nil
+        }
+
         let walrusCallbackOccurs = self.expectation(description: "walrus callback occurs")
         let args = OTControlArguments(configuration: self.otcliqueContext)
 #if APPLE_FEATURE_DBR
-        self.manager.disableWalrus(args, preRecords: [lrcFedRecord, fallbackStingrayRecord, dbrRecord], isDBRv2: true) { error in
+        self.manager.disableWalrus(args, preRecords: [lrcFedRecord, fallbackStingrayRecord, dbrRecord], isDBRv2: true, pdpState: 3) { error in
             XCTAssertNil(error, "should not have errored when disabling walrus")
 
             // Assert that the newly uploaded records are in the club
@@ -2396,6 +2401,34 @@ class OctagonWalrusTests: OctagonTestsBase {
         self.wait(for: [stableInfoCheckDumpCallback], timeout: 10)
     }
 
+#if APPLE_FEATURE_DBR
+    func testEnableWalrusOnDBRAccountWithBadState() throws {
+        self.startCKAccountStatusMock()
+        self.assertResetAndBecomeTrustedInDefaultContext()
+
+        // Test starts out with us in the walrus=false mode.
+        try makeAndSetAccountSettingsWithUpdateListener(walrus: false)
+
+        // PCS/CloudServices will pass us the record info we need to upload as part of enablement.
+        // In DBR-land, we'll only upload the ADP+DBR record.
+        let dbrADPRecord = OTSerializedPlistEscrowRecord(dbrLabel, blob: Data("dbr-adp-blob".utf8), metadata: Data("dbr-adp-metadata".utf8))
+
+        let walrusCallbackOccurs = self.expectation(description: "walrus callback occurs")
+        let args = OTControlArguments(configuration: self.otcliqueContext)
+
+        self.fakeCuttlefishServer.enableWalrusListener = { request in
+            XCTAssertEqual(request.pdpState, .unknown, "pdpState")
+            return nil
+        }
+
+        self.manager.enableWalrus(args, preRecords: [dbrADPRecord], isDBRv2: true, pdpState: 17) { error in
+            XCTAssertNotNil(error, "should have failed")
+            walrusCallbackOccurs.fulfill()
+        }
+        self.wait(for: [walrusCallbackOccurs], timeout: 10)
+   }
+#endif // APPLE_FEATURE_DBR
+
     func testEnableWalrusOnDBRAcct() throws {
         self.startCKAccountStatusMock()
         self.assertResetAndBecomeTrustedInDefaultContext()
@@ -2415,8 +2448,13 @@ class OctagonWalrusTests: OctagonTestsBase {
         let walrusCallbackOccurs = self.expectation(description: "walrus callback occurs")
         let args = OTControlArguments(configuration: self.otcliqueContext)
 
+        self.fakeCuttlefishServer.enableWalrusListener = { request in
+            XCTAssertEqual(request.pdpState, .active, "pdpState")
+            return nil
+        }
+
 #if APPLE_FEATURE_DBR
-        self.manager.enableWalrus(args, preRecords: [dbrADPRecord], isDBRv2: true) { error in
+        self.manager.enableWalrus(args, preRecords: [dbrADPRecord], isDBRv2: true, pdpState: 3) { error in
             XCTAssertNil(error, "should not have errored when enabling walrus")
 
             // Assert that none of the deleted record IDs are in the club
@@ -2483,8 +2521,13 @@ class OctagonWalrusTests: OctagonTestsBase {
         let walrusCallbackOccurs = self.expectation(description: "walrus callback occurs")
         let args = OTControlArguments(configuration: self.otcliqueContext)
 
+        self.fakeCuttlefishServer.enableWalrusListener = { request in
+            XCTAssertEqual(request.pdpState, .unknown, "pdpState")
+            return nil
+        }
+
 #if APPLE_FEATURE_DBR
-        self.manager.enableWalrus(args, preRecords: [adpRecord], isDBRv2: false) { error in
+        self.manager.enableWalrus(args, preRecords: [adpRecord], isDBRv2: false, pdpState: 0) { error in
             XCTAssertNil(error, "should not have errored when enabling walrus")
 
             // Assert that we have the FDE blob enrolled in the club.
@@ -2563,8 +2606,13 @@ class OctagonWalrusTests: OctagonTestsBase {
         let walrusCallbackOccurs = self.expectation(description: "walrus callback occurs")
         let args = OTControlArguments(configuration: self.otcliqueContext)
 
+        self.fakeCuttlefishServer.disableWalrusListener = { request in
+            XCTAssertEqual(request.pdpState, .unknown, "pdpState")
+            return nil
+        }
+
 #if APPLE_FEATURE_DBR
-        self.manager.disableWalrus(args, preRecords: [stingrayRecord], isDBRv2: false) { error in
+        self.manager.disableWalrus(args, preRecords: [stingrayRecord], isDBRv2: false, pdpState: 0) { error in
             XCTAssertNil(error, "should not have errored when disabling walrus")
 
             // Assert that we have the full stingray blob enrolled in the club.
@@ -2620,7 +2668,6 @@ class OctagonWalrusTests: OctagonTestsBase {
         self.wait(for: [stableInfoCheckDumpCallback], timeout: 10)
     }
 
-
     func testEnableWalrusDeviceAlreadyWalrusEnabled() throws {
         // If Octagon thinks that we already have walrus=on and we attempt to enable walrus, we might be in a situation where there's a walrus value mismatch and cdpd/PCS is attempting to fix the account. Make sure we still hit Cuttlefish.
         self.startCKAccountStatusMock()
@@ -2649,7 +2696,7 @@ class OctagonWalrusTests: OctagonTestsBase {
         let args = OTControlArguments(configuration: self.otcliqueContext)
         let secondADPRecord = OTSerializedPlistEscrowRecord(dbrLabel, blob: Data("dbr-adp-blob".utf8), metadata: Data("dbr-adp-metadata".utf8))
 #if APPLE_FEATURE_DBR
-        self.manager.enableWalrus(args, preRecords: [secondADPRecord], isDBRv2: true) { error in
+        self.manager.enableWalrus(args, preRecords: [secondADPRecord], isDBRv2: true, pdpState: 3) { error in
             // No error thrown
             XCTAssertNil(error, "should not have errored when attempting to enable walrus when walrus is already on")
 
@@ -2694,7 +2741,8 @@ class OctagonWalrusTests: OctagonTestsBase {
         }
 
         // Patch Cuttlefish to fail enabling walrus.
-        self.fakeCuttlefishServer.enableWalrusListener = { _ in
+        self.fakeCuttlefishServer.enableWalrusListener = { request in
+            XCTAssertEqual(.unknown, request.pdpState, "pdpState")
             return FakeCuttlefishServer.makeCloudKitCuttlefishError(code: .transactionalFailure)
         }
 
@@ -2702,7 +2750,7 @@ class OctagonWalrusTests: OctagonTestsBase {
         let walrusCallbackOccurs = self.expectation(description: "walrus callback occurs")
         let args = OTControlArguments(configuration: self.otcliqueContext)
 #if APPLE_FEATURE_DBR
-        self.manager.enableWalrus(args, preRecords: [adpRecord], isDBRv2: false) { error in
+        self.manager.enableWalrus(args, preRecords: [adpRecord], isDBRv2: false, pdpState: 0) { error in
             XCTAssertNotNil(error, "enabling walrus should have failed")
             let existingStingrayRecord: CKRecord = escrowProxyZone.currentDatabase[stingrayRecordID] as! CKRecord
             XCTAssertEqual(existingStingrayRecord[SecCKRecordEscrowProxyClubhRecordKey], Data("sr-blob".utf8), "stingray record blob should still exist in CK")
@@ -2754,7 +2802,8 @@ class OctagonWalrusTests: OctagonTestsBase {
         }
 
         // Patch Cuttlefish to fail disabling walrus.
-        self.fakeCuttlefishServer.disableWalrusListener = { _ in
+        self.fakeCuttlefishServer.disableWalrusListener = { request in
+            XCTAssertEqual(.active, request.pdpState, "pdpState")
             return FakeCuttlefishServer.makeCloudKitCuttlefishError(code: .transactionalFailure)
         }
 
@@ -2765,7 +2814,7 @@ class OctagonWalrusTests: OctagonTestsBase {
         let walrusCallbackOccurs = self.expectation(description: "walrus callback occurs")
         let args = OTControlArguments(configuration: self.otcliqueContext)
 #if APPLE_FEATURE_DBR
-        self.manager.disableWalrus(args, preRecords: [lrcFedRecord, fallbackStingrayRecord, dbrRecord], isDBRv2: true) { error in
+        self.manager.disableWalrus(args, preRecords: [lrcFedRecord, fallbackStingrayRecord, dbrRecord], isDBRv2: true, pdpState: 3) { error in
             XCTAssertNotNil(error, "disabling walrus should have failed")
             let existingADPRecord: CKRecord = escrowProxyZone.currentDatabase[existingADPRecordID] as! CKRecord
             XCTAssertEqual(existingADPRecord[SecCKRecordEscrowProxyClubhRecordKey], Data("dbr-adp-blob".utf8), "DBR+ADP record blob should still exist in CK")

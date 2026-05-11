@@ -43,6 +43,7 @@ seconds
 .\.Op womp
 .\.Op ring
 .\.Op autorestart
+.\.Op autorestartatconnect
 .\.Op acwake
 .Sh DESCRIPTION
 .Nm
@@ -110,6 +111,9 @@ must be run as root in order to modify any settings.
 .br
 .Ar autorestart
 - automatic restart on power loss (value = 0/1)
+.br
+.Ar autorestartatconnect
+- automatic restart on power connect (value = 0/1)
 .br
 .Ar lidwake
 - wake the machine when the laptop lid (or clamshell) is opened (value = 0/1)

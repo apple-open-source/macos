@@ -126,6 +126,7 @@
 #include <WebCore/MockRealtimeMediaSourceCenter.h>
 #include <WebCore/NavigatorGamepad.h>
 #include <WebCore/NetworkStorageSession.h>
+#include <WebCore/Notification.h>
 #include <WebCore/Page.h>
 #include <WebCore/PageGroup.h>
 #include <WebCore/PermissionController.h>
@@ -147,6 +148,7 @@
 #include <WebCore/SharedWorkerThreadProxy.h>
 #include <WebCore/UserGestureIndicator.h>
 #include <WebCore/WebKitJSHandle.h>
+#include <WebCore/WorkerGlobalScope.h>
 #include <algorithm>
 #include <pal/Logging.h>
 #include <wtf/CallbackAggregator.h>
@@ -666,6 +668,11 @@ void WebProcess::initializeWebProcess(WebProcessCreationParameters&& parameters,
     setAlwaysUsesComplexTextCodePath(parameters.shouldAlwaysUseComplexTextCodePath);
 
     setDisableFontSubpixelAntialiasingForTesting(parameters.disableFontSubpixelAntialiasingForTesting);
+
+#if ENABLE(NOTIFICATIONS)
+    if (parameters.overridePersistentNotificationMinimumLifetime)
+        WebCore::Notification::setOverridePersistentNotificationMinimumLifetime(*parameters.overridePersistentNotificationMinimumLifetime);
+#endif
 
     setMemoryCacheDisabled(parameters.memoryCacheDisabled);
 
@@ -1385,6 +1392,9 @@ NetworkProcessConnection& WebProcess::ensureNetworkProcessConnection()
         RunLoop::mainSingleton().dispatch([this, protectedThis = Ref { *this }] {
             for (auto& webPage : m_pageMap.values())
                 webPage->synchronizeCORSDisablingPatternsWithNetworkProcess();
+
+            if (std::exchange(m_needsIDBConnectionRefreshForWorkers, false))
+                refreshIDBConnectionForWorkers();
         });
     }
     
@@ -1445,7 +1455,7 @@ void WebProcess::networkProcessConnectionClosed(NetworkProcessConnection* connec
         
         if (RefPtr existingIDBConnectionToServer = connection->existingIDBConnectionToServer()) {
             ASSERT_UNUSED(existingIDBConnectionToServer, idbConnection.get() == &existingIDBConnectionToServer->coreConnectionToServer());
-            corePage->clearIDBConnection();
+            corePage->clearIDBConnectionOnAllDocuments();
         }
     }
 
@@ -1489,6 +1499,14 @@ void WebProcess::networkProcessConnectionClosed(NetworkProcessConnection* connec
     for (auto& weakSession : sessions) {
         if (RefPtr webtransportSession = weakSession.get())
             webtransportSession->didFail(std::nullopt, String(emptyString()));
+    }
+}
+
+void WebProcess::refreshIDBConnectionForWorkers()
+{
+    for (auto& page : m_pageMap.values()) {
+        if (RefPtr corePage = page->corePage())
+            corePage->refreshIDBConnectionForWorkers();
     }
 }
 

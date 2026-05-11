@@ -1081,6 +1081,11 @@ _sec_protocol_test_metadata_session_exporter(void *handle)
     sec_protocol_options_set_tls_certificate_compression_enabled(optionsB, true);
     XCTAssertTrue(sec_protocol_options_are_equal(optionsA, optionsB));
 
+    sec_protocol_options_set_ats_trust_policy(optionsA, sec_protocol_options_ats_trust_policy_skip);
+    XCTAssertFalse(sec_protocol_options_are_equal(optionsA, optionsB));
+    sec_protocol_options_set_ats_trust_policy(optionsB, sec_protocol_options_ats_trust_policy_skip);
+    XCTAssertTrue(sec_protocol_options_are_equal(optionsA, optionsB));
+
     const char *server_nameA = "localhost";
     const char *server_nameB = "apple.com";
     sec_protocol_options_set_tls_server_name(optionsA, server_nameA);
@@ -1910,6 +1915,94 @@ _sec_protocol_test_metadata_session_exporter(void *handle)
         sec_protocol_options_content_t content = (sec_protocol_options_content_t)handle;
         SEC_PROTOCOL_OPTIONS_VALIDATE(content, false);
         XCTAssertEqual(content->tls_compliance_policy, sec_protocol_options_compliance_policy_fcs_v2);
+        return true;
+    });
+}
+
+- (void)test_sec_protocol_options_set_ats_trust_policy {
+    sec_protocol_options_t options = [self create_sec_protocol_options];
+
+    // Verify default value
+    (void)sec_protocol_options_access_handle(options, ^bool(void *handle) {
+        sec_protocol_options_content_t content = (sec_protocol_options_content_t)handle;
+        SEC_PROTOCOL_OPTIONS_VALIDATE(content, false);
+        XCTAssertEqual(content->ats_trust_policy, sec_protocol_options_ats_trust_policy_default);
+        return true;
+    });
+
+    // Set to skip and verify
+    sec_protocol_options_set_ats_trust_policy(options, sec_protocol_options_ats_trust_policy_skip);
+    (void)sec_protocol_options_access_handle(options, ^bool(void *handle) {
+        sec_protocol_options_content_t content = (sec_protocol_options_content_t)handle;
+        SEC_PROTOCOL_OPTIONS_VALIDATE(content, false);
+        XCTAssertEqual(content->ats_trust_policy, sec_protocol_options_ats_trust_policy_skip);
+        return true;
+    });
+
+    // Verify getter
+    XCTAssertEqual(sec_protocol_options_get_ats_trust_policy(options), sec_protocol_options_ats_trust_policy_skip);
+
+    // Verify invalid value is rejected
+    sec_protocol_options_set_ats_trust_policy(options, (sec_protocol_options_ats_trust_policy_t)255);
+    XCTAssertEqual(sec_protocol_options_get_ats_trust_policy(options), sec_protocol_options_ats_trust_policy_skip);
+}
+
+- (void)test_sec_protocol_options_ats_trust_policy_config_roundtrip {
+    // Create source options with ats_trust_policy and some booleans set
+    sec_protocol_options_t source = [self create_sec_protocol_options];
+    sec_protocol_options_set_ats_trust_policy(source, sec_protocol_options_ats_trust_policy_skip);
+    sec_protocol_options_set_ats_required(source, true);
+    sec_protocol_options_set_tls_sni_disabled(source, true);
+
+    // Serialize
+    xpc_object_t config = sec_protocol_options_create_config(source);
+    XCTAssertNotEqual(config, NULL);
+
+    // Verify XPC dictionary has correct ats_trust_policy value
+    uint64_t serialized_policy = xpc_dictionary_get_uint64(config, "ats_trust_policy");
+    XCTAssertEqual(serialized_policy, (uint64_t)sec_protocol_options_ats_trust_policy_skip);
+
+    // Apply to fresh options
+    sec_protocol_options_t dest = [self create_sec_protocol_options];
+    bool applied = sec_protocol_options_apply_config(dest, config);
+    XCTAssertTrue(applied);
+
+    // Verify ats_trust_policy round-tripped
+    XCTAssertEqual(sec_protocol_options_get_ats_trust_policy(dest), sec_protocol_options_ats_trust_policy_skip);
+
+    // Verify booleans are not corrupted
+    (void)sec_protocol_options_access_handle(dest, ^bool(void *handle) {
+        sec_protocol_options_content_t content = (sec_protocol_options_content_t)handle;
+        SEC_PROTOCOL_OPTIONS_VALIDATE(content, false);
+        XCTAssertTrue(content->ats_required);
+        XCTAssertTrue(content->disable_sni);
+        XCTAssertFalse(content->trusted_peer_certificate);
+        XCTAssertFalse(content->enable_false_start);
+        return true;
+    });
+
+    // Test: config without ats_trust_policy shouldn't corrupt destination
+    sec_protocol_options_t source2 = [self create_sec_protocol_options];
+    sec_protocol_options_set_ats_required(source2, true);
+    // Intentionally NOT setting ats_trust_policy
+
+    xpc_object_t config2 = sec_protocol_options_create_config(source2);
+    XCTAssertNotEqual(config2, NULL);
+
+    sec_protocol_options_t dest2 = [self create_sec_protocol_options];
+    bool applied2 = sec_protocol_options_apply_config(dest2, config2);
+    XCTAssertTrue(applied2);
+
+    // ats_trust_policy should remain default (0), not corrupted
+    XCTAssertEqual(sec_protocol_options_get_ats_trust_policy(dest2), sec_protocol_options_ats_trust_policy_default);
+
+    // Booleans should still be correct
+    (void)sec_protocol_options_access_handle(dest2, ^bool(void *handle) {
+        sec_protocol_options_content_t content = (sec_protocol_options_content_t)handle;
+        SEC_PROTOCOL_OPTIONS_VALIDATE(content, false);
+        XCTAssertTrue(content->ats_required);
+        XCTAssertFalse(content->disable_sni);
+        XCTAssertFalse(content->trusted_peer_certificate);
         return true;
     });
 }

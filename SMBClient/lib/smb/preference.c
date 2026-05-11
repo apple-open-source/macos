@@ -963,8 +963,8 @@ void getDefaultPreferences(struct smb_prefs *prefs)
     /* Now get any values stored in the System Configuration */
     getSCPreferences(prefs);
     
-    /* SRV lookup is OFF by default */
-    prefs->srv_lookup_enabled = 0;
+    /* SRV lookup is ON by default */
+    prefs->srv_lookup_enabled = 1;
 }
 
 void releasePreferenceInfo(struct smb_prefs *prefs)

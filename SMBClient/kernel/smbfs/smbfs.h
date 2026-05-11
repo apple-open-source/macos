@@ -43,11 +43,11 @@
 #include <netsmb/smb_conn.h>
 
 #define SMBFS_VERMAJ	6
-#define SMBFS_VERMIN	0000
+#define SMBFS_VERMIN	0100
 #define SMBFS_VERSION	(SMBFS_VERMAJ*100000 + SMBFS_VERMIN)
 #define	SMBFS_VFSNAME	"smbfs"
-#define SMBFS_LANMAN	"SMBFS 6.0"	/* Needs to match SMBFS_VERSION */
-#define SMBFS_NATIVEOS	"Mac OS X 15"	/* Needs to match current OS version major number only */
+#define SMBFS_LANMAN	"SMBFS 6.0.1"	/* Needs to match SMBFS_VERSION */
+#define SMBFS_NATIVEOS	"Mac OS X 26"	/* Needs to match current OS version major number only */
 #define SMBFS_SLASH_TONAME "/Volumes/0x2f"
 
 #define	SMBFS_MAXPATHCOMP	1024	/* maximum number of path components */

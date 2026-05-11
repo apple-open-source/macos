@@ -308,6 +308,8 @@ CFStringRef SOSCCGetOperationDescription(enum SecXPCOperation op)
             return CFSTR("FetchCompatibilityModeCached");
         case kSecXPCOpPushResetCircle:
             return CFSTR("PushResetCircle");
+        case kSecXPCOpCopyAppleAnchors:
+            return CFSTR("CopyAppleAnchors");
         default:
             return CFSTR("Unknown xpc operation");
     }

@@ -243,7 +243,7 @@ tre_have_approx(const regex_t *preg)
 #endif /* !__LIBC__ */
 
 static int
-tre_match(const tre_tnfa_t *tnfa, const void *string, size_t len,
+tre_match(const tre_tnfa_t *tnfa, const void *string, ssize_t len,
 	  tre_str_type_t type, size_t nmatch, regmatch_t pmatch[],
 	  int eflags)
 {
@@ -260,7 +260,7 @@ tre_match(const tre_tnfa_t *tnfa, const void *string, size_t len,
     {
       if (pmatch->rm_so < 0)
 	return REG_INVARG;
-      if (len == (size_t)-1)
+      if (len == -1)
 	{
 	  if (pmatch->rm_eo < 0 || pmatch->rm_so > pmatch->rm_eo)
 	    return REG_INVARG;
@@ -301,7 +301,7 @@ tre_match(const tre_tnfa_t *tnfa, const void *string, size_t len,
 	    }
 	} else
 #endif /* TRE_STR_USER */
-      status = tre_tnfa_run_backtrack(tnfa, string + offset, (int)len, type,
+      status = tre_tnfa_run_backtrack(tnfa, string + offset, len, type,
 				      tags, eflags, &eo);
     }
 #ifdef TRE_APPROX
@@ -313,14 +313,14 @@ tre_match(const tre_tnfa_t *tnfa, const void *string, size_t len,
       tre_regaparams_default(&params);
       params.max_err = 0;
       params.max_cost = 0;
-      status = tre_tnfa_run_approx(tnfa, string + offset, (int)len, type, tags,
+      status = tre_tnfa_run_approx(tnfa, string + offset, len, type, tags,
 				   &match, params, eflags, &eo);
     }
 #endif /* TRE_APPROX */
   else
     {
       /* Exact matching, no back references, use the parallel matcher. */
-      status = tre_tnfa_run_parallel(tnfa, string + offset, (int)len, type,
+      status = tre_tnfa_run_parallel(tnfa, string + offset, len, type,
 				     tags, eflags, &eo);
     }
 
@@ -371,7 +371,7 @@ int
 tre_regexec(const regex_t *preg, const char *str,
 	size_t nmatch, regmatch_t pmatch[], int eflags)
 {
-  return tre_regnexec(preg, str, (size_t)-1, nmatch, pmatch, eflags);
+  return tre_regnexec(preg, str, -1, nmatch, pmatch, eflags);
 }
 
 #ifndef __APPLE__
@@ -381,7 +381,7 @@ tre_regexecb(const regex_t *preg, const char *str,
 {
   tre_tnfa_t *tnfa = (void *)preg->TRE_REGEX_T_FIELD;
 
-  return tre_match(tnfa, str, (unsigned)-1, STR_BYTE, nmatch, pmatch, eflags);
+  return tre_match(tnfa, str, -1, STR_BYTE, nmatch, pmatch, eflags);
 }
 
 int
@@ -414,7 +414,7 @@ int
 tre_regwexec(const regex_t *preg, const wchar_t *str,
 	 size_t nmatch, regmatch_t pmatch[], int eflags)
 {
-  return tre_regwnexec(preg, str, (size_t)-1, nmatch, pmatch, eflags);
+  return tre_regwnexec(preg, str, -1, nmatch, pmatch, eflags);
 }
 
 #endif /* TRE_WCHAR */
@@ -430,7 +430,7 @@ tre_reguexec(const regex_t *preg, const tre_str_source *str,
   if (preg->re_magic != RE_MAGIC) return REG_BADPAT;
 #endif /* TRE_USE_SYSTEM_REGEX_H */
 
-  return tre_match(tnfa, str, (size_t)-1, STR_USER, nmatch, pmatch, eflags);
+  return tre_match(tnfa, str, -1, STR_USER, nmatch, pmatch, eflags);
 }
 #endif /* TRE_STR_USER */
 
@@ -442,7 +442,7 @@ tre_reguexec(const regex_t *preg, const tre_str_source *str,
 */
 
 static int
-tre_match_approx(const tre_tnfa_t *tnfa, const void *string, size_t len,
+tre_match_approx(const tre_tnfa_t *tnfa, const void *string, ssize_t len,
 		 tre_str_type_t type, regamatch_t *match, regaparams_t params,
 		 int eflags)
 {
@@ -482,7 +482,7 @@ tre_match_approx(const tre_tnfa_t *tnfa, const void *string, size_t len,
     {
       if (match->pmatch->rm_so < 0)
 	return REG_INVARG;
-      if (len == (size_t)-1)
+      if (len == -1)
 	{
 	  if (match->pmatch->rm_eo < 0 || match->pmatch->rm_so >
 	      match->pmatch->rm_eo)
@@ -493,7 +493,7 @@ tre_match_approx(const tre_tnfa_t *tnfa, const void *string, size_t len,
       if (type == STR_WIDE) offset *= sizeof(wchar_t);
     }
 
-  status = tre_tnfa_run_approx(tnfa, string, (int)len, type, tags,
+  status = tre_tnfa_run_approx(tnfa, string, len, type, tags,
 			       match, params, eflags, &eo);
   if (status == REG_OK)
     {
@@ -542,7 +542,7 @@ int
 tre_regaexec(const regex_t *preg, const char *str,
 	 regamatch_t *match, regaparams_t params, int eflags)
 {
-  return tre_reganexec(preg, str, (size_t)-1, match, params, eflags);
+  return tre_reganexec(preg, str, -1, match, params, eflags);
 }
 
 #ifndef __APPLE__
@@ -552,8 +552,7 @@ tre_regaexecb(const regex_t *preg, const char *str,
 {
   tre_tnfa_t *tnfa = (void *)preg->TRE_REGEX_T_FIELD;
 
-  return tre_match_approx(tnfa, str, (unsigned)-1, STR_BYTE,
-                          match, params, eflags);
+  return tre_match_approx(tnfa, str, -1, STR_BYTE, match, params, eflags);
 }
 #endif /* !__APPLE__ */
 
@@ -577,7 +576,7 @@ int
 tre_regawexec(const regex_t *preg, const wchar_t *str,
 	  regamatch_t *match, regaparams_t params, int eflags)
 {
-  return tre_regawnexec(preg, str, (size_t)-1, match, params, eflags);
+  return tre_regawnexec(preg, str, -1, match, params, eflags);
 }
 
 #endif /* TRE_WCHAR */

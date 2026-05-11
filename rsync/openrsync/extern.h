@@ -613,7 +613,7 @@ struct	blkstat {
 	off_t		 dirty; /* total amount sent */
 	size_t		 hint; /* optimisation: next probable match */
 	struct fmap	*map; /* mapped file or NULL otherwise */
-	size_t		 mapsz; /* (cache) size of file or zero */
+	off_t		 mapsz; /* (cache) size of file or zero */
 	int		 fd; /* descriptor girding the map */
 	enum blkstatst	 curst; /* FSM for sending file blocks */
 	off_t		 curpos; /* sending: position in file to send */
@@ -973,10 +973,10 @@ struct fmap;
 extern volatile struct fmap	*fmap_trapped, *fmap_trapped_prev;
 extern sigjmp_buf		 fmap_signal_env;
 
-struct fmap	*fmap_open(const char *, int, size_t);
+struct fmap	*fmap_open(const char *, int, off_t);
 bool		 fmap_access_valid(struct fmap *, off_t, size_t);
 void		*fmap_data(struct fmap *, off_t, size_t);
-size_t		 fmap_size(struct fmap *);
+off_t		 fmap_size(struct fmap *);
 enum fmap_type	 fmap_type(struct fmap *);
 void		 fmap_close(struct fmap *);
 
@@ -1179,12 +1179,12 @@ int		 blk_send_ack(struct sess *, int, struct blkset *);
 uint32_t	 hash_fast(const void *, size_t);
 void		 hash_slow(const void *, size_t, unsigned char *,
 		    const struct sess *);
-void		 hash_file(const void *, size_t, unsigned char *,
+void		 hash_file(const void *, off_t, unsigned char *,
 		    const struct sess *);
-void		 hash_fmap_chunks(struct fmap *, size_t, MD4_CTX *);
-int		 hash_fmap(const char *, struct fmap *, size_t, unsigned char *,
+void		 hash_fmap_chunks(struct fmap *, off_t, MD4_CTX *);
+int		 hash_fmap(const char *, struct fmap *, off_t, unsigned char *,
 		    const struct sess *);
-int		 hash_file_by_path(int, const char *, size_t, unsigned char *);
+int		 hash_file_by_path(int, const char *, off_t, unsigned char *);
 
 /*
  * Use of move_file should ideally be limited to copy.c and platform.c -- in

@@ -2,6 +2,7 @@
 #if OCTAGON
 
 #import "keychain/ot/proto/generated_source/OTAccountMetadataClassC.h"
+#import "keychain/ot/proto/generated_source/OTAccountMetadataClassCEscrowRecordCache.h"
 #import "keychain/ot/OTPersonaAdapter.h"
 
 // For the escrowRepairAttemptVersion field.
@@ -40,6 +41,7 @@ NS_ASSUME_NONNULL_BEGIN
 @property (nullable, readonly) NSDate* memoizedLastHealthCheck;
 @property (nullable, readonly) NSDate* memoizedLastEscrowRepairTriggered;
 @property (nullable, readonly) NSDate* memoizedLastEscrowRepairAttempted;
+@property (nullable, readonly) NSDate* memoizedEscrowRecordCacheTimestamp;
 
 - (void)setTPSyncingPolicy:(TPSyncingPolicy* _Nullable)policy;
 - (TPSyncingPolicy* _Nullable)getTPSyncingPolicy;
@@ -49,6 +51,12 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (void)setOctagonSecureElementIdentity:(OTSecureElementPeerIdentity *)secureElementIdentity;
 - (TPPBSecureElementIdentity* _Nullable)parsedSecureElementIdentity;
+
+@end
+
+@interface OTAccountMetadataClassCEscrowRecordCache (KeychainSupport)
+
+@property (readonly) NSInteger rateLimitTimeLeft;
 
 @end
 

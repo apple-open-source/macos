@@ -1,5 +1,3 @@
-# $FreeBSD$
-
 .include <bsd.own.mk>
 
 CSMAPPERDIR?= /usr/share/i18n/csmapper

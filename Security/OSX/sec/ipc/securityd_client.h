@@ -314,6 +314,7 @@ enum SecXPCOperation {
     sec_ota_pki_trust_store_asset_version_id,
     sec_item_update_token_items_for_system_keychain_id,
     sec_delete_internal_items_on_sign_out_id,
+    kSecXPCOpCopyAppleAnchors,
 };
 
 #define KEYCHAIN_SUPPORTS_PERSONA_MULTIUSER (TARGET_OS_IOS || TARGET_OS_TV || TARGET_OS_OSX)
@@ -495,6 +496,7 @@ struct trustd {
     bool (*sec_trust_settings_copy_data)(uid_t uid, CFStringRef domain, CFDataRef *trustSettings, CFErrorRef* error);
     bool (*sec_trust_reset_settings)(SecTrustResetFlags flags, CFErrorRef *error);
     bool (*sec_trust_store_migrate_plist)(uid_t uid, CFPropertyListRef plist, CFDictionaryRef certificates, CFErrorRef *error);
+    CFDictionaryRef (*sec_trust_store_copy_apple_anchors)(CFStringRef policyId);
 };
 
 extern struct trustd *gTrustd;

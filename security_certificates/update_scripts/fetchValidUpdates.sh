@@ -46,7 +46,7 @@ function fetchUpdatesForGeneration() {
       if [ -d valid_db_snapshot ]; then
         echo "updating valid and version number"
         cp ${OUTDIR}/g${GEN}${UPDATE}.sqlite3 valid_db_snapshot/valid.sqlite3
-        plutil -replace Version -integer ${VER} valid_db_snapshot/ValidUpdate.plist
+        plutil -replace Version -integer ${VERSION} valid_db_snapshot/ValidUpdate.plist
         plutil -replace Generation -integer ${GEN} valid_db_snapshot/ValidUpdate.plist
       else
         echo "not running tool in top level directory"

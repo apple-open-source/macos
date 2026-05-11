@@ -450,6 +450,9 @@ danglingPeerCleanup:(BOOL)danglingPeerCleanup
 - (void)icscRepairReset:(OTControlArguments*)arguments
                   reply:(void (^)(NSError *_Nullable error))reply;
 
+- (void)icscRepairInvalidateCacheVersion:(OTControlArguments*)arguments
+                                   reply:(void (^)(NSError *_Nullable error))reply;
+
 - (void)enableWalrus:(OTControlArguments*)arguments
           preRecords:(nonnull NSArray<OTSerializedPlistEscrowRecord *> *)preRecords
                reply:(nonnull void (^)(NSError * _Nullable))reply;

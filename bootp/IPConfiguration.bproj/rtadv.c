@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2025 Apple Inc. All rights reserved.
+ * Copyright (c) 2003-2026 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -549,7 +549,6 @@ rtadv_set_clat46_address(ServiceRef service_p)
     if (service_clat46_is_active(service_p)) {
 	return (TRUE);
     }
-    interface_set_noarp(if_name(if_p), TRUE);
     partial_addr = S_clat46_address_allocate(if_name(if_p));
     addr = S_make_clat46_address(partial_addr);
     ret = inet_aifaddr(if_name(if_p), addr, &G_ip_broadcast, &addr);
@@ -564,6 +563,7 @@ rtadv_set_clat46_address(ServiceRef service_p)
 		   if_name(if_p), IP_LIST(&addr));
 	    service_clat46_set_is_active(service_p, true);
 	    success = TRUE;
+	    interface_set_noarp(if_name(if_p), TRUE);
 	}
 	else {
 	    my_log(LOG_ERR,

@@ -124,6 +124,7 @@ messages -> WebPage WantsAsyncDispatchMessage {
     AutofillLoginCredentials(String username, String password)
     SetFocusedElementValue(struct WebCore::ElementContext context, String value)
     SetFocusedElementSelectedIndex(struct WebCore::ElementContext context, uint32_t index, bool allowMultipleSelection)
+    SetSelectElementIsOpen(struct WebCore::ElementContext context, bool isOpen)
     ApplicationWillResignActive()
     ApplicationDidEnterBackground(bool isSuspendedUnderLock)
     ApplicationDidFinishSnapshottingAfterEnteringBackground()
@@ -283,6 +284,7 @@ messages -> WebPage WantsAsyncDispatchMessage {
     Resume() -> (bool success)
 
     Close()
+    CloseWithReply() -> ()
     TryClose() -> (bool shouldClose)
 
     SetEditable(bool editable)
@@ -930,6 +932,7 @@ messages -> WebPage WantsAsyncDispatchMessage {
 #endif
 
 #if ENABLE(VIDEO)
+    SetCaptionDisplaySettingsPreviewProfileID(String profileID)
     ShowCaptionDisplaySettingsPreview(WebCore::MediaPlayerClientIdentifier identifier)
     HideCaptionDisplaySettingsPreview(WebCore::MediaPlayerClientIdentifier identifier)
 #endif

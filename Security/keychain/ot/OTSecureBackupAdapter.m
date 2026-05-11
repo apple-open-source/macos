@@ -25,10 +25,6 @@
 
 #import "keychain/ot/OTSecureBackupAdapter.h"
 
-@interface SecureBackup(Repair)
-- (NSDictionary*)enableAndReturnNetworkReachedHint:(NSError**)error;
-@end
-
 @implementation OTSecureBackupActualAdapter
 
 - (BOOL)moveToFederationAllowed:(NSString*)federation altDSID:(NSString*)altDSID error:(NSError**)error
@@ -36,10 +32,19 @@
     return [SecureBackup moveToFederationAllowed:federation altDSID:altDSID error:error];
 }
 
-- (NSDictionary* _Nullable)enableWithSecureBackupAndReturnHint:(id)sb error:(NSError**)error
+- (void)enableWithResults:(id<OTSecureBackupEnablerProtocol>)sb reply:(SecureBackupCompletionBlockWithResults)reply
 {
     SecureBackup* securebackup = (SecureBackup*)sb;
-    return [securebackup enableAndReturnNetworkReachedHint:error];
+
+    NSError* error = nil;
+    NSDictionary* results = [securebackup enableAndReturnResults:&error];
+    reply(results, error);
+}
+
+- (BOOL)storeWithSecureBackup:(id<OTSecureBackupEnablerProtocol>)sb escrowRecord:(OTSerializedPlistEscrowRecord*)escrowRecord error:(NSError**)error
+{
+    SecureBackup* securebackup = (SecureBackup*)sb;
+    return [securebackup storeSerializedEscrowRecord:escrowRecord withError:error];
 }
 
 - (NSDictionary*)getAccountInfoWithSecureBackup:(id)sb error:(NSError **)error

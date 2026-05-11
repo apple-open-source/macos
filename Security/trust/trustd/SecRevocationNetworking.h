@@ -31,5 +31,6 @@
 bool SecValidUpdateRequest(dispatch_queue_t queue, CFStringRef server, CFIndex version);
 bool SecValidUpdateUpdateNow(dispatch_queue_t queue, CFStringRef server, CFIndex version, Boolean forceVersion);
 bool SecORVCBeginFetches(SecORVCRef orvc, SecCertificateRef cert);
+bool SecValidShouldDowngrade(void);
 
 #endif /* _SECURITY_SECREVOCATIONNETWORKING_H_ */

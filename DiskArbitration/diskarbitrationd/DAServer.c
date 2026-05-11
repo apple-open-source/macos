@@ -574,6 +574,7 @@ static DASessionRef __DASessionListGetSession( mach_port_t sessionID )
 #if TARGET_OS_IOS || TARGET_OS_OSX
 static void __DAUnlockNotificationCallback( CFNotificationCenterRef center, void *observer, CFStringRef name, const void *object, CFDictionaryRef userInfo )
 {
+    Boolean oldUnlockedState = gDAUnlockedState;
 #if TARGET_OS_IOS
     gDAUnlockedState = DADeviceIsUnlocked();
 #elif TARGET_OS_OSX
@@ -600,18 +601,20 @@ static void __DAUnlockNotificationCallback( CFNotificationCenterRef center, void
     if ( gDAUnlockedState == TRUE )
     {
         /*
+         * Do not reprobe if the device was not previously locked
+         */
+        if ( oldUnlockedState == gDAUnlockedState )
+        {
+            DALogInfo( "Device lock state has not changed. Ignoring." );
+            return;
+        }
+        
+        /*
          * Device is unlocked now - check disks and queue requests using the workloop to avoid concurrent modification
          */
         dispatch_async( DAServerWorkLoop() , ^{
             CFIndex count;
             CFIndex index;
-            
-#if TARGET_OS_OSX
-            /*
-             * Clear all known volume uuids from before hibernation.
-             */
-            CFSetRemoveAllValues( gDAHibernateVolumes );
-#endif
             
             count = CFArrayGetCount( gDADiskList );
 
@@ -621,6 +624,26 @@ static void __DAUnlockNotificationCallback( CFNotificationCenterRef center, void
             
                 disk = ( void * ) CFArrayGetValueAtIndex( gDADiskList, index );
 
+#if TARGET_OS_OSX
+                CFUUIDRef uuid = DADiskGetDescription( disk ,
+                                                      kDADiskDescriptionVolumeUUIDKey );
+                
+                /*
+                 * Only remount volumes that were previously unmounted during hibernation.
+                 */
+                if ( uuid )
+                {
+                    if ( !CFSetContainsValue( gDAHibernateVolumes , uuid ) )
+                    {
+                        continue;
+                    }
+                    else
+                    {
+                        CFSetRemoveValue( gDAHibernateVolumes , uuid );
+                    }
+                }
+#endif
+                
                 /*
                  * Mount this volume.
                  */
@@ -638,9 +661,9 @@ static void __DAUnlockNotificationCallback( CFNotificationCenterRef center, void
                         }
                     }
                 }
-            
+#if TARGET_OS_IOS
                 /*
-                 * Probe and possibly mount the deferred volume after we processed the outstanding mount
+                 * On iOS only, probe and possibly mount the deferred volume after we processed the outstanding mount
                  */
                 if ( DADiskGetState( disk , kDADiskStateRequireReprobe ) == TRUE )
                 {
@@ -648,8 +671,15 @@ static void __DAUnlockNotificationCallback( CFNotificationCenterRef center, void
                     DADiskProbe( disk , NULL ); // dispatch on DAServer work queue
                 
                 }
-            
+#endif
             }
+            
+#if TARGET_OS_OSX
+            /*
+             * Clear remaining volume uuids from before hibernation.
+             */
+            CFSetRemoveAllValues( gDAHibernateVolumes );
+#endif
         });
      }
 }

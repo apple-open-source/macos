@@ -24,6 +24,7 @@
 
 #include <AssertMacros.h>
 #import <Foundation/Foundation.h>
+#import <CoreFoundation/CFPriv.h>
 #import <CFNetwork/CFNSURLConnection.h>
 
 #include <sys/sysctl.h>
@@ -707,4 +708,34 @@ bool SecORVCBeginFetches(SecORVCRef orvc, SecCertificateRef cert) {
         context.attribution = (NSURLRequestAttribution)SecPathBuilderGetAttribution(orvc->builder);
         return [delegate fetchNext:session context:context];
     }
+}
+
+#define kSecRevocationDbDowngrade       "valid-downgrade"
+
+
+// only check once per build if we should downgrade from version 8
+// assumes runs off db queue
+bool SecValidShouldDowngrade(void)
+{
+    __block bool shouldDowngrade = false;
+    WithPathInRevocationInfoDirectory(CFSTR(kSecRevocationDbDowngrade), ^(const char *path) {
+        NSDictionary *version = CFBridgingRelease(_CFCopySystemVersionDictionary());
+        if (version == NULL) {
+            return;
+        }
+        NSString *build = version[(__bridge id)_kCFSystemVersionBuildVersionKey];
+        if (![build isKindOfClass:[NSString class]]) {
+            return;
+        }
+
+        NSString *onDisk = [NSString stringWithContentsOfFile:@(path)];
+        if (onDisk == nil || [onDisk isEqual:build] == NO) {
+            if (SecRevocationDbGetVersion() == 8) {
+                shouldDowngrade = true;
+            }
+        }
+        [build writeToFile:@(path) atomically:NO];
+    });
+    return shouldDowngrade;
+
 }

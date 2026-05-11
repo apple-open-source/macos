@@ -7547,12 +7547,16 @@ void fetchAssertionCategories(xpc_object_t remote, xpc_object_t msg)
 
 void sendUpdateAssertionPolicy(IOPMAssertionPolicy policy) {
     INFO_LOG("Sending com.apple.powerd.assertionpolicy %d", policy);
-    int token;
-    uint32_t status = notify_register_check("com.apple.powerd.assertionpolicy", &token);
-    if (status == NOTIFY_STATUS_OK) {
-        notify_set_state(token, policy);
-        notify_post("com.apple.powerd.assertionpolicy");
+    static int token = NOTIFY_TOKEN_INVALID;
+    if (token == NOTIFY_TOKEN_INVALID) {
+        uint32_t status = notify_register_check("com.apple.powerd.assertionpolicy", &token);
+        if (status != NOTIFY_STATUS_OK) {
+            ERROR_LOG("notify_register_check failed for assertionpolicy: %d", status);
+            return;
+        }
     }
+    notify_set_state(token, policy);
+    notify_post("com.apple.powerd.assertionpolicy");
 }
 
 

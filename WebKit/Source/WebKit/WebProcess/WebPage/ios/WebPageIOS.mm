@@ -294,6 +294,11 @@ void WebPage::platformReinitializeAccessibilityToken()
     accessibilityTransferRemoteToken(accessibilityRemoteTokenData());
 }
 
+void WebPage::sendAccessibilityTokenIfNeeded()
+{
+    // On iOS, accessibility is always initialized eagerly, so this is a no-op.
+}
+
 RetainPtr<NSData> WebPage::accessibilityRemoteTokenData() const
 {
     return [[[NSUUID UUID] UUIDString] dataUsingEncoding:NSUTF8StringEncoding];
@@ -1683,6 +1688,12 @@ void WebPage::setFocusedElementSelectedIndex(const WebCore::ElementContext& cont
 {
     if (RefPtr select = dynamicDowncast<HTMLSelectElement>(elementForContext(context)))
         select->optionSelectedByUser(index, true, allowMultipleSelection);
+}
+
+void WebPage::setSelectElementIsOpen(const WebCore::ElementContext& context, bool isOpen)
+{
+    if (RefPtr select = dynamicDowncast<HTMLSelectElement>(elementForContext(context)))
+        select->setPopupIsVisible(isOpen);
 }
 
 void WebPage::setIsShowingInputViewForFocusedElement(bool showingInputView)

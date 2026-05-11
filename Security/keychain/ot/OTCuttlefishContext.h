@@ -350,6 +350,7 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)rerollWithReply:(void (^)(NSError *_Nullable error))reply;
 
 - (void)icscRepairResetWithReply:(void (^)(NSError *_Nullable error))reply;
+- (void)icscRepairInvalidateCacheVersionWithReply:(void (^)(NSError *_Nullable error))reply;
 
 // Used to reset CKKS's trust status if CKKS mistakenly thinks it's not trusted.
 - (BOOL)recheckCKKSTrustStatus:(NSError**)error;

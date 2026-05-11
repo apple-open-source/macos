@@ -47,6 +47,7 @@
 #include "keychain/securityd/SecDbItem.h"
 #import <CoreCDP/CDPAccount.h>
 #import "keychain/ot/OTLAContextAdapter.h"
+#import "keychain/ot/OTAppleKeyStoreAdapter.h"
 NS_ASSUME_NONNULL_BEGIN
 
 @class OTContext;
@@ -75,6 +76,7 @@ NS_ASSUME_NONNULL_BEGIN
           deviceInformationAdapter:(id<OTDeviceInformationAdapter>)deviceInformationAdapter
                secureBackupAdapter:(id<OTSecureBackupAdapter>)secureBackupAdapter
                   laContextAdapter:(id<OTLAContextAdapter>)laContextAdapter
+              appleKeyStoreAdapter:(id<OTAppleKeyStoreAdapter>)appleKeyStoreAdapter
                     personaAdapter:(id<OTPersonaAdapter>)personaAdapter
                 apsConnectionClass:(Class<OctagonAPSConnection>)apsConnectionClass
                 escrowRequestClass:(Class<SecEscrowRequestable>)escrowRequestClass
@@ -90,6 +92,9 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)initializeOctagon;
 - (BOOL)waitForReady:(OTControlArguments*)arguments
                 wait:(int64_t)wait;
+
+// Tests only: Register for cache flow notifications. Use initializeOctagon outside tests.
+- (void)registerForPasscodeCacheFlowNotifications;
 
 // Call this to ensure SFA is ready
 - (void)setupAnalytics;

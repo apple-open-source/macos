@@ -58,51 +58,9 @@
     }
 }
 
-+ (void)tearDown {
+- (void)tearDown {
     /* Reset the anchor lookup table */
     SecOTAPKISetConstrainedAnchorLookupTable(NULL);
-}
-
-- (void)testCopyAnchorRecordsForCertificate {
-#if TARGET_OS_BRIDGE
-    /* bridgeOS doesn't use trust store */
-    XCTSkip();
-#endif
-    for (NSDictionary *testCase in self.testCases) {
-        NSDictionary *anchorTable = self.anchorTables[testCase[@"plist"]];
-        SecOTAPKISetConstrainedAnchorLookupTable((__bridge CFDictionaryRef)anchorTable);
-        SecCertificateRef cert = (__bridge SecCertificateRef)self.certs[testCase[@"certHash"]];
-        CFArrayRef records = CopyAnchorRecordsForCertificate(cert);
-        NSNumber *expectedRecordCount = testCase[@"certRecordCount"];
-        if (expectedRecordCount && expectedRecordCount.integerValue > 0) {
-            XCTAssertNotEqual(NULL, records);
-            XCTAssertEqual(CFArrayGetCount(records), expectedRecordCount.integerValue);
-        } else {
-            XCTAssertEqual(NULL, records);
-        }
-        CFReleaseNull(records);
-    }
-}
-
-- (void)testCopyAnchorRecordsForSPKI {
-#if TARGET_OS_BRIDGE
-    /* bridgeOS doesn't use trust store */
-    XCTSkip();
-#endif
-    for (NSDictionary *testCase in self.testCases) {
-        NSDictionary *anchorTable = self.anchorTables[testCase[@"plist"]];
-        SecOTAPKISetConstrainedAnchorLookupTable((__bridge CFDictionaryRef)anchorTable);
-        SecCertificateRef cert = (__bridge SecCertificateRef)self.certs[testCase[@"certHash"]];
-        CFArrayRef records = CopyAnchorRecordsForSPKI(cert);
-        NSNumber *expectedRecordCount = testCase[@"keyRecordCount"];
-        if (expectedRecordCount && expectedRecordCount.integerValue > 0) {
-            XCTAssertNotEqual(NULL, records);
-            XCTAssertEqual(CFArrayGetCount(records), expectedRecordCount.integerValue);
-        } else {
-            XCTAssertEqual(NULL, records);
-        }
-        CFReleaseNull(records);
-    }
 }
 
 - (void)testCopyUsageConstraintsForCertificate {

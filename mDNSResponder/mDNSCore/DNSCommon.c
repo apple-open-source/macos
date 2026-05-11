@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 4; c-file-style: "bsd"; c-basic-offset: 4; fill-column: 108; indent-tabs-mode: nil; -*-
  *
- * Copyright (c) 2002-2025 Apple Inc. All rights reserved.
+ * Copyright (c) 2002-2026 Apple Inc. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -1859,9 +1859,19 @@ mDNSexport mDNSBool SameRDataBody(const ResourceRecord *const r1, const RDataBod
         //
         // Note: rdlength of both the RData are same (ensured by the caller) and hence we can
         // use just r1->rdlength below
+        //
+        // Use DomainNameLengthLimit() to bound the domain name length calculation to the
+        // rdlength of the NSEC record. This prevents an integer underflow in the
+        // mDNSPlatformMemSame() call below when rdlength is less than the domain name
+        // length. Such an abnormal situation can arise when rdlength is 0, but a stale domain
+        // name is contained in the RDATA buffer.
 
-        int dlen1 = DomainNameLength(&b1->name);
-        int dlen2 = DomainNameLength(&b2->name);
+        const int dlen1 = DomainNameLengthLimit(&b1->name, b1->data + r1->rdlength);
+        const int dlen2 = DomainNameLengthLimit(&b2->name, b2->data + r1->rdlength);
+        if ((dlen1 > MAX_DOMAIN_NAME) || (dlen2 > MAX_DOMAIN_NAME))
+        {
+            return mDNSfalse;
+        }
         return (mDNSBool)(dlen1 == dlen2 &&
                           samename(&b1->name, &b2->name) &&
                           mDNSPlatformMemSame(b1->data + dlen1, b2->data + dlen2, r1->rdlength - dlen1));
@@ -2383,6 +2393,7 @@ mDNSexport const mDNSu8 * ResourceRecordGetRDataBytesPointer(const ResourceRecor
         case kDNSType_MX:
         case kDNSType_AFSDB:
         case kDNSType_RT:
+        case kDNSType_MINFO:
         case kDNSType_RP:
         case kDNSType_SRV:
         case kDNSType_PX:
@@ -2601,6 +2612,7 @@ mDNSexport mDNSu8 *putRData(const DNSMessage *const msg, mDNSu8 *ptr, const mDNS
         ptr = putVal16(ptr, rdb->mx.preference);
         return(putDomainNameAsLabels(msg, ptr, limit, &rdb->mx.exchange));
 
+    case kDNSType_MINFO:
     case kDNSType_RP:   ptr = putDomainNameAsLabels(msg, ptr, limit, &rdb->rp.mbox);
         if (!ptr) return(mDNSNULL);
         ptr = putDomainNameAsLabels(msg, ptr, limit, &rdb->rp.txt);

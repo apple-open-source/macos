@@ -2189,7 +2189,12 @@ RBBIWordMonkey::RBBIWordMonkey()
     partition.emplace_back("Katakana", UnicodeSet(uR"([\p{Word_Break=Katakana}])", status));
     partition.emplace_back("ALetter_ExtPict", UnicodeSet(uR"([\p{Word_Break=ALetter}&\p{Extended_Pictographic}])", status));
     partition.emplace_back("ALettermExtPict", UnicodeSet(uR"([\p{Word_Break=ALetter}-\p{Extended_Pictographic}])", status));
-    partition.emplace_back("MidLetter", UnicodeSet(uR"([\p{Word_Break=MidLetter}])", status));
+#if APPLE_ICU_CHANGES
+// rdar://170769853 ([Rizz Escape] CFStringTokenizer now collates colon separated words into a single token)
+    partition.emplace_back("MidLetter", UnicodeSet(uR"([\p{Word_Break=MidLetter}-[\:\uFE55\uFF1A]])", status));
+#else
+    partition.emplace_back("MidLetter", UnicodeSet(uR"([\p{Word_Break=MidLetter}]])", status));
+#endif // APPLE_ICU_CHANGES
     partition.emplace_back("MidNum", UnicodeSet(uR"([\p{Word_Break=MidNum}])", status));
     partition.emplace_back("MidNumLet", UnicodeSet(uR"([\p{Word_Break=MidNumLet}])", status));
     partition.emplace_back("Numeric", UnicodeSet(uR"([\p{Word_Break=Numeric}])", status));
@@ -2210,8 +2215,14 @@ RBBIWordMonkey::RBBIWordMonkey()
     rules.push_back(std::make_unique<RegexRule>(uR"($WSegSpace × $WSegSpace)", uR"(\p{Word_Break=WSegSpace})", u'×', uR"(\p{Word_Break=WSegSpace})"));
     rules.push_back(std::make_unique<RemapRule>(uR"((?<X>[^$CR $LF $Newline]) ($Extend | $Format | $ZWJ)* → ${X})", uR"((?<X>[^\p{Word_Break=CR} \p{Word_Break=LF} \p{Word_Break=Newline}]) (\p{Word_Break=Extend} | [\p{Word_Break=Format}] | \p{Word_Break=ZWJ})*)", uR"(${X})"));
     rules.push_back(std::make_unique<RegexRule>(uR"($AHLetter × $AHLetter)", uR"([\p{Word_Break=ALetter} \p{Word_Break=Hebrew_Letter}])", u'×', uR"([\p{Word_Break=ALetter} \p{Word_Break=Hebrew_Letter}])"));
+#if APPLE_ICU_CHANGES
+// rdar://170769853 ([Rizz Escape] CFStringTokenizer now collates colon separated words into a single token)
+    rules.push_back(std::make_unique<RegexRule>(uR"($AHLetter × ($MidLetter | $MidNumLetQ) $AHLetter)", uR"([\p{Word_Break=ALetter} \p{Word_Break=Hebrew_Letter}])", u'×', uR"(([\p{Word_Break=MidLetter}-[\:\uFE55\uFF1A]] | [\p{Word_Break=MidNumLet} \p{Word_Break=Single_Quote}]) [\p{Word_Break=ALetter} \p{Word_Break=Hebrew_Letter}])"));
+    rules.push_back(std::make_unique<RegexRule>(uR"($AHLetter ($MidLetter | $MidNumLetQ) × $AHLetter)", uR"([\p{Word_Break=ALetter} \p{Word_Break=Hebrew_Letter}] ([\p{Word_Break=MidLetter}-[\:\uFE55\uFF1A]] | [\p{Word_Break=MidNumLet} \p{Word_Break=Single_Quote}]))", u'×', uR"([\p{Word_Break=ALetter} \p{Word_Break=Hebrew_Letter}])"));
+#else
     rules.push_back(std::make_unique<RegexRule>(uR"($AHLetter × ($MidLetter | $MidNumLetQ) $AHLetter)", uR"([\p{Word_Break=ALetter} \p{Word_Break=Hebrew_Letter}])", u'×', uR"((\p{Word_Break=MidLetter} | [\p{Word_Break=MidNumLet} \p{Word_Break=Single_Quote}]) [\p{Word_Break=ALetter} \p{Word_Break=Hebrew_Letter}])"));
     rules.push_back(std::make_unique<RegexRule>(uR"($AHLetter ($MidLetter | $MidNumLetQ) × $AHLetter)", uR"([\p{Word_Break=ALetter} \p{Word_Break=Hebrew_Letter}] (\p{Word_Break=MidLetter} | [\p{Word_Break=MidNumLet} \p{Word_Break=Single_Quote}]))", u'×', uR"([\p{Word_Break=ALetter} \p{Word_Break=Hebrew_Letter}])"));
+#endif // APPLE_ICU_CHANGES
     rules.push_back(std::make_unique<RegexRule>(uR"($Hebrew_Letter × $Single_Quote)", uR"(\p{Word_Break=Hebrew_Letter})", u'×', uR"(\p{Word_Break=Single_Quote})"));
     rules.push_back(std::make_unique<RegexRule>(uR"($Hebrew_Letter × $Double_Quote $Hebrew_Letter)", uR"(\p{Word_Break=Hebrew_Letter})", u'×', uR"(\p{Word_Break=Double_Quote} \p{Word_Break=Hebrew_Letter})"));
     rules.push_back(std::make_unique<RegexRule>(uR"($Hebrew_Letter $Double_Quote × $Hebrew_Letter)", uR"(\p{Word_Break=Hebrew_Letter} \p{Word_Break=Double_Quote})", u'×', uR"(\p{Word_Break=Hebrew_Letter})"));

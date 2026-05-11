@@ -258,16 +258,20 @@
 {
     return [self persistAccountChanges:^(OTAccountMetadataClassC *metadata) {
         metadata.lastEscrowRepairAttempted = date ? (uint64_t)([date timeIntervalSince1970] * 1000) : 0ull;
-        metadata.escrowRepairAttemptVersion = ESCROW_REPAIR_CURRENT_VERSION;
         return metadata;
     } error:error];
 }
 
-- (BOOL)_persistEscrowRepairAttemptVersion:(int64_t)version error:(NSError**)error
+- (BOOL)persistEscrowRepairAttemptVersion:(int64_t)version error:(NSError**)error
 {
-    return [self persistAccountChanges:^(OTAccountMetadataClassC *metadata) {
-        metadata.escrowRepairAttemptVersion = version;
-        return metadata;
+    return [self persistAccountChanges:^OTAccountMetadataClassC* _Nullable (OTAccountMetadataClassC *metadata) {
+        if (metadata.escrowRecordCache != nil) {
+            metadata.escrowRecordCache.cacheVersion = version;
+            return metadata;
+        } else {
+            secnotice("octagon", "cache does not exist, escrow repair attempt version not persisted");
+            return nil;
+        }
     } error:error];
 }
 
@@ -279,34 +283,44 @@
     } error:error];
 }
 
-- (NSInteger)checkEscrowRepairRateLimitAndReturnTimeLeft:(NSError**)error
+- (BOOL)persistEscrowRecordCache:(OTAccountMetadataClassCEscrowRecordCache*)escrowRecordCache error:(NSError**)error
 {
-    NSError* accountError = nil;
-    OTAccountMetadataClassC* accountState = [self loadOrCreateAccountMetadata:&accountError];
-    if (!accountState || accountError) {
-        secnotice("octagon", "failed to get account metadata: %@", accountError);
-        if (error) {
-            *error = accountError;
-        }
-        return 0;
-    }
-
-    NSDate* now = [NSDate date];
-    NSDate* lastAttemptDate = [NSDate dateWithTimeIntervalSince1970:((NSTimeInterval)accountState.lastEscrowRepairAttempted) / 1000.0];
-
-    NSTimeInterval timeSinceLastAttemptDate = [now timeIntervalSinceDate:lastAttemptDate];
-    if (timeSinceLastAttemptDate < ESCROW_TIME_BETWEEN_SILENT_MOVE) {
-        if (accountState.escrowRepairAttemptVersion == ESCROW_REPAIR_CURRENT_VERSION) {
-            NSInteger daysLeft = ceil((ESCROW_TIME_BETWEEN_SILENT_MOVE - timeSinceLastAttemptDate)/secondsInADay);
-            secnotice("octagon-escrow-repair", "rate limited, days left on rate limit %ld", (long)daysLeft);
-            return daysLeft;
+    return [self persistAccountChanges:^OTAccountMetadataClassC * _Nonnull(OTAccountMetadataClassC * _Nonnull metadata) {
+        if (escrowRecordCache != nil) {
+            escrowRecordCache.cacheTimestamp = (uint64_t)([NSDate.now timeIntervalSince1970] * 1000);
+            escrowRecordCache.cacheVersion = ESCROW_REPAIR_CURRENT_VERSION;
+            metadata.escrowRecordCache = escrowRecordCache;
         } else {
-            secnotice("octagon-escrow-repair", "rate limit ignored due to version check");
+            metadata.escrowRecordCache = nil;
         }
-    } else {
-        secnotice("octagon-escrow-repair", "not rate limited");
+        return metadata;
+    } error:error];
+}
+
+- (OTAccountMetadataClassCEscrowRecordCache* _Nullable)getEscrowRecordCache:(NSError**)error
+{
+    NSError* localError = nil;
+
+    OTAccountMetadataClassC* metadata = [self loadOrCreateAccountMetadata:&localError];
+
+    if (!metadata || localError) {
+        if (error) {
+            *error = localError;
+        }
+        return nil;
     }
-    return 0;
+
+    return metadata.escrowRecordCache;
+}
+
+- (BOOL)clearCachedEscrowRecord:(NSError**)error
+{
+    return [self persistAccountChanges:^(OTAccountMetadataClassC *metadata) {
+        if (metadata.escrowRecordCache != nil) {
+            metadata.escrowRecordCache.serializedRecord = nil;
+        }
+        return metadata;
+    } error:error];
 }
 
 - (BOOL)_onqueuePersistAccountChanges:(OTAccountMetadataClassC* _Nullable (^)(OTAccountMetadataClassC* metadata))makeChanges

@@ -36,6 +36,7 @@
 #define SEC_PROTOCOL_OPTIONS_KEY_ats_minimum_tls_version_allowed "ats_minimum_tls_version_allowed"
 #define SEC_PROTOCOL_OPTIONS_KEY_ats_non_pfs_ciphersuite_allowed "ats_non_pfs_ciphersuite_allowed"
 #define SEC_PROTOCOL_OPTIONS_KEY_legacy_ats_applicable "legacy_ats_applicable"
+#define SEC_PROTOCOL_OPTIONS_KEY_ats_trust_policy "ats_trust_policy"
 #define SEC_PROTOCOL_OPTIONS_KEY_trusted_peer_certificate "trusted_peer_certificate"
 #define SEC_PROTOCOL_OPTIONS_KEY_disable_sni "disable_sni"
 #define SEC_PROTOCOL_OPTIONS_KEY_enable_fallback_attempt "enable_fallback_attempt"
@@ -268,6 +269,7 @@ sec_protocol_options_contents_compare(sec_protocol_options_content_t contentA,
     CHECK_FIELD(pqtls_mode);
     CHECK_FIELD(allow_unknown_alpn_protos);
     CHECK_FIELD(enable_raw_external_pre_shared_keys);
+    CHECK_FIELD(ats_trust_policy);
 
 #undef CHECK_FIELD
 
@@ -542,6 +544,8 @@ sec_protocol_options_add_tls_ciphersuite_group(sec_protocol_options_t options, S
             return sec_protocol_options_append_tls_ciphersuite_group(options, tls_ciphersuite_group_ats);
         case kSSLCiphersuiteGroupATSCompatibility:
             return sec_protocol_options_append_tls_ciphersuite_group(options, tls_ciphersuite_group_ats_compatibility);
+        case kSSLCiphersuiteGroupATSFCP_v2_1:
+            return sec_protocol_options_append_tls_ciphersuite_group(options, tls_ciphersuite_group_ats_fcp_v2_1);
     }
 }
 
@@ -1645,6 +1649,53 @@ static void
 _set_tls_compliance_policy(sec_protocol_options_t options, uint64_t algorithm)
 {
     sec_protocol_options_set_tls_compliance_policy(options, (sec_protocol_options_compliance_policy_t)algorithm);
+}
+
+static bool
+_ats_trust_policy_is_valid(sec_protocol_options_ats_trust_policy_t policy) {
+    return (policy == sec_protocol_options_ats_trust_policy_default ||
+            policy == sec_protocol_options_ats_trust_policy_skip);
+}
+
+void
+sec_protocol_options_set_ats_trust_policy(sec_protocol_options_t options, sec_protocol_options_ats_trust_policy_t policy)
+{
+    SEC_PROTOCOL_OPTIONS_VALIDATE(options,);
+    if (!_ats_trust_policy_is_valid(policy)) {
+        return;
+    }
+
+    (void)sec_protocol_options_access_handle(options, ^bool(void *handle) {
+        sec_protocol_options_content_t content = (sec_protocol_options_content_t)handle;
+        SEC_PROTOCOL_OPTIONS_VALIDATE(content, false);
+
+        content->ats_trust_policy = policy;
+        return true;
+    });
+}
+
+static void
+_set_ats_trust_policy(sec_protocol_options_t options, uint64_t policy)
+{
+    sec_protocol_options_set_ats_trust_policy(options, (sec_protocol_options_ats_trust_policy_t)policy);
+}
+
+sec_protocol_options_ats_trust_policy_t
+sec_protocol_options_get_ats_trust_policy(sec_protocol_options_t options)
+{
+    SEC_PROTOCOL_OPTIONS_VALIDATE(options, sec_protocol_options_ats_trust_policy_default);
+
+    __block sec_protocol_options_ats_trust_policy_t policy = sec_protocol_options_ats_trust_policy_default;
+
+    (void)sec_protocol_options_access_handle(options, ^bool(void *handle) {
+        sec_protocol_options_content_t content = (sec_protocol_options_content_t)handle;
+        SEC_PROTOCOL_OPTIONS_VALIDATE(content, false);
+
+        policy = content->ats_trust_policy;
+        return true;
+    });
+
+    return policy;
 }
 
 void
@@ -3063,6 +3114,7 @@ _serialize_options(xpc_object_t dictionary, sec_protocol_options_content_t optio
     xpc_dictionary_set_uint64(dictionary, EXPAND_PARAMETER(tls_compliance_policy));
     xpc_dictionary_set_uint64(dictionary, EXPAND_PARAMETER(tls_ticket_request_count));
     xpc_dictionary_set_uint64(dictionary, EXPAND_PARAMETER(pqtls_mode));
+    xpc_dictionary_set_uint64(dictionary, EXPAND_PARAMETER(ats_trust_policy));
 
     xpc_dictionary_set_bool(dictionary, EXPAND_PARAMETER(ats_required));
     xpc_dictionary_set_bool(dictionary, EXPAND_PARAMETER(ats_minimum_tls_version_allowed));
@@ -3232,6 +3284,10 @@ static struct _options_uint64_key_setter {
     {
         .key = SEC_PROTOCOL_OPTIONS_KEY_pqtls_mode,
         .setter_pointer = _set_pqtls_mode,
+    },
+    {
+        .key = SEC_PROTOCOL_OPTIONS_KEY_ats_trust_policy,
+        .setter_pointer = _set_ats_trust_policy,
     }
 };
 static const size_t _options_uint64_key_setters_len = sizeof(_options_uint64_key_setters) / sizeof(_options_uint64_key_setters[0]);

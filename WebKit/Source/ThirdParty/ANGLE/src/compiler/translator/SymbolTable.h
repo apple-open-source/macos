@@ -215,6 +215,12 @@ class TSymbolTable : angle::NonCopyable, TSymbolTableBase
     // successful, and false if the declaration failed due to redefinition.
     bool declare(TSymbol *symbol);
 
+#ifdef ANGLE_IR
+    // Going from IR back to AST, the symbols get redeclared.  Make sure the symbol table is
+    // updated.
+    void redeclare(TSymbol *symbol);
+#endif
+
     // Only used to declare internal variables.
     bool declareInternal(TSymbol *symbol);
 
@@ -228,8 +234,9 @@ class TSymbolTable : angle::NonCopyable, TSymbolTableBase
                                                              bool *wasDefinedOut) const;
 
     // Return false if the gl_in array size has already been initialized with a mismatching value.
-    bool setGlInArraySize(unsigned int inputArraySize);
-    TVariable *getGlInVariableWithArraySize() const;
+    bool setGlInArraySize(unsigned int inputArraySize, int shaderVersion);
+    void onGlInVariableRedeclaration(const TVariable *redeclaredGlIn);
+    const TVariable *getGlInVariableWithArraySize() const;
 
     const TVariable *gl_FragData() const;
     const TVariable *gl_SecondaryFragDataEXT() const;
@@ -325,7 +332,7 @@ class TSymbolTable : angle::NonCopyable, TSymbolTableBase
 
     // Store gl_in variable with its array size once the array size can be determined. The array
     // size can also be checked against latter input primitive type declaration.
-    TVariable *mGlInVariableWithArraySize;
+    const TVariable *mGlInVariableWithArraySize;
     friend struct SymbolIdChecker;
 };
 

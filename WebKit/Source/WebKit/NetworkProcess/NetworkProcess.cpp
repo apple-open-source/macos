@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2012-2025 Apple Inc. All rights reserved.
+ * Copyright (C) 2012-2026 Apple Inc. All rights reserved.
  * Copyright (C) 2018 Sony Interactive Entertainment Inc.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -510,7 +510,6 @@ auto NetworkProcess::allowsFirstPartyForCookies(WebCore::ProcessIdentifier proce
     }
 
     auto result = set.contains(firstPartyDomain);
-    ASSERT(result || terminateOrDisallow == AllowCookieAccess::Disallow);
     return result ? AllowCookieAccess::Allow : terminateOrDisallow;
 }
 
@@ -1752,6 +1751,19 @@ void NetworkProcess::fetchWebsiteData(PAL::SessionID sessionID, OptionSet<Websit
         auto shouldComputeSize = fetchOptions.contains(WebsiteDataFetchOption::ComputeSizes) ? NetworkStorageManager::ShouldComputeSize::Yes : NetworkStorageManager::ShouldComputeSize::No;
         session->storageManager().fetchData(websiteDataTypes, shouldComputeSize, [callbackAggregator](auto entries) mutable {
             callbackAggregator->m_websiteData.entries.appendVector(WTF::move(entries));
+        });
+    }
+
+    if (websiteDataTypes.contains(WebsiteDataType::PrivateClickMeasurements) && session) {
+        session->privateClickMeasurement().fetchRegistrableDomains([callbackAggregator](auto&& domains) mutable {
+            for (auto& domain : domains) {
+                WebsiteData::Entry entry {
+                    WebCore::SecurityOriginData::fromURL(URL { makeString("https://"_s, domain.string()) }),
+                    WebsiteDataType::PrivateClickMeasurements,
+                    0
+                };
+                callbackAggregator->m_websiteData.entries.append(WTF::move(entry));
+            }
         });
     }
 }
@@ -3095,6 +3107,19 @@ RefPtr<NetworkConnectionToWebProcess> NetworkProcess::protectedWebProcessConnect
             return webProcessConnection;
     }
     return nullptr;
+}
+
+void NetworkProcess::lastPageLoadNetworkActivityCompletionCodeForTesting(PAL::SessionID sessionID, PageIdentifier pageID, CompletionHandler<void(std::optional<NetworkActivityTracker::CompletionCode>)>&& completionHandler)
+{
+    for (auto& connection : m_webProcessConnections.values()) {
+        if (connection->sessionID() == sessionID) {
+            if (auto code = connection->lastRootActivityCompletionCodeForTesting(pageID)) {
+                completionHandler(code);
+                return;
+            }
+        }
+    }
+    completionHandler(std::nullopt);
 }
 
 const Seconds NetworkProcess::defaultServiceWorkerFetchTimeout = 70_s;

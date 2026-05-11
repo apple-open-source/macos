@@ -108,7 +108,10 @@ sec_protocol_configuration_copy_transformed_options(__unused sec_protocol_config
     }
 
     sec_protocol_options_clear_tls_ciphersuites(options);
-    sec_protocol_options_append_tls_ciphersuite_group(options, tls_ciphersuite_group_ats);
+    tls_ciphersuite_group_t ats_group = ((sec_protocol_options_compliance_policy_t)policy_value == sec_protocol_options_compliance_policy_fcs_v2)
+        ? tls_ciphersuite_group_ats_fcp_v2_1
+        : tls_ciphersuite_group_ats;
+    sec_protocol_options_append_tls_ciphersuite_group(options, ats_group);
     return sec_protocol_configuration_copy_transformed_options_with_ats_minimums(options);
 }
 
@@ -336,24 +339,30 @@ sec_protocol_configuration_copy_transformed_options_for_host_or_address_internal
     }
 
     // Explanation of ciphersuite setting:
-
+    //
+    // When kExceptionRequiresNIAPTLSPackageVersion maps to sec_protocol_options_compliance_policy_fcs_v2,
+    // tls_ciphersuite_group_ats_fcp_v2_1 is used in place of tls_ciphersuite_group_ats below.
+    //
     // If kExceptionRequiresForwardSecrecy is YES (which is the default value) then we clear the ciphersuites and set to [tls_ciphersuite_group_ats]
-    // If kExceptionRequiresForwardSecrecy is NO and kExceptionAllowsInsecureHTTPLoads is NO then we clear the ciphersuites and set to [tls_ciphersuite_group_ats | tls_ciphersuite_group_ats_compatibility]
+    // If kExceptionRequiresForwardSecrecy is NO and kExceptionAllowsInsecureHTTPLoads is NO then we clear the ciphersuites and set to [tls_ciphersuite_group_ats_compatibility | tls_ciphersuite_group_ats]
     // If kExceptionRequiresForwardSecrecy is NO and kExceptionAllowsInsecureHTTPLoads is YES:
         // When kExceptionRequiresNIAPTLSPackageVersion is "none": the tls defaults from boringssl are used unless overritten by whatever is set on sec_protocol_options by app
-        // When kExceptionRequiresNIAPTLSPackageVersion is not "none": [tls_ciphersuite_group_ats] is used unless overritten by whatever is set on sec_protocol_options by app. (If new versions are added this behavior may need to be modified to be an even more constrained ciphersuite group).
+        // When kExceptionRequiresNIAPTLSPackageVersion is not "none": [tls_ciphersuite_group_ats] is used unless overritten by whatever is set on sec_protocol_options by app.
 
     bool pfs_required = xpc_dictionary_get_bool(exception, kExceptionRequiresForwardSecrecy);
+    tls_ciphersuite_group_t ats_group = (policy == sec_protocol_options_compliance_policy_fcs_v2)
+        ? tls_ciphersuite_group_ats_fcp_v2_1
+        : tls_ciphersuite_group_ats;
     if (pfs_required) {
         sec_protocol_options_clear_tls_ciphersuites(options);
-        sec_protocol_options_append_tls_ciphersuite_group(options, tls_ciphersuite_group_ats);
+        sec_protocol_options_append_tls_ciphersuite_group(options, ats_group);
     } else {
         // Otherwise, record the fact that non-PFS ciphersuites are permitted.
         sec_protocol_options_set_ats_non_pfs_ciphersuite_allowed(options, true);
         if (!allows_insecure) {
             sec_protocol_options_clear_tls_ciphersuites(options);
             sec_protocol_options_append_tls_ciphersuite_group(options, tls_ciphersuite_group_ats_compatibility);
-            sec_protocol_options_append_tls_ciphersuite_group(options, tls_ciphersuite_group_ats);
+            sec_protocol_options_append_tls_ciphersuite_group(options, ats_group);
         }
     }
 

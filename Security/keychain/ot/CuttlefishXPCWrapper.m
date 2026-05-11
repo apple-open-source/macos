@@ -961,6 +961,27 @@ enum {NUM_RETRIES = 5};
     } while (retry);
 }
 
+- (void)fetchEgoBottleIDWithSpecificUser:(TPSpecificUser*)specificUser
+                                   reply:(void (^)(NSString* _Nullable bottleID,
+                                                   NSError* _Nullable error))reply
+{
+    __block int i = 0;
+    __block bool retry;
+    do {
+        retry = false;
+        [[self.cuttlefishXPCConnection synchronousRemoteObjectProxyWithErrorHandler:^(NSError *_Nonnull error) {
+            if (i < NUM_RETRIES && [self.class retryable:error]) {
+                secnotice("octagon", "retrying cuttlefish XPC %s, (%d, %@)", __func__, i, error);
+                retry = true;
+            } else {
+                secerror("octagon: Can't talk with TrustedPeersHelper %s: %@", __func__, error);
+                reply(nil, error);
+            }
+            ++i;
+        }] fetchEgoBottleIDWithSpecificUser:specificUser reply:reply];
+    } while (retry);
+}
+
 - (void)fetchPolicyDocumentsWithSpecificUser:(TPSpecificUser*)specificUser
                                     versions:(NSSet<TPPolicyVersion*>*)versions
                                        reply:(void (^)(NSDictionary<TPPolicyVersion*, NSData*>* _Nullable entries,
@@ -1169,6 +1190,7 @@ enum {NUM_RETRIES = 5};
                                     flowID:(NSString* _Nullable)flowID
                            deviceSessionID:(NSString* _Nullable)deviceSessionID
                        daysLeftOnRateLimit:(NSInteger)daysLeftOnRateLimit
+                            rateLimitState:(NSInteger)rateLimitState
                                      reply:(void (^)(OTEscrowCheckCallResult* _Nullable result, NSError* _Nullable))reply
 {
     __block int i = 0;
@@ -1183,7 +1205,7 @@ enum {NUM_RETRIES = 5};
                 reply(nil, error);
             }
             ++i;
-        }] requestEscrowCheckWithSpecificUser:specificUser requiresEscrowCheck:requiresEscrowCheck passcodeGeneration:passcodeGeneration knownFederations:knownFederations isBackgroundCheck:isBackgroundCheck flowID:flowID deviceSessionID:deviceSessionID daysLeftOnRateLimit:daysLeftOnRateLimit reply:reply];
+        }] requestEscrowCheckWithSpecificUser:specificUser requiresEscrowCheck:requiresEscrowCheck passcodeGeneration:passcodeGeneration knownFederations:knownFederations isBackgroundCheck:isBackgroundCheck flowID:flowID deviceSessionID:deviceSessionID daysLeftOnRateLimit:daysLeftOnRateLimit rateLimitState:rateLimitState reply:reply];
     } while (retry);
 }
 

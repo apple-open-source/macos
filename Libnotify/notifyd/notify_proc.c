@@ -45,6 +45,7 @@
 #include "notify_internal.h"
 #include "notifyServer.h"
 #include <sandbox.h>
+#include <os/reason_private.h>
 
 static void proc_add_client(proc_data_t *pdata, client_t *c, pid_t pid);
 static inline void proc_cancel(proc_data_t *pdata);
@@ -183,6 +184,8 @@ _proc_data_alloc(notify_state_t *ns, pid_t pid)
 	pdata->flags = PORT_PROC_FLAGS_NONE;
 	pdata->pid = (uint32_t)pid;
 	pdata->common_port_data = NULL;
+	pdata->registration_count = 0;
+	pdata->registration_limit_exceeded = false;
 	_nc_table_insert_n(&ns->proc_table, &pdata->pid);
 
 	return pdata;
@@ -301,6 +304,36 @@ static void proc_add_client(proc_data_t *pdata,client_t *c, pid_t pid)
 {
 	if (pdata && c) {
 		LIST_INSERT_HEAD(&pdata->clients, c, client_pid_entry);
+		pdata->registration_count++;
+
+		// Kill the client who registers too many (cleanup happens via proc_cancel on exit)
+		if (pdata->registration_count >= NOTIFY_MAX_REGISTRATIONS_PER_CLIENT) {
+			if (!pdata->registration_limit_exceeded) {
+				pdata->registration_limit_exceeded = true;
+
+				// Get notification type string
+				uint32_t type = notify_get_type(c->state_and_type);
+				const char *type_str = notify_type_name(type);
+
+				log_message(ASL_LEVEL_ERR,
+					"Process %d exceeded registration limit (%u), terminating. "
+					"Last registration was for name %s as %s\n",
+					pid, NOTIFY_MAX_REGISTRATIONS_PER_CLIENT,
+					c->name_info->name, type_str);
+
+				char reason_string[256];
+				snprintf(reason_string, sizeof(reason_string),
+						 "BUG IN CLIENT OF NOTIFYD: exceeded registration limit. "
+						 "Last registration was for name %s as %s",
+						 c->name_info->name, type_str);
+
+				terminate_with_reason(pid,
+					OS_REASON_LIBSYSTEM,
+					OS_REASON_LIBSYSTEM_CODE_FAULT,
+					reason_string,
+					OS_REASON_FLAG_NO_CRASHED_TID);
+			}
+		}
 	}
 }
 
@@ -386,6 +419,12 @@ _port_proc_cancel_client(struct global_s *g, client_t *c)
 		LIST_REMOVE(c, client_port_entry);
 	}
 	LIST_REMOVE(c, client_pid_entry);
+
+	/* Decrement registration count for this process */
+	proc_data_t *pdata = _nc_table_find_n(&g->notify_state.proc_table, c->cid.pid);
+	if (pdata) {
+		pdata->registration_count--;
+	}
 
 	_notify_lib_cancel_client(&g->notify_state, c);
 }

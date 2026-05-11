@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016 Apple Inc. All rights reserved.
+ * Copyright (C) 2016-2026 Apple Inc. All rights reserved.
  * Copyright (C) 2024 Samuel Weinig <sam@webkit.org>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -400,7 +400,7 @@ static CodePointsMap codePointsFromString(StringView stringView)
     return result;
 }
 
-ExceptionOr<Vector<std::reference_wrapper<CSSFontFace>>> CSSFontFaceSet::matchingFacesExcludingPreinstalledFonts(ScriptExecutionContext& context, const String& fontShorthand, const String& string)
+ExceptionOr<Vector<Ref<CSSFontFace>>> CSSFontFaceSet::matchingFacesExcludingPreinstalledFonts(ScriptExecutionContext& context, const String& fontShorthand, const String& string)
 {
     auto font = CSSPropertyParserHelpers::parseUnresolvedFont(fontShorthand, context);
     if (!font)
@@ -446,7 +446,7 @@ ExceptionOr<Vector<std::reference_wrapper<CSSFontFace>>> CSSFontFaceSet::matchin
         }
     }
 
-    return WTF::map(resultConstituents, [](auto* constituent) -> std::reference_wrapper<CSSFontFace> {
+    return WTF::map(resultConstituents, [](auto* constituent) -> Ref<CSSFontFace> {
         return *constituent;
     });
 }
@@ -485,8 +485,6 @@ CSSSegmentedFontFace* CSSFontFaceSet::fontFace(FontSelectionRequest request, con
         CSSFontFace& candidate = familyFontFaces[i];
         if (candidate.status() == CSSFontFace::Status::Failure)
             continue;
-        if (!isItalic(request.slope) && isItalic(candidate.fontSelectionCapabilities().slope.minimum))
-            continue;
         candidateFontFaces.append(candidate);
     }
 
@@ -494,8 +492,6 @@ CSSSegmentedFontFace* CSSFontFaceSet::fontFace(FontSelectionRequest request, con
     if (localIterator != m_locallyInstalledFacesLookupTable.end()) {
         for (auto& candidate : localIterator->value) {
             if (candidate->status() == CSSFontFace::Status::Failure)
-                continue;
-            if (!isItalic(request.slope) && isItalic(candidate->fontSelectionCapabilities().slope.minimum))
                 continue;
             candidateFontFaces.append(candidate);
         }
@@ -505,7 +501,19 @@ CSSSegmentedFontFace* CSSFontFaceSet::fontFace(FontSelectionRequest request, con
         auto capabilities = candidateFontFaces.map([](auto& face) {
             return face.get().fontSelectionCapabilities();
         });
-        FontSelectionAlgorithm fontSelectionAlgorithm(request, capabilities);
+        FontSelectionAlgorithm fontSelectionAlgorithm(request, WTF::move(capabilities));
+
+        // Per CSS Fonts 5.2.6: Only faces with the best-matching width, style, and weight are eligible
+        // to supply glyphs, even via unicode-range.
+        const auto& eliminated = fontSelectionAlgorithm.eliminatedCapabilities();
+        RELEASE_ASSERT(eliminated.size() == candidateFontFaces.size());
+        size_t eliminatedIndex = 0;
+        candidateFontFaces.removeAllMatching([&](auto&) {
+            return eliminated[eliminatedIndex++];
+        });
+        if (candidateFontFaces.isEmpty())
+            return face.get();
+
         std::ranges::stable_sort(candidateFontFaces, [&fontSelectionAlgorithm](auto& first, auto& second) {
             auto firstCapabilities = first.get().fontSelectionCapabilities();
             auto secondCapabilities = second.get().fontSelectionCapabilities();

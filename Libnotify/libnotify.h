@@ -93,6 +93,9 @@ extern const char *_notify_shm_id(void);
 #define NOTIFY_ACCESS_DEFAULT 0x00000333
 #define NOTIFY_ACCESS_USER_RW 0x00000003
 
+/* Per-process registration limit (rdar://167539905) */
+#define NOTIFY_MAX_REGISTRATIONS_PER_CLIENT 10000
+
 /* Filesystem Services */
 #define NOTIFY_SERVICE_FILE_STATUS_QUO 0x00
 #define NOTIFY_SERVICE_FILE_ADD        0x01
@@ -186,6 +189,8 @@ typedef struct
 	uint32_t pid;
 	uint32_t flags;
 	port_data_t *common_port_data;
+	uint32_t registration_count;
+	bool registration_limit_exceeded;
 } proc_data_t;
 
 typedef struct

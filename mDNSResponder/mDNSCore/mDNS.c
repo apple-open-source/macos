@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 4; c-file-style: "bsd"; c-basic-offset: 4; fill-column: 108; indent-tabs-mode: nil; -*-
  *
- * Copyright (c) 2002-2025 Apple Inc. All rights reserved.
+ * Copyright (c) 2002-2026 Apple Inc. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -9035,17 +9035,19 @@ mDNSlocal DNSQuestion *ExpectingUnicastResponseForRecord(mDNS *const m,
     return(mDNSNULL);
 }
 
-// Certain data types need more space for in-memory storage than their in-packet rdlength would imply
-// Currently this applies only to rdata types containing more than one domainname,
-// or types where the domainname is not the last item in the structure.
+// Certain data types need more space for in-memory storage than their in-packet rdlength would imply. This applies to
+// rdata types where a domainname is not the last item in the structure, because a domainname occupies 256 bytes in
+// memory regardless of its wire length. Any field that follows a domainname in the struct therefore lives at offset >=
+// 256, which exceeds the rdlength of any typical record and would not be reached by a plain rdlength-byte copy.
 mDNSlocal mDNSu16 GetRDLengthMem(const ResourceRecord *const rr)
 {
     switch (rr->rrtype)
     {
-    case kDNSType_SOA: return sizeof(rdataSOA);
-    case kDNSType_RP:  return sizeof(rdataRP);
-    case kDNSType_PX:  return sizeof(rdataPX);
-    default:           return rr->rdlength;
+    case kDNSType_SOA:   return sizeof(rdataSOA);
+    case kDNSType_MINFO: // MINFO records use rdataRP since they also use a two domain name RDATA format.
+    case kDNSType_RP:    return sizeof(rdataRP);
+    case kDNSType_PX:    return sizeof(rdataPX);
+    default:             return rr->rdlength;
     }
 }
 

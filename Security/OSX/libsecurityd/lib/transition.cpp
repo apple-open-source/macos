@@ -389,6 +389,11 @@ void ClientSession::unlock(DbHandle db, const CssmData &passphrase)
 	UCSP_CLIENT_IPC(unlockDbWithPassphrase, db, DATA(passphrase));
 }
 
+void ClientSession::unlockAlwaysCheck(DbHandle db, const CssmData &passphrase)
+{
+	UCSP_CLIENT_IPC(unlockDbWithPassphraseAlwaysCheck, db, DATA(passphrase));
+}
+
 void ClientSession::unlockKeybag(DbHandle db, const CssmData &passphrase)
 {
     UCSP_CLIENT_IPC(unlockKeybagWithPassphrase, db, DATA(passphrase));

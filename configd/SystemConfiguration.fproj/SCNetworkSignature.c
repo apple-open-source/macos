@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2006, 2008, 2009, 2011-2019 Apple Inc. All rights reserved.
+ * Copyright (c) 2006, 2008, 2009, 2011-2026 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -247,7 +247,7 @@ SCNetworkSignatureCopyActiveIdentifiers(CFAllocatorRef alloc)
 	CFMutableArrayRef	patterns = NULL;
 	CFRange			range;
 	CFMutableDictionaryRef	services_dict = NULL;
-	CFArrayRef		service_order;
+	CFArrayRef		service_order = NULL;
 	CFStringRef		v4_service_pattern = NULL;
 	CFStringRef		v6_service_pattern = NULL;
 	const void * *		values = NULL;

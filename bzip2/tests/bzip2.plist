@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>TestOutputType</key>
+	<string>stderrOutput</string>
+	<key>Project</key>
+	<string>bzip2</string>
+	<key>Tests</key>
+	<array>
+		<dict>
+			<key>TestName</key>
+			<string>bzip2.bzip2_test</string>
+			<key>ShellEnv</key>
+			<dict>
+				<key>scriptdir</key>
+				<string>/AppleInternal/Tests/bzip2</string>
+			</dict>
+			<key>Command</key>
+			<array>
+				<string>/AppleInternal/Tests/bzip2/test_bzip2.sh</string>
+			</array>
+			<key>MayRunConcurrently</key>
+			<true/>
+			<key>Timeout</key>
+			<integer>30</integer>
+		</dict>
+		<dict>
+			<key>TestName</key>
+			<string>bzip2.bzip2recover_test</string>
+			<key>ShellEnv</key>
+			<dict>
+				<key>scriptdir</key>
+				<string>/AppleInternal/Tests/bzip2</string>
+			</dict>
+			<key>Command</key>
+			<array>
+				<string>/AppleInternal/Tests/bzip2/test_bzip2recover.sh</string>
+			</array>
+			<key>MayRunConcurrently</key>
+			<true/>
+			<key>Timeout</key>
+			<integer>30</integer>
+		</dict>
+	</array>
+</dict>
+</plist>

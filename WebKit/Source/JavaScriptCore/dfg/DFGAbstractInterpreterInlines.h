@@ -4397,7 +4397,9 @@ bool AbstractInterpreter<AbstractStateType>::executeEffects(unsigned clobberLimi
             && value.m_structure.isFinite()
             && (node->child1().useKind() == CellUse || !(value.m_type & ~SpecCell))) {
             CacheableIdentifier identifier = node->cacheableIdentifier();
-            GetByStatus status = GetByStatus::computeFor(m_graph.globalObjectFor(node->origin.semantic), value.m_structure.toStructureSet(), identifier);
+            GetByStatus::LookupMode lookupMode = node->propertyLookupMode();
+
+            GetByStatus status = GetByStatus::computeFor(m_graph.globalObjectFor(node->origin.semantic), value.m_structure.toStructureSet(), identifier, lookupMode);
             if (status.isSimple()) {
                 if (status.numVariants() == 1) {
                     auto variant = status[0];
@@ -5766,9 +5768,13 @@ bool AbstractInterpreter<AbstractStateType>::executeEffects(unsigned clobberLimi
 
                 if (argument.isType(SpecPromiseObject)) {
                     if (m_graph.isWatchingPromiseSpeciesWatchpoint(node)) {
-                        didFoldClobberWorld();
-                        forNode(node) = argument;
-                        break;
+                        if (auto structure = argument.m_structure.onlyStructure()) {
+                            if (structure.get() == globalObject->promiseStructure()) {
+                                didFoldClobberWorld();
+                                forNode(node) = argument;
+                                break;
+                            }
+                        }
                     }
                 }
 

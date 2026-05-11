@@ -89,11 +89,13 @@ class JavaScriptEvaluationResult::APIExtractor {
 public:
     Map takeMap() { return WTF::move(m_map); }
     JSObjectID addObjectToMap(API::Object&);
+    bool failed() const { return m_failed; }
 private:
     Value toValue(API::Object&);
 
     HashMap<Ref<API::Object>, JSObjectID> m_objectsInMap;
     Map m_map;
+    bool m_failed { false };
 };
 
 class JavaScriptEvaluationResult::APIInserter {
@@ -139,33 +141,6 @@ RefPtr<API::Object> JavaScriptEvaluationResult::APIInserter::toAPI(Value&& root)
     });
 }
 
-static bool isSerializable(API::Object* object)
-{
-    if (!object)
-        return false;
-
-    switch (object->type()) {
-    case API::Object::Type::String:
-    case API::Object::Type::Boolean:
-    case API::Object::Type::Double:
-    case API::Object::Type::UInt64:
-    case API::Object::Type::Int64:
-    case API::Object::Type::JSHandle:
-    case API::Object::Type::SerializedNode:
-        return true;
-    case API::Object::Type::Array:
-        return std::ranges::all_of(downcast<API::Array>(object)->elements(), [] (const RefPtr<API::Object>& element) {
-            return isSerializable(element.get());
-        });
-    case API::Object::Type::Dictionary:
-        return std::ranges::all_of(downcast<API::Dictionary>(object)->map(), [] (const KeyValuePair<String, RefPtr<API::Object>>& pair) {
-            return isSerializable(pair.value.get());
-        });
-    default:
-        return false;
-    }
-}
-
 auto JavaScriptEvaluationResult::APIExtractor::toValue(API::Object& object) -> Value
 {
     switch (object.type()) {
@@ -200,8 +175,7 @@ auto JavaScriptEvaluationResult::APIExtractor::toValue(API::Object& object) -> V
         return { WTF::move(map) };
     }
     default:
-        // This object has been null checked and went through isSerializable which only supports these types.
-        ASSERT_NOT_REACHED();
+        m_failed = true;
         return EmptyType::Undefined;
     }
 }
@@ -210,10 +184,10 @@ std::optional<JavaScriptEvaluationResult> JavaScriptEvaluationResult::extract(AP
 {
     if (!object)
         return jsUndefined();
-    if (!isSerializable(object))
-        return std::nullopt;
     APIExtractor extractor;
     auto root = extractor.addObjectToMap(*object);
+    if (extractor.failed())
+        return std::nullopt;
     return JavaScriptEvaluationResult { root, extractor.takeMap() };
 }
 
@@ -270,9 +244,6 @@ std::optional<JSObjectID> JavaScriptEvaluationResult::JSExtractor::addObjectToMa
 
     auto identifier = JSObjectID::generate();
 
-    if (nestingLevel > maximumNestingLevel)
-        return std::nullopt;
-
     auto extractedValue = jsValueToExtractedValue(context, rootValue);
     if (!extractedValue)
         return std::nullopt;
@@ -280,7 +251,7 @@ std::optional<JSObjectID> JavaScriptEvaluationResult::JSExtractor::addObjectToMa
     if (std::holds_alternative<Vector<JSObjectID>>(*extractedValue))
         m_unprocessedContainers.append(PendingContainer { identifier, { context, rootValue }, nestingLevel, PendingContainer::ContainerType::Array });
     else if (std::holds_alternative<ObjectMap>(*extractedValue))
-        m_unprocessedContainers.append(PendingContainer { identifier, { context, rootValue }, nestingLevel , PendingContainer::ContainerType::Dictionary });
+        m_unprocessedContainers.append(PendingContainer { identifier, { context, rootValue }, nestingLevel, PendingContainer::ContainerType::Dictionary });
 
     m_valuesInMap.set({ context, rootValue }, identifier);
     auto result = m_map.set(identifier, WTF::move(*extractedValue));
@@ -295,6 +266,10 @@ bool JavaScriptEvaluationResult::JSExtractor::processContainersWithoutRecursion(
         auto pendingContainer = m_unprocessedContainers.takeLast();
         JSObjectRef object = JSValueToObject(context, pendingContainer.containerValue.get(), nullptr);
         size_t nextNestingLevel = pendingContainer.nestingLevel + 1;
+
+        if (nextNestingLevel > maximumNestingLevel)
+            return false;
+
         switch (pendingContainer.containerType) {
         case PendingContainer::ContainerType::Dictionary: {
             JSPropertyNameArrayRef names = JSObjectCopyPropertyNames(context, object);
@@ -314,10 +289,10 @@ bool JavaScriptEvaluationResult::JSExtractor::processContainersWithoutRecursion(
                     continue;
                 auto keyIdentifier = addObjectToMap(context, keyJSValue, nextNestingLevel);
                 if (!keyIdentifier)
-                    return false;
+                    continue;
                 auto valueIdentifier = addObjectToMap(context, valueJSValue, nextNestingLevel);
                 if (!valueIdentifier)
-                    return false;
+                    continue;
                 map.add(*keyIdentifier, *valueIdentifier);
             }
             m_map.set(pendingContainer.objectIdentifier, WTF::move(map));

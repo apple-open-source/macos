@@ -647,4 +647,5 @@ DEFINE_TEST(test_zip_filename_encoding_EUCJP)
 DEFINE_TEST(test_zip_filename_encoding_CP932)
  */
 DEFINE_TEST(test_read_extract_quarantine)
+DEFINE_TEST(test_read_extract_quarantine_again)
 DEFINE_TEST(test_leaks)

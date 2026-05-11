@@ -78,6 +78,7 @@ NSXPCInterface* TrustedPeersHelperSetupProtocol(NSXPCInterface* interface)
         [interface setClasses:errClasses forSelector:@selector(fetchViableBottlesWithSpecificUser:source:flowID:deviceSessionID:reply:) argumentIndex:2 ofReply:YES];
         [interface setClasses:errClasses forSelector:@selector(fetchViableEscrowRecordsWithSpecificUser:source:reply:) argumentIndex:1 ofReply:YES];
         [interface setClasses:errClasses forSelector:@selector(fetchEscrowContentsWithSpecificUser:reply:) argumentIndex:3 ofReply:YES];
+        [interface setClasses:errClasses forSelector:@selector(fetchEgoBottleIDWithSpecificUser:reply:) argumentIndex:1 ofReply:YES];
         [interface setClasses:errClasses forSelector:@selector(fetchPolicyDocumentsWithSpecificUser:versions:reply:) argumentIndex:1 ofReply:YES];
         [interface setClasses:errClasses forSelector:@selector(fetchRecoverableTLKSharesWithSpecificUser:peerID:altDSID:flowID:deviceSessionID:canSendMetrics:reply:) argumentIndex:1 ofReply:YES];
         [interface setClasses:errClasses forSelector:@selector(fetchCurrentPolicyWithSpecificUser:modelIDOverride:isInheritedAccount:reply:) argumentIndex:2 ofReply:YES];
@@ -87,7 +88,7 @@ NSXPCInterface* TrustedPeersHelperSetupProtocol(NSXPCInterface* interface)
         [interface setClasses:errClasses forSelector:@selector(removeCustodianRecoveryKeyWithSpecificUser:uuid:reply:) argumentIndex:0 ofReply:YES];
         [interface setClasses:errClasses forSelector:@selector(findCustodianRecoveryKeyWithSpecificUser:uuid:reply:) argumentIndex:1 ofReply:YES];
         [interface setClasses:errClasses forSelector:@selector(requestHealthCheckWithSpecificUser:requiresEscrowCheck:repair:danglingPeerCleanup:caesarPeerCleanup:updateIdMS:knownFederations:flowID:deviceSessionID:reply:) argumentIndex:1 ofReply:YES];
-        [interface setClasses:errClasses forSelector:@selector(requestEscrowCheckWithSpecificUser:requiresEscrowCheck:passcodeGeneration:knownFederations:isBackgroundCheck:flowID:deviceSessionID:daysLeftOnRateLimit:reply:) argumentIndex:1 ofReply:YES];
+        [interface setClasses:errClasses forSelector:@selector(requestEscrowCheckWithSpecificUser:requiresEscrowCheck:passcodeGeneration:knownFederations:isBackgroundCheck:flowID:deviceSessionID:daysLeftOnRateLimit:rateLimitState:reply:) argumentIndex:1 ofReply:YES];
         [interface setClasses:errClasses forSelector:@selector(getSupportAppInfoWithSpecificUser:reply:) argumentIndex:1 ofReply:YES];
         [interface setClasses:errClasses forSelector:@selector(resetAccountCDPContentsWithSpecificUser:idmsTargetContext:idmsCuttlefishPassword:notifyIdMS:internalAccount:demoAccount:reply:) argumentIndex:0 ofReply:YES];
         [interface setClasses:errClasses forSelector:@selector(removeEscrowCacheWithSpecificUser:reply:) argumentIndex:0 ofReply:YES];
@@ -250,7 +251,7 @@ NSXPCInterface* TrustedPeersHelperSetupProtocol(NSXPCInterface* interface)
                                                                                            reply:) argumentIndex:1 ofReply:NO];
         [interface setClasses:trustedPeersHelperCustodianRecoveryKey forSelector:@selector(findCustodianRecoveryKeyWithSpecificUser:uuid:reply:) argumentIndex:0 ofReply:YES];
         [interface setClasses:trustedPeersHelperHealthCheckResult forSelector:@selector(requestHealthCheckWithSpecificUser:requiresEscrowCheck:repair:danglingPeerCleanup:caesarPeerCleanup:updateIdMS: knownFederations:flowID:deviceSessionID:reply:) argumentIndex:0 ofReply:YES];
-        [interface setClasses:escrowCheckCallResult forSelector:@selector(requestEscrowCheckWithSpecificUser:requiresEscrowCheck:passcodeGeneration:knownFederations:isBackgroundCheck:flowID:deviceSessionID:daysLeftOnRateLimit:reply:) argumentIndex:0 ofReply:YES];
+        [interface setClasses:escrowCheckCallResult forSelector:@selector(requestEscrowCheckWithSpecificUser:requiresEscrowCheck:passcodeGeneration:knownFederations:isBackgroundCheck:flowID:deviceSessionID:daysLeftOnRateLimit:rateLimitState:reply:) argumentIndex:0 ofReply:YES];
 
         [interface setClasses:trustedPeersHelperPeerState forSelector:@selector(updateWithSpecificUser:
                                                                                 forceRefetch:
@@ -746,7 +747,7 @@ NSXPCInterface* TrustedPeersHelperSetupProtocol(NSXPCInterface* interface)
 
 - (NSString*)description {
 #if APPLE_FEATURE_DBR
-    return [NSString stringWithFormat:@"<TPWalrusExtraArguments(isDBRv2:%@)>", self.isDBRv2 ? @"YES" : @"NO"];
+    return [NSString stringWithFormat:@"<TPWalrusExtraArguments(isDBRv2:%@ pdpState:%d)>", self.isDBRv2 ? @"YES" : @"NO", self.pdpState];
 #else
     return @"<TPWalrusExtraArguments()>";
 #endif
@@ -759,6 +760,7 @@ NSXPCInterface* TrustedPeersHelperSetupProtocol(NSXPCInterface* interface)
 - (void)encodeWithCoder:(nonnull NSCoder *)coder {
 #if APPLE_FEATURE_DBR
     [coder encodeBool:self.isDBRv2 forKey:@"isDBRv2"];
+    [coder encodeInt64:self.pdpState forKey:@"pdpState"];
 #endif
 }
 
@@ -766,6 +768,7 @@ NSXPCInterface* TrustedPeersHelperSetupProtocol(NSXPCInterface* interface)
     if ((self = [super init])) {
 #if APPLE_FEATURE_DBR
         _isDBRv2 = [coder decodeBoolForKey:@"isDBRv2"];
+        _pdpState = (int)[coder decodeInt64ForKey:@"pdpState"];
 #endif
     }
     return self;

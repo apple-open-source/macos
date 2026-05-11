@@ -476,7 +476,6 @@ void WebProcess::platformInitializeWebProcess(WebProcessCreationParameters& para
     setCurrentUserInterfaceIdiom(parameters.currentUserInterfaceIdiom);
     setLocalizedDeviceModel(parameters.localizedDeviceModel);
     setContentSizeCategory(parameters.contentSizeCategory);
-    m_containerTemporaryDirectory = WTF::move(parameters.containerTemporaryDirectory);
 #if ENABLE(VIDEO_PRESENTATION_MODE)
     setSupportsPictureInPicture(parameters.supportsPictureInPicture);
 #endif
@@ -552,7 +551,7 @@ void WebProcess::platformInitializeWebProcess(WebProcessCreationParameters& para
         });
     }
 
-    WebCore::setScreenProperties(parameters.screenProperties);
+    WebCore::PlatformScreen::updateSingletonProperties(WTF::move(parameters.screenProperties));
 
 #if PLATFORM(MAC)
     scrollerStylePreferenceChanged(parameters.useOverlayScrollbars);
@@ -890,24 +889,22 @@ static void registerLogClient(bool isDebugLoggingEnabled, std::unique_ptr<LogCli
         if (Thread::currentThreadIsRealtime())
             return;
 
-        auto logChannel = unsafeSpanIncludingNullTerminator(msg->subsystem);
-        if (logChannel.size() > logSubsystemMaxSize)
+        auto logChannel = unsafeSpan(msg->subsystem);
+        if (logChannel.size() >= logSubsystemMaxSize)
             return;
         if (shouldIgnoreLogMessage(logChannel))
             return;
-        auto logCategory = unsafeSpanIncludingNullTerminator(msg->category);
-        if (logCategory.size() > logCategoryMaxSize)
+        auto logCategory = unsafeSpan(msg->category);
+        if (logCategory.size() >= logCategoryMaxSize)
             return;
 
         if (type == OS_LOG_TYPE_FAULT)
             type = OS_LOG_TYPE_ERROR;
 
         if (auto messageString = adoptSystemMalloc(os_log_copy_message_string(msg))) {
-            auto logString = spanConstCast<char>(unsafeSpanIncludingNullTerminator(messageString.get()));
-            if (logString.size() > logStringMaxSize) {
-                logString = logString.first(logStringMaxSize);
-                logString.back() = 0;
-            }
+            auto logString = spanConstCast<char>(unsafeSpan(messageString.get()));
+            if (logString.size() >= logStringMaxSize)
+                logString = logString.first(logStringMaxSize - 1);
             logClient()->log(byteCast<uint8_t>(logChannel), byteCast<uint8_t>(logCategory), byteCast<uint8_t>(logString), type);
         }
     }).get());
@@ -1474,7 +1471,7 @@ void WebProcess::switchFromStaticFontRegistryToUserFontRegistry(Vector<WebKit::S
 #endif
 }
 
-void WebProcess::setScreenProperties(const WebCore::ScreenProperties& properties)
+void WebProcess::setScreenProperties(WebCore::ScreenProperties&& properties)
 {
 #if HAVE(SUPPORT_HDR_DISPLAY)
     auto propertiesWithStyleAffectingOnly = [](auto properties) {
@@ -1485,12 +1482,12 @@ void WebProcess::setScreenProperties(const WebCore::ScreenProperties& properties
         }
         return properties;
     };
-    bool affectsStyle = propertiesWithStyleAffectingOnly(properties) != propertiesWithStyleAffectingOnly(WebCore::getScreenProperties());
+    bool affectsStyle = propertiesWithStyleAffectingOnly(properties) != propertiesWithStyleAffectingOnly(WebCore::PlatformScreen::singleton()->screenProperties());
 #else
     constexpr bool affectsStyle = true;
 #endif
 
-    WebCore::setScreenProperties(properties);
+    WebCore::PlatformScreen::updateSingletonProperties(WTF::move(properties));
     for (auto& page : m_pageMap.values())
         page->screenPropertiesDidChange(affectsStyle);
 #if PLATFORM(MAC)
@@ -1707,6 +1704,19 @@ void WebProcess::initializeAccessibility(Vector<SandboxExtension::Handle>&& hand
     });
 
     [NSApplication _accessibilityInitialize];
+
+    // This flag may have been false at process creation (set from
+    // WebProcessCreationParameters). Update it now so that any WebPages
+    // created later in this process will send their accessibility remote
+    // token immediately rather than deferring it. Without this,
+    // deferred tokens are permanently lost because this method is
+    // only called once per process.
+    m_shouldInitializeAccessibility = true;
+
+    // Now that the accessibility server is registered, send any deferred
+    // remote tokens so the UI process can resolve the remote elements.
+    for (auto& webPage : m_pageMap.values())
+        webPage->sendAccessibilityTokenIfNeeded();
 
     for (auto& extension : extensions)
         extension->revoke();
